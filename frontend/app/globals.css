@@ -1,26 +1,77 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap');
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Manrope", sans-serif;
+  --font-headline: "Manrope", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-label: "Inter", sans-serif;
+
+  --color-primary: #004ac6;
+  --color-primary-container: #2563eb;
+  --color-secondary: #006a61;
+  --color-secondary-container: #86f2e4;
+  --color-surface: #f7f9fb;
+  --color-surface-container-low: #f2f4f6;
+  --color-surface-container-lowest: #ffffff;
+  --color-on-surface: #191c1e;
+  --color-on-surface-variant: #434655;
+  --color-outline-variant: #c3c6d7;
+  --color-brand-sage: #4E6E5D;
+  --color-brand-rose: #FCE7F3;
+  --color-soft-peach: #FFF1EB;
+  --color-mint-green: #E8F5E9;
+
+  --radius-xl: 1.5rem;
+  --radius-2xl: 2rem;
+  --radius-3xl: 2.5rem;
+  --radius-4xl: 4rem;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  body {
+    @apply bg-surface text-on-surface font-sans antialiased;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-tight;
+  }
+  
+  button {
+    cursor: pointer;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  .glass-card {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+  }
+
+  .hero-gradient {
+    /* Merged behavior, we keep the boutique styling for landing page */
+    background: linear-gradient(135deg, #FCE7F3 0%, #f7f9fb 100%);
+  }
+
+  .primary-gradient {
+    background: linear-gradient(135deg, #004ac6 0%, #2563eb 100%);
+  }
+
+  .form-gradient {
+    background: linear-gradient(180deg, #FFF1F2 0%, #ffffff 40%, #ffffff 100%);
+  }
+
+  .login-gradient {
+    background: linear-gradient(180deg, #FFF1F2 0%, rgba(255, 255, 255, 0) 100%);
+  }
+
+  .glass {
+    @apply bg-surface-container-lowest/80 backdrop-blur-xl;
+  }
+
+  .ambient-shadow {
+    box-shadow: 0 8px 32px -4px rgba(25, 28, 30, 0.06);
+  }
 }
