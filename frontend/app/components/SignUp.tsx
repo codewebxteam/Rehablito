@@ -12,7 +12,7 @@ export default function SignUp() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
-        className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/10"
+        className="inline-flex w-fit self-start items-center gap-2 bg-white/10 backdrop-blur-md px-4 py-2 rounded-full border border-white/10"
       >
         <ShieldCheck className="w-5 h-5 text-white" />
         <span className="text-white font-headline font-bold tracking-tight">Rehablito RMS</span>
@@ -113,7 +113,7 @@ export default function SignUp() {
             <input
               className="w-full pl-12 pr-12 py-3.5 rounded-xl bg-surface-container-low border-transparent focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-body text-on-surface placeholder:text-outline/50 outline-none"
               id="password"
-              placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+              placeholder="Password"
               type="password"
             />
             <button className="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface transition-colors" type="button">

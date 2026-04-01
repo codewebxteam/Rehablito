@@ -1,6 +1,9 @@
 ﻿"use client";
 import { motion } from "motion/react";
 import { ReactNode } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { X } from "lucide-react";
 
 interface SplitLayoutProps {
   leftContent: ReactNode;
@@ -14,13 +17,16 @@ export default function SplitLayout({ leftContent, rightContent, leftBgImage }: 
       {/* Left Side: Visual Narrative (Desktop) */}
       <section className="hidden md:flex md:w-1/2 lg:w-3/5 relative bg-primary overflow-hidden p-12 lg:p-16">
         <div className="absolute inset-0 z-0">
-          <img
+          <Image
             src={leftBgImage}
             alt="Rehabilitation background"
-            className="w-full h-full object-cover opacity-80 mix-blend-overlay"
+            fill
+            priority
+            sizes="(min-width: 1024px) 60vw, 50vw"
+            className="object-cover opacity-80 mix-blend-overlay"
             referrerPolicy="no-referrer"
           />
-          <div className="absolute inset-0 bg-gradient-to-tr from-primary/60 via-transparent to-transparent"></div>
+          <div className="absolute inset-0 bg-linear-to-tr from-primary/60 via-transparent to-transparent"></div>
         </div>
         
         {/* Full-height container for flexible positioning */}
@@ -36,7 +42,14 @@ export default function SplitLayout({ leftContent, rightContent, leftBgImage }: 
       <section className="w-full md:w-1/2 lg:w-2/5 bg-surface-container-lowest relative flex flex-col form-gradient overflow-y-auto min-h-screen">
         {/* Mobile Background Image (Subtle) */}
         <div className="md:hidden absolute inset-0 z-0 opacity-[0.03] pointer-events-none">
-          <img src={leftBgImage} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+          <Image
+            src={leftBgImage}
+            alt=""
+            fill
+            sizes="100vw"
+            className="object-cover"
+            referrerPolicy="no-referrer"
+          />
         </div>
 
         {/* Brand Header (Mobile & Desktop Context) */}
@@ -47,6 +60,13 @@ export default function SplitLayout({ leftContent, rightContent, leftBgImage }: 
             </div>
             <span className="text-xl font-headline font-extrabold tracking-tight text-on-surface">Rehablito RMS</span>
           </div>
+          <Link
+            href="/"
+            aria-label="Go to home page"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-outline-variant/30 bg-white/80 text-on-surface-variant hover:bg-white transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </Link>
         </div>
         
         <div className="relative z-10 flex-1 flex flex-col justify-center px-6 sm:px-12 lg:px-20 py-8 md:py-12 max-w-2xl mx-auto w-full">

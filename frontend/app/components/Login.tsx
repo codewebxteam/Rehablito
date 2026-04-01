@@ -1,6 +1,6 @@
 "use client";
 import { motion } from "motion/react";
-import { ArrowRight, Lock, Mail, Stethoscope, TrendingUp, Eye, ChevronDown, ShieldCheck, GitBranch, UserRound, Stethoscope as TherapistIcon } from "lucide-react";
+import { ArrowRight, Lock, Mail, Stethoscope, Eye, ChevronDown, ShieldCheck, GitBranch, UserRound, Stethoscope as TherapistIcon } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import SplitLayout from "./SplitLayout";
@@ -32,12 +32,15 @@ const roles = [
   },
 ];
 
+type Role = (typeof roles)[number];
+
 export default function Login() {
-  const [selectedRole, setSelectedRole] = useState(null);
+  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const SelectedRoleIcon = selectedRole?.icon;
 
-  const handleRoleSelect = (role) => {
+  const handleRoleSelect = (role: Role) => {
     setSelectedRole(role);
     setDropdownOpen(false);
   };
@@ -72,29 +75,6 @@ export default function Login() {
       >
         Empowering therapy providers with intuitive tools that put patient recovery and human connection at the center of every workflow.
       </motion.p>
-
-      {/* Floating UI Snippet */}
-      <motion.div
-        initial={{ opacity: 0, x: 20, rotate: 3 }}
-        animate={{ opacity: 1, x: 0, rotate: 3 }}
-        transition={{ duration: 0.8, ease: "easeOut", delay: 0.6 }}
-        className="hidden lg:block absolute -top-48 -right-12 w-64 p-6 rounded-xl bg-white/80 backdrop-blur-xl shadow-2xl border border-white/20"
-      >
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Recovery Trend</span>
-          <TrendingUp className="w-4 h-4 text-brand-sage" />
-        </div>
-        <div className="h-16 flex items-end gap-1">
-          <div className="flex-1 bg-primary/20 h-[40%] rounded-sm"></div>
-          <div className="flex-1 bg-primary/30 h-[60%] rounded-sm"></div>
-          <div className="flex-1 bg-primary/50 h-[50%] rounded-sm"></div>
-          <div className="flex-1 bg-primary h-[90%] rounded-sm"></div>
-          <div className="flex-1 bg-brand-sage h-[100%] rounded-sm"></div>
-        </div>
-        <div className="mt-4 pt-4 border-t border-outline-variant/20">
-          <p className="text-[10px] text-on-surface-variant font-medium">Next Milestone: Upper Mobility</p>
-        </div>
-      </motion.div>
     </div>
   );
 
@@ -130,7 +110,7 @@ export default function Login() {
                 {selectedRole ? (
                   <>
                     <div className="w-8 h-8 rounded-lg bg-brand-sage/10 flex items-center justify-center flex-shrink-0">
-                      <selectedRole.icon className="w-4 h-4 text-brand-sage" />
+                      {SelectedRoleIcon && <SelectedRoleIcon className="w-4 h-4 text-brand-sage" />}
                     </div>
                     <div>
                       <p className="text-sm font-semibold text-on-background leading-none">{selectedRole.label}</p>
@@ -269,7 +249,7 @@ export default function Login() {
       {/* Footer Link */}
       <div className="mt-12 text-center">
         <p className="text-on-surface-variant font-medium">
-          Don't have an account?
+          Don&apos;t have an account?
           <Link href="/signup" className="text-brand-sage font-bold hover:underline ml-1">Sign Up</Link>
         </p>
       </div>
