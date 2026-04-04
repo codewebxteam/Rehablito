@@ -38,12 +38,12 @@ const Navbar = () => {
   return (
     <nav className={`fixed top-0 w-full z-50 transition-all duration-500 ${isScrolled ? 'glass py-4 ambient-shadow' : 'bg-transparent py-6'}`}>
       <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <div className="w-10 h-10 bg-brand-sage rounded-xl flex items-center justify-center text-white font-display font-black text-xl shrink-0 overflow-hidden"><img src="/logo.jpeg" alt="" className="w-full h-full object-cover" /></div>
+        <div className="flex items-center gap-3">
+          <div className="w-20 h-20 bg-transparent rounded-xl flex items-center justify-center shrink-0 overflow-hidden"><img src="/logo.jpeg" alt="" className="w-full h-full object-contain scale-110" /></div>
           <div className="flex flex-col justify-center">
-            <span className="text-2xl font-extrabold font-display text-on-surface tracking-tighter leading-none mb-0.5">Rehablito</span>
-            <span className="text-[10px] font-bold text-[#7dce82] tracking-wide mt-1 leading-none">Physio & Autism Center</span>
-            <span className="text-[9px] font-bold text-on-surface mt-1.5 leading-none">Everyone Deserves Trusted Hands...</span>
+            <span className="text-2xl font-extrabold font-display text-on-surface tracking-tighter leading-none">Rehablito</span>
+            <span className="text-[10px] font-bold text-[#7dce82] leading-none">Physio & Autism Center</span>
+            <span className="text-[9px] font-bold text-on-surface leading-none">Everyone Deserves Trusted Hands...</span>
           </div>
         </div>
         
@@ -596,9 +596,9 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-16 mb-24">
           <div className="space-y-6">
             <div className="flex flex-col justify-center">
-              <div className="text-4xl font-extrabold text-black font-display tracking-tighter leading-none mb-1">Rehablito</div>
-              <span className="text-[14px] font-bold text-[#7dce82] tracking-wide mt-1 leading-none">Physio & Autism Center</span>
-              <span className="text-[12px] font-bold text-black mt-2 leading-none">Everyone Deserves Trusted Hands...</span>
+              <div className="text-4xl font-extrabold text-black font-display tracking-tighter leading-none">Rehablito</div>
+              <span className="text-[14px] font-bold text-[#7dce82] leading-none">Physio & Autism Center</span>
+              <span className="text-[12px] font-bold text-black leading-none">Everyone Deserves Trusted Hands...</span>
             </div>
             <div className="flex gap-4 mt-8">
               {[Share2, Mail, Camera, MessageCircle].map((Icon, i) => (

@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element, react/no-unescaped-entities */
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -22,11 +23,19 @@ import {
   Menu,
   X
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
 
 export default function DonationPage() {
   const [activeTab, setActiveTab] = useState("One-time");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   const fadeIn = {
     initial: { opacity: 0, y: 20 },
@@ -45,97 +54,60 @@ export default function DonationPage() {
   return (
     <div className="min-h-screen bg-surface selection:bg-secondary/20">
       {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-xl shadow-sm">
+      <nav className={`fixed top-0 w-full z-50 transition-all duration-500 ${isScrolled ? 'glass py-4 ambient-shadow' : 'bg-transparent py-6'}`}>
         <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
-          <motion.a 
-            href="#" 
-            className="flex items-center gap-2 text-2xl font-extrabold tracking-tight text-secondary font-headline"
-            whileHover={{ scale: 1.05 }}
-          >
-           <div className="flex items-center">
-              <div className="w-14 h-14 flex-shrink-0 rounded-md">
-            <img src="/logo.jpeg" alt="" className="w-full h-full object-contain" />
-          </div>
-          <div className="flex flex-col justify-center">
-          <span className="text-xl font-extrabold font-display text-on-surface tracking-tighter leading-none">Rehablito</span>
-<span className="text-[10px] font-bold text-[#7dce82] tracking-wide leading-none">Physio & Autism Center</span>
-<span className="text-[9px] font-bold text-on-surface leading-none">Everyone Deserves Trusted Hands...</span>
-          </div>
-        </div>
-  
-          </motion.a>
+          <Link href="/" className="flex items-center gap-3">
+            <div className="w-20 h-20 bg-transparent rounded-xl flex items-center justify-center shrink-0 overflow-hidden"><img src="/logo.jpeg" alt="" className="w-full h-full object-contain scale-110" /></div>
+            <div className="flex flex-col justify-center">
+              <span className="text-2xl font-extrabold font-display text-on-surface tracking-tighter leading-none">Rehablito</span>
+              <span className="text-[10px] font-bold text-[#7dce82] leading-none">Physio & Autism Center</span>
+              <span className="text-[9px] font-bold text-on-surface leading-none">Everyone Deserves Trusted Hands...</span>
+            </div>
+          </Link>
           
-          {/* Desktop Menu */}
-          <div className="hidden lg:flex items-center gap-8">
+          <div className="hidden md:flex items-center gap-10">
             {["Impact", "Our Mission", "Patient Stories", "Ways to Give"].map((item) => (
-              <motion.a
-                key={item}
-                href="#"
-                className="text-on-surface-variant font-medium relative group"
-                whileHover={{ color: "var(--color-secondary)" }}
-              >
+              <a key={item} href={`#${item.toLowerCase().replace(/ /g, '-')}`} className="text-sm font-bold text-on-surface-variant hover:text-brand-sage transition-colors relative group">
                 {item}
-                <motion.span 
-                  className="absolute -bottom-1 left-0 w-0 h-0.5 bg-secondary transition-all duration-300 group-hover:w-full"
-                />
-              </motion.a>
+                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-brand-sage transition-all group-hover:w-full" />
+              </a>
             ))}
           </div>
 
           <div className="flex items-center gap-4">
-            <motion.button
-              className="hidden sm:block bg-secondary text-white px-6 py-2.5 rounded-xl font-bold tracking-tight"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
+            <button className="hidden sm:block bg-brand-sage text-white px-8 py-3 rounded-full font-display font-bold text-sm hover:bg-brand-sage/90 transition-all ambient-shadow active:scale-95">
               Donate Now
-            </motion.button>
-
-            {/* Mobile Menu Toggle */}
+            </button>
+            
             <button 
-              className="lg:hidden p-2 text-on-surface-variant hover:text-secondary transition-colors"
+              className="md:hidden p-2 text-brand-sage"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
             >
-              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              <Menu size={28} />
             </button>
           </div>
         </div>
 
         {/* Mobile Menu Drawer */}
-        <motion.div
+        <motion.div 
           initial={false}
-          animate={isMenuOpen ? "open" : "closed"}
-          variants={{
-            open: { height: "auto", opacity: 1, display: "block" },
-            closed: { height: 0, opacity: 0, transitionEnd: { display: "none" } }
-          }}
-          className="lg:hidden bg-white border-t border-outline-variant/10 overflow-hidden"
+          animate={{ height: isMenuOpen ? 'auto' : 0, opacity: isMenuOpen ? 1 : 0 }}
+          className="md:hidden overflow-hidden bg-white border-t border-outline-variant/10"
         >
-          <div className="px-6 py-8 space-y-6">
+          <div className="px-6 py-8 flex flex-col gap-6">
             {["Impact", "Our Mission", "Patient Stories", "Ways to Give"].map((item) => (
-              <motion.a
-                key={item}
-                href="#"
-                className="block text-xl font-bold text-on-surface-variant hover:text-secondary transition-colors"
+              <a 
+                key={item} 
+                href={`#${item.toLowerCase().replace(/ /g, '-')}`} 
+                className="text-lg font-bold text-on-surface-variant"
                 onClick={() => setIsMenuOpen(false)}
-                variants={{
-                  open: { x: 0, opacity: 1 },
-                  closed: { x: -20, opacity: 0 }
-                }}
               >
                 {item}
-              </motion.a>
+              </a>
             ))}
-            <motion.button
-              className="w-full bg-secondary text-white py-4 rounded-xl font-bold text-lg"
-              whileTap={{ scale: 0.95 }}
-              variants={{
-                open: { y: 0, opacity: 1 },
-                closed: { y: 20, opacity: 0 }
-              }}
-            >
+            <button className="w-full bg-brand-sage text-white py-4 rounded-2xl font-display font-bold text-md text-center" onClick={() => setIsMenuOpen(false)}>
               Donate Now
-            </motion.button>
+            </button>
           </div>
         </motion.div>
       </nav>
@@ -180,8 +152,7 @@ export default function DonationPage() {
                 Donate Now <ArrowRight className="w-5 h-5" />
               </motion.button>
               <motion.button
-                className="bg-surface-container-high text-on-surface px-8 py-4 rounded-xl font-bold text-lg"
-                whileHover={{ backgroundColor: "var(--color-surface-container-highest)" }}
+                className="bg-surface-container-high hover:bg-surface-container-highest transition-colors text-on-surface px-8 py-4 rounded-xl font-bold text-lg"
               >
                 View Impact
               </motion.button>
@@ -526,16 +497,14 @@ export default function DonationPage() {
       <footer className="bg-white py-12 px-6 border-t border-outline-variant/10">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
           <div className="space-y-6">
-            <div className="flex items-center">
-              <div className="w-14 h-14 flex-shrink-0 rounded-md">
-            <img src="/logo.jpeg" alt="" className="w-full h-full object-contain" />
-          </div>
-          <div className="flex flex-col justify-center">
-          <span className="text-xl font-extrabold font-display text-on-surface tracking-tighter leading-none">Rehablito</span>
-<span className="text-[10px] font-bold text-[#7dce82] tracking-wide leading-none">Physio & Autism Center</span>
-<span className="text-[9px] font-bold text-on-surface leading-none">Everyone Deserves Trusted Hands...</span>
-          </div>
-        </div>
+            <div className="flex items-center gap-3">
+              <div className="w-20 h-20 bg-transparent rounded-xl flex items-center justify-center shrink-0 overflow-hidden"><img src="/logo.jpeg" alt="" className="w-full h-full object-contain scale-110" /></div>
+              <div className="flex flex-col justify-center">
+                <span className="text-2xl font-extrabold font-display text-on-surface tracking-tighter leading-none">Rehablito</span>
+                <span className="text-[10px] font-bold text-[#7dce82] leading-none">Physio & Autism Center</span>
+                <span className="text-[9px] font-bold text-on-surface leading-none">Everyone Deserves Trusted Hands...</span>
+              </div>
+            </div>
             <p className="text-sm text-on-surface-variant leading-relaxed">
               A Rehablito RMS initiative dedicated to providing equitable medical care for all through community-powered clinical excellence.
             </p>
