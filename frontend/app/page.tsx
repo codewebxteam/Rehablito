@@ -48,12 +48,19 @@ const Navbar = () => {
         </div>
         
         <div className="hidden md:flex items-center gap-10">
-          {['Our Story', 'Care Modules', 'The Experience', 'Locations' , 'Donation'].map((item) => (
-            <a key={item} href={`#${item.toLowerCase().replace(' ', '-')}`} className="text-sm font-bold text-on-surface-variant hover:text-brand-sage transition-colors relative group">
-              {item}
-              <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-brand-sage transition-all group-hover:w-full" />
-            </a>
-          ))}
+          {['Our Story', 'Care Modules', 'The Experience', 'Locations' , 'Donation'].map((item) => 
+            item === 'Donation' ? (
+              <Link key={item} href="/donation" className="text-sm font-bold text-on-surface-variant hover:text-brand-sage transition-colors relative group">
+                {item}
+                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-brand-sage transition-all group-hover:w-full" />
+              </Link>
+            ) : (
+              <a key={item} href={`#${item.toLowerCase().replace(' ', '-')}`} className="text-sm font-bold text-on-surface-variant hover:text-brand-sage transition-colors relative group">
+                {item}
+                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-brand-sage transition-all group-hover:w-full" />
+              </a>
+            )
+          )}
         </div>
 
         <div className="flex items-center gap-4">
@@ -77,16 +84,27 @@ const Navbar = () => {
         className="md:hidden overflow-hidden bg-white border-t border-outline-variant/10"
       >
         <div className="px-6 py-8 flex flex-col gap-6">
-          {['Our Story', 'Care Modules', 'The Experience', 'Locations'].map((item) => (
-            <a 
-              key={item} 
-              href={`#${item.toLowerCase().replace(' ', '-')}`} 
-              className="text-lg font-bold text-on-surface-variant"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              {item}
-            </a>
-          ))}
+          {['Our Story', 'Care Modules', 'The Experience', 'Locations', 'Donation'].map((item) => 
+            item === 'Donation' ? (
+              <Link
+                key={item} 
+                href="/donation"
+                className="text-lg font-bold text-on-surface-variant"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                {item}
+              </Link>
+            ) : (
+              <a 
+                key={item} 
+                href={`#${item.toLowerCase().replace(' ', '-')}`} 
+                className="text-lg font-bold text-on-surface-variant"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                {item}
+              </a>
+            )
+          )}
           <Link href="/login" className="w-full bg-brand-sage text-white py-4 rounded-2xl font-display font-bold text-md text-center" onClick={() => setIsMobileMenuOpen(false)}>
             Begin Your Journey
           </Link>

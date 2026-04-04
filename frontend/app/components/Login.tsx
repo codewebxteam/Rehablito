@@ -135,7 +135,7 @@ export default function Login() {
                 transition={{ duration: 0.15, ease: "easeOut" }}
                 className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-xl border border-outline-variant/20 overflow-hidden"
               >
-                {roles.map((role, index) => {
+                {roles.map((role: Role, index: number) => {
                   const Icon = role.icon;
                   const isSelected = selectedRole?.value === role.value;
                   return (
