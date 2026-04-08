@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import {
   LayoutDashboard,
   UserPlus,
@@ -8,7 +10,6 @@ import {
   UserCheck,
   CreditCard,
   Settings,
-  HelpCircle,
   Plus,
   Search,
   Bell,
@@ -17,7 +18,6 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  LogOut,
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
@@ -40,10 +40,10 @@ import BillingManagementView from './views/BillingManagementView';
 
 // Mock Data
 const INITIAL_LEADS: Lead[] = [
-  { id: '1', name: 'Ananya Sharma', phone: '9876541234', source: 'Facebook Ads', status: 'Hot' as any, dateReceived: '2023-10-24' },
-  { id: '2', name: 'Rahul Verma', phone: '8765435678', source: 'Google Maps', status: 'In Discussion' as any, dateReceived: '2023-10-23' },
-  { id: '3', name: 'Meera Kapoor', phone: '7654329012', source: 'Direct Walk-in', status: 'Hot' as any, dateReceived: '2023-10-22' },
-  { id: '4', name: 'Sanjay Mishra', phone: '6543213456', source: 'Website Referral', status: 'Cold' as any, dateReceived: '2023-10-21' },
+  { id: '1', name: 'Ananya Sharma', phone: '9876541234', source: 'Facebook Ads', status: 'Hot', dateReceived: '2023-10-24' },
+  { id: '2', name: 'Rahul Verma', phone: '8765435678', source: 'Google Maps', status: 'In Discussion', dateReceived: '2023-10-23' },
+  { id: '3', name: 'Meera Kapoor', phone: '7654329012', source: 'Direct Walk-in', status: 'Hot', dateReceived: '2023-10-22' },
+  { id: '4', name: 'Sanjay Mishra', phone: '6543213456', source: 'Website Referral', status: 'Cold', dateReceived: '2023-10-21' },
 ];
 
 const INITIAL_STAFF: Staff[] = [
@@ -71,7 +71,8 @@ const INITIAL_BILLING: BillingRecord[] = [
 ];
 
 export default function ManagerDashboardApp() {
-  const [currentView, setCurrentView] = useState<ViewType>('dashboard');
+  const router = useRouter();
+  const pathname = usePathname();
   const [patients, setPatients] = useState<Patient[]>([]);
   const [leads, setLeads] = useState<Lead[]>(INITIAL_LEADS);
   const [staff, setStaff] = useState<Staff[]>(INITIAL_STAFF);
@@ -82,10 +83,18 @@ export default function ManagerDashboardApp() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // Close sidebar on mobile when view changes
-  useEffect(() => {
+  const resolveViewFromPath = (path: string): ViewType => {
+    const segment = path.split('/')[2];
+    const validViews: ViewType[] = ['dashboard', 'onboarding', 'leads', 'staff', 'billing'];
+    return validViews.includes(segment as ViewType) ? (segment as ViewType) : 'dashboard';
+  };
+
+  const navigateToView = (view: ViewType) => {
     setIsSidebarOpen(false);
-  }, [currentView]);
+    router.push(`/manager/${view}`);
+  };
+
+  const currentView = resolveViewFromPath(pathname);
 
   const addNotification = (message: string, type: 'success' | 'error' = 'success') => {
     const id = Date.now().toString();
@@ -183,14 +192,14 @@ export default function ManagerDashboardApp() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsSidebarOpen(false)}
-            className="fixed inset-0 bg-black/50 z-[60] lg:hidden backdrop-blur-sm"
+            className="fixed inset-0 bg-black/50 z-60 lg:hidden backdrop-blur-sm"
           />
         )}
       </AnimatePresence>
 
       {/* Sidebar */}
       <aside className={cn(
-        "fixed left-0 top-0 h-full bg-surface border-r border-outline-variant/10 flex flex-col transition-all duration-300 z-[70]",
+        "fixed left-0 top-0 h-full bg-surface border-r border-outline-variant/10 flex flex-col transition-all duration-300 z-70",
         // Mobile (< 1024px)
         isSidebarOpen ? "translate-x-0 w-64" : "-translate-x-full lg:translate-x-0",
 
@@ -205,7 +214,7 @@ export default function ManagerDashboardApp() {
           {!isSidebarCollapsed ? (
             <div className="flex items-center gap-0">
               <div className="w-14 h-14 bg-transparent rounded-xl flex shrink-0 items-center justify-center overflow-hidden">
-                <img src="/logo.jpeg" alt="Rehablito Logo" className="w-full h-full object-contain" />
+                <Image src="/logo.jpeg" alt="Rehablito Logo" width={56} height={56} className="w-full h-full object-contain" />
               </div>
               <div className="flex flex-col justify-center whitespace-nowrap -ml-1">
                 <span className="text-xl font-extrabold font-display text-primary tracking-tighter leading-none">Rehablito</span>
@@ -215,7 +224,7 @@ export default function ManagerDashboardApp() {
             </div>
           ) : (
             <div className="w-10 h-10 bg-transparent rounded-xl flex items-center justify-center overflow-hidden">
-              <img src="/logo.jpeg" alt="R" className="w-full h-full object-contain scale-125" />
+              <Image src="/logo.jpeg" alt="R" width={40} height={40} className="w-full h-full object-contain scale-125" />
             </div>
           )}
           <button
@@ -230,7 +239,7 @@ export default function ManagerDashboardApp() {
           {menuItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => setCurrentView(item.id as ViewType)}
+              onClick={() => navigateToView(item.id as ViewType)}
               title={isSidebarCollapsed ? item.label : undefined}
               className={cn(
                 "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-semibold text-sm tracking-tight",
@@ -249,15 +258,15 @@ export default function ManagerDashboardApp() {
         <div className="mt-auto space-y-1 px-4 pb-8">
           {!isSidebarCollapsed ? (
             <button
-              onClick={() => setCurrentView('onboarding')}
-              className="w-full mb-6 bg-gradient-to-br from-secondary to-[#00897b] text-white py-3 px-4 rounded-xl font-bold text-sm shadow-md flex items-center justify-center gap-2 hover:opacity-90 transition-all"
+              onClick={() => navigateToView('onboarding')}
+              className="w-full mb-6 bg-linear-to-br from-secondary to-[#00897b] text-white py-3 px-4 rounded-xl font-bold text-sm shadow-md flex items-center justify-center gap-2 hover:opacity-90 transition-all"
             >
               <Plus size={18} />
               Add New Patient
             </button>
           ) : (
             <button
-              onClick={() => setCurrentView('onboarding')}
+              onClick={() => navigateToView('onboarding')}
               className="w-12 h-12 mx-auto mb-6 bg-secondary text-white rounded-xl flex items-center justify-center shadow-md hover:opacity-90 transition-all"
             >
               <Plus size={24} />
@@ -303,15 +312,16 @@ export default function ManagerDashboardApp() {
             >
               <Menu size={24} />
             </button>
-            <div className="flex items-center gap-0">
-              <div className="w-16 h-16 bg-transparent rounded-xl flex shrink-0 items-center justify-center overflow-hidden">
-                <img src="/logo.jpeg" alt="Rehablito Logo" className="w-full h-full object-contain" />
-              </div>
-              <div className="flex flex-col justify-center whitespace-nowrap -ml-1">
-                <span className="text-2xl font-extrabold font-display text-primary tracking-tighter leading-none">Rehablito</span>
-                <span className="text-[10px] font-bold text-[#7dce82] tracking-wide leading-none mt-1.5">Physio & Autism Center</span>
-                <span className="text-[9px] font-bold text-on-surface leading-none mt-1">Everyone Deserves Trusted Hands...</span>
-              </div>
+            <div className="hidden md:flex flex-col justify-center bg-surface-container-lowest border border-outline-variant/15 rounded-2xl px-4 py-2.5 shadow-sm min-w-62.5">
+              <span className="text-[9px] font-black uppercase tracking-[0.24em] text-primary/70">Manager Workspace</span>
+              <span className="text-base font-extrabold text-on-surface mt-1 leading-none">
+                {new Date().toLocaleDateString('en-IN', {
+                  weekday: 'long',
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric'
+                })}
+              </span>
             </div>
             <div className="hidden md:flex bg-surface-container-low px-3 py-1.5 rounded-full items-center gap-2 w-48 lg:w-64">
               <Search size={16} className="text-on-surface-variant" />
@@ -333,7 +343,7 @@ export default function ManagerDashboardApp() {
                 <Calendar size={20} />
               </button>
             </div>
-            <div className="hidden sm:block h-8 w-[1px] bg-outline-variant/30 mx-2"></div>
+            <div className="hidden sm:block h-8 w-px bg-outline-variant/30 mx-2"></div>
             <button className="hidden md:block bg-primary text-white px-5 py-2 rounded-full text-sm font-semibold hover:opacity-90 active:scale-95 transition-all">
               Check-in
             </button>
@@ -342,11 +352,13 @@ export default function ManagerDashboardApp() {
                 <p className="text-xs font-bold text-on-surface">Admin Manager</p>
                 <p className="text-[10px] text-on-surface-variant">Center Lead</p>
               </div>
-              <img
+              <Image
                 src="https://picsum.photos/seed/manager/100/100"
                 alt="Profile"
+                width={36}
+                height={36}
+                unoptimized
                 className="w-8 h-8 md:w-9 md:h-9 rounded-full object-cover ring-2 ring-primary/10"
-                referrerPolicy="no-referrer"
               />
             </div>
           </div>
@@ -368,7 +380,7 @@ export default function ManagerDashboardApp() {
                   staff={staff}
                   billing={billing}
                   patients={patients}
-                  onNavigate={setCurrentView}
+                  onNavigate={navigateToView}
                 />
               )}
               {currentView === 'onboarding' && (
@@ -404,7 +416,7 @@ export default function ManagerDashboardApp() {
         </div>
 
         {/* Notifications */}
-        <div className="fixed bottom-8 right-8 z-[100] space-y-2">
+        <div className="fixed bottom-8 right-8 z-100 space-y-2">
           <AnimatePresence>
             {notifications.map(n => (
               <motion.div

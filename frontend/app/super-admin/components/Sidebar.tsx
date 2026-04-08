@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   LayoutDashboard, 
   Users, 
@@ -11,7 +11,7 @@ import {
   CalendarCheck,
   Wallet
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { SuperAdminTab, TAB_LABELS } from '../lib/navigation';
 
@@ -21,6 +21,11 @@ interface SidebarProps {
 }
 
 export const Sidebar = ({ active, onChange }: SidebarProps) => {
+  const [selectedBranch, setSelectedBranch] = useState('All Branches');
+  const [isBranchMenuOpen, setIsBranchMenuOpen] = useState(false);
+
+  const branchOptions = ['All Branches', 'Mumbai', 'Delhi', 'Patna', 'Bengaluru'];
+
   const navGroups = [
     {
       title: 'Overview',
@@ -65,17 +70,57 @@ export const Sidebar = ({ active, onChange }: SidebarProps) => {
 
       {/* Branch Switcher */}
       <div className="mb-10 px-6">
-        <div className="bg-surface-container-lowest border border-outline-variant/20 rounded-2xl p-4 shadow-sm hover:bg-surface-container-low transition-all cursor-pointer group">
-          <label className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest block mb-2.5 ml-1 opacity-60">Current Branch</label>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center text-primary">
-                <TreeDeciduous size={18} />
+        <div className="relative">
+          <button
+            onClick={() => setIsBranchMenuOpen((prev) => !prev)}
+            className="w-full bg-surface-container-lowest border border-outline-variant/20 rounded-2xl p-4 shadow-sm hover:bg-surface-container-low transition-all cursor-pointer group"
+          >
+            <label className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest block mb-2.5 ml-1 opacity-60 text-left">Current Branch</label>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center text-primary">
+                  <TreeDeciduous size={18} />
+                </div>
+                <span className="text-sm font-bold text-on-surface">{selectedBranch}</span>
               </div>
-              <span className="text-sm font-bold text-on-surface">All Branches</span>
+              <ChevronDown
+                size={18}
+                className={cn(
+                  "text-on-surface-variant group-hover:text-primary transition-all",
+                  isBranchMenuOpen && "rotate-180"
+                )}
+              />
             </div>
-            <ChevronDown size={18} className="text-on-surface-variant group-hover:text-primary transition-colors" />
-          </div>
+          </button>
+
+          <AnimatePresence>
+            {isBranchMenuOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                className="absolute left-0 right-0 mt-2 rounded-xl border border-outline-variant/20 bg-surface-container-lowest shadow-xl p-1.5 z-40"
+              >
+                {branchOptions.map((branch) => (
+                  <button
+                    key={branch}
+                    onClick={() => {
+                      setSelectedBranch(branch);
+                      setIsBranchMenuOpen(false);
+                    }}
+                    className={cn(
+                      "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors",
+                      selectedBranch === branch
+                        ? "bg-primary/10 text-primary font-semibold"
+                        : "text-on-surface-variant hover:bg-surface-container-low"
+                    )}
+                  >
+                    {branch}
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
