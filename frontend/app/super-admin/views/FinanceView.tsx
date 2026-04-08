@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { IndianRupee, TrendingUp, TrendingDown, Download, Filter, Search } from 'lucide-react';
 import { 
   AreaChart, 
@@ -32,6 +32,8 @@ interface Transaction {
   date: string;
   status: 'Completed' | 'Pending' | 'Failed';
 }
+
+type TransactionFilter = 'All' | 'Income' | 'Expense' | 'Completed' | 'Pending' | 'Failed';
 
 const TRANSACTIONS: Transaction[] = [
   { id: 'TRX-1092', type: 'Income', description: 'Patient Consultation (Aarav Gupta)', category: 'Service', amount: 1500, date: 'Today, 10:45 AM', status: 'Completed' },
@@ -89,11 +91,21 @@ const FinanceChart = () => {
 
 export const FinanceView = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeFilter, setActiveFilter] = useState<TransactionFilter>('All');
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
 
-  const filteredTransactions = TRANSACTIONS.filter(t => 
-    t.description.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    t.id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredTransactions = TRANSACTIONS.filter((t) => {
+    const matchesSearch =
+      t.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      t.id.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesFilter =
+      activeFilter === 'All' ||
+      t.type === activeFilter ||
+      t.status === activeFilter;
+
+    return matchesSearch && matchesFilter;
+  });
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-10">
@@ -143,7 +155,7 @@ export const FinanceView = () => {
       </div>
 
       {/* Transactions Table */}
-      <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden">
+      <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/10 overflow-visible">
         <div className="p-6 md:p-8 border-b border-surface-container-low flex flex-col md:flex-row md:items-center justify-between gap-4">
           <h3 className="text-xl font-bold font-headline text-on-surface">Recent Transactions</h3>
           
@@ -158,9 +170,44 @@ export const FinanceView = () => {
                 className="w-full md:w-64 bg-surface-container-low/50 border border-outline-variant/20 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all font-medium text-on-surface"
               />
             </div>
-            <button className="p-2 border border-outline-variant/20 rounded-xl text-on-surface-variant hover:bg-surface-container-low transition-colors">
-              <Filter size={18} />
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setIsFilterMenuOpen((prev) => !prev)}
+                className="p-2 border border-outline-variant/20 rounded-xl text-on-surface-variant hover:bg-surface-container-low transition-colors"
+                aria-label="Filter transactions"
+              >
+                <Filter size={18} />
+              </button>
+
+              <AnimatePresence>
+                {isFilterMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -6 }}
+                    className="absolute right-0 mt-2 w-44 rounded-xl border border-outline-variant/20 bg-surface-container-lowest shadow-xl p-2 z-20"
+                  >
+                    {(['All', 'Income', 'Expense', 'Completed', 'Pending', 'Failed'] as TransactionFilter[]).map((option) => (
+                      <button
+                        key={option}
+                        onClick={() => {
+                          setActiveFilter(option);
+                          setIsFilterMenuOpen(false);
+                        }}
+                        className={cn(
+                          "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors",
+                          activeFilter === option
+                            ? "bg-primary/10 text-primary font-semibold"
+                            : "text-on-surface-variant hover:bg-surface-container-low"
+                        )}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
             <button className="p-2 border border-outline-variant/20 rounded-xl text-on-surface-variant hover:bg-surface-container-low transition-colors">
               <Download size={18} />
             </button>
