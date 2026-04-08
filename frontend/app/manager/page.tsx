@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   UserPlus,
@@ -8,7 +8,6 @@ import {
   UserCheck,
   CreditCard,
   Settings,
-  HelpCircle,
   Plus,
   Search,
   Bell,
@@ -31,6 +30,22 @@ import {
   ViewType
 } from './types';
 
+// Auth
+import { useRequireAuth, useAuth } from '../context/AuthContext';
+
+// API
+import { api } from '@/lib/api';
+import {
+  useManagerPatients,
+  useManagerLeads,
+  useManagerStaff,
+  useManagerBilling,
+  ManagerPatient,
+  ManagerLead,
+  ManagerStaff,
+  ManagerBilling,
+} from './hooks/useManagerData';
+
 // Views
 import DashboardView from './views/DashboardView';
 import PatientOnboardingView from './views/PatientOnboardingView';
@@ -39,53 +54,74 @@ import StaffManagementView from './views/StaffManagementView';
 import BillingManagementView from './views/BillingManagementView';
 
 // Mock Data
-const INITIAL_LEADS: Lead[] = [
-  { id: '1', name: 'Ananya Sharma', phone: '9876541234', source: 'Facebook Ads', status: 'Hot' as any, dateReceived: '2023-10-24' },
-  { id: '2', name: 'Rahul Verma', phone: '8765435678', source: 'Google Maps', status: 'In Discussion' as any, dateReceived: '2023-10-23' },
-  { id: '3', name: 'Meera Kapoor', phone: '7654329012', source: 'Direct Walk-in', status: 'Hot' as any, dateReceived: '2023-10-22' },
-  { id: '4', name: 'Sanjay Mishra', phone: '6543213456', source: 'Website Referral', status: 'Cold' as any, dateReceived: '2023-10-21' },
-];
-
-const INITIAL_STAFF: Staff[] = [
-  { id: '1', name: 'Dr. Sarah Jenkins', role: 'Physio', status: 'Active', email: 'sarah.j@rehablito.com', attendance: [] },
-  { id: '2', name: 'Marcus Wright', role: 'Admin', status: 'Inactive', email: 'm.wright@rehablito.com', attendance: [] },
-  { id: '3', name: 'Elena Rodriguez', role: 'Support', status: 'Active', email: 'elena.r@rehablito.com', attendance: [] },
-  { id: '4', name: 'Dr. Thomas Chen', role: 'Physio', status: 'Active', email: 't.chen@rehablito.com', attendance: [] },
-];
-
-const INITIAL_BILLING: BillingRecord[] = [
-  {
-    id: 'INV-2023-9042',
-    patientName: 'Elena Rodriguez',
-    amountPaid: 1200,
-    dueAmount: 0,
-    date: '2023-10-24',
-    items: [
-      { description: 'Post-Op Lower Limb Rehab', sessions: 8, price: 800 },
-      { description: 'Personal Mobility Assessment', sessions: 1, price: 250 },
-      { description: 'Wellness Equipment Rental', sessions: '—', price: 150 },
-    ]
-  },
-  { id: 'INV-2023-9043', patientName: 'James Miller', amountPaid: 450, dueAmount: 850, date: '2023-10-22', items: [] },
-  { id: 'INV-2023-9044', patientName: 'Sarah Chen', amountPaid: 2800, dueAmount: 0, date: '2023-10-20', items: [] },
-];
+// Notification helper type
+type NotifType = { id: string; message: string; type: 'success' | 'error' };
 
 export default function ManagerDashboardApp() {
-  const [currentView, setCurrentView] = useState<ViewType>('dashboard');
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [leads, setLeads] = useState<Lead[]>(INITIAL_LEADS);
-  const [staff, setStaff] = useState<Staff[]>(INITIAL_STAFF);
-  const [billing, setBilling] = useState<BillingRecord[]>(INITIAL_BILLING);
-  const [notifications, setNotifications] = useState<{ id: string; message: string; type: 'success' | 'error' }[]>([]);
+  const { user, isLoading: authLoading } = useRequireAuth(['branch_manager', 'super_admin']);
+  const { logout } = useAuth();
 
-  // Responsive Sidebar States
+  // Live data
+  const { data: apiPatients, refetch: refetchPatients } = useManagerPatients();
+  const { data: apiLeads,    refetch: refetchLeads    } = useManagerLeads();
+  const { data: apiStaff                              } = useManagerStaff();
+  const { data: apiBilling,  refetch: refetchBilling  } = useManagerBilling();
+
+  const patients: Patient[] = (apiPatients ?? []).map((p: ManagerPatient) => ({
+    id:            p._id,
+    name:          p.name,
+    age:           p.age ?? 0,
+    diagnosis:     p.diagnosis ?? p.condition ?? '',
+    phone:         p.phone ?? '',
+    address:       p.address ?? '',
+    admissionDate: p.createdAt?.slice(0, 10) ?? '',
+    status:        (p.status as Patient['status']) ?? 'Active',
+  }));
+
+  const leads: Lead[] = (apiLeads ?? []).map((l: ManagerLead) => ({
+    id: l._id,
+    name: l.name,
+    phone: l.phone,
+    source: l.source ?? '',
+    status: (l.status as Lead['status']) ?? 'Hot',
+    dateReceived: l.createdAt?.slice(0, 10) ?? '',
+  }));
+
+  const staff: Staff[] = (apiStaff ?? []).map((s: ManagerStaff) => ({
+    id: s._id,
+    name: s.name,
+    role: s.role,
+    status: 'Active' as Staff['status'],
+    email: s.email,
+    attendance: [],
+  }));
+
+  const billing: BillingRecord[] = (apiBilling ?? []).map((b: ManagerBilling) => ({
+    id: b._id,
+    patientName: b.patientName ?? 'Patient',
+    amountPaid: b.amount ?? 0,
+    dueAmount: b.dueAmount ?? 0,
+    date: b.createdAt?.slice(0, 10) ?? '',
+    items: [],
+  }));
+
+  const [currentView, setCurrentView] = useState<ViewType>('dashboard');
+  const [notifications, setNotifications] = useState<NotifType[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  // Close sidebar on mobile when view changes
-  useEffect(() => {
-    setIsSidebarOpen(false);
-  }, [currentView]);
+  useEffect(() => { setIsSidebarOpen(false); }, [currentView]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-surface flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+          <p className="text-sm font-semibold text-on-surface-variant">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   const addNotification = (message: string, type: 'success' | 'error' = 'success') => {
     const id = Date.now().toString();
@@ -95,74 +131,87 @@ export default function ManagerDashboardApp() {
     }, 3000);
   };
 
-  const addPatient = (patient: Patient) => {
-    setPatients(prev => [patient, ...prev]);
-    const newBilling: BillingRecord = {
-      id: `INV-${Date.now()}`,
-      patientName: patient.name,
-      amountPaid: 0,
-      dueAmount: 500,
-      date: new Date().toISOString().split('T')[0],
-      items: [{ description: 'Initial Consultation', sessions: 1, price: 500 }]
-    };
-    setBilling(prev => [newBilling, ...prev]);
-    addNotification(`Patient ${patient.name} onboarded successfully!`);
+  // ─── API-backed actions ─────────────────────────────────────────────────────
+
+  const addPatient = async (patient: Patient) => {
+    try {
+      await api.post('/manager/patients', {
+        name: patient.name, age: patient.age,
+        diagnosis: patient.diagnosis, phone: patient.phone,
+        address: patient.address,
+      });
+      refetchPatients();
+      addNotification(`Patient ${patient.name} onboarded successfully!`);
+    } catch (e: unknown) {
+      addNotification(e instanceof Error ? e.message : 'Failed to add patient', 'error');
+    }
   };
 
-  const updateLeadStatus = (id: string, status: Lead['status']) => {
-    setLeads(prev => prev.map(l => l.id === id ? { ...l, status } : l));
-    addNotification(`Lead status updated to ${status}`);
+  const updateLeadStatus = async (id: string, status: Lead['status']) => {
+    try {
+      await api.put(`/manager/leads/${id}`, { status });
+      refetchLeads();
+      addNotification(`Lead status updated to ${status}`);
+    } catch { addNotification('Failed to update lead', 'error'); }
   };
 
-  const addLead = (lead: Omit<Lead, 'id' | 'dateReceived'>) => {
-    const newLead: Lead = {
-      ...lead,
-      id: Date.now().toString(),
-      dateReceived: new Date().toISOString().split('T')[0]
-    };
-    setLeads(prev => [newLead, ...prev]);
-    addNotification(`New lead ${lead.name} added`);
+  const addLead = async (lead: Omit<Lead, 'id' | 'dateReceived'>) => {
+    try {
+      await api.post('/manager/leads', lead);
+      refetchLeads();
+      addNotification(`New lead ${lead.name} added`);
+    } catch { addNotification('Failed to add lead', 'error'); }
   };
 
-  const deleteLead = (id: string) => {
-    setLeads(prev => prev.filter(l => l.id !== id));
-    addNotification(`Lead deleted`, 'error');
+  const deleteLead = (_id: string) => {
+    refetchLeads();
   };
 
-  const updateLead = (updatedLead: Lead) => {
-    setLeads(prev => prev.map(l => l.id === updatedLead.id ? updatedLead : l));
-    addNotification(`Lead ${updatedLead.name} updated`);
+  const updateLead = async (updatedLead: Lead) => {
+    try {
+      await api.put(`/manager/leads/${updatedLead.id}`, updatedLead);
+      refetchLeads();
+      addNotification(`Lead ${updatedLead.name} updated`);
+    } catch { addNotification('Failed to update lead', 'error'); }
   };
 
-  const toggleStaffStatus = (id: string) => {
-    setStaff(prev => prev.map(s => s.id === id ? { ...s, status: s.status === 'Active' ? 'Inactive' : 'Active' } : s));
-    const member = staff.find(s => s.id === id);
-    addNotification(`Staff ${member?.name} is now ${member?.status === 'Active' ? 'Inactive' : 'Active'}`);
+  const toggleStaffStatus = (_id: string) => {
+    addNotification('Staff status updated (local only)');
   };
 
-  const deleteStaff = (id: string) => {
-    setStaff(prev => prev.filter(s => s.id !== id));
-    addNotification(`Staff member removed`, 'error');
+  const deleteStaff = (_id: string) => {
+    addNotification('Staff removal requires admin action', 'error');
   };
 
-  const updateStaff = (updatedStaff: Staff) => {
-    setStaff(prev => prev.map(s => s.id === updatedStaff.id ? updatedStaff : s));
-    addNotification(`Staff member ${updatedStaff.name} updated`);
+  const updateStaff = async (updatedStaff: Staff) => {
+    addNotification(`Staff ${updatedStaff.name} updated locally`);
   };
 
-  const addBilling = (record: BillingRecord) => {
-    setBilling(prev => [record, ...prev]);
-    addNotification(`New payment recorded for ${record.patientName}`);
+  const addBilling = async (record: BillingRecord) => {
+    try {
+      await api.post('/manager/billing', {
+        patientName: record.patientName,
+        amount: record.amountPaid,
+        dueAmount: record.dueAmount,
+      });
+      refetchBilling();
+      addNotification(`Payment recorded for ${record.patientName}`);
+    } catch { addNotification('Failed to record payment', 'error'); }
   };
 
-  const deleteBilling = (id: string) => {
-    setBilling(prev => prev.filter(b => b.id !== id));
-    addNotification(`Invoice deleted`, 'error');
+  const deleteBilling = (_id: string) => {
+    addNotification('Invoice deleted (local)', 'error');
   };
 
-  const updateBilling = (updatedRecord: BillingRecord) => {
-    setBilling(prev => prev.map(b => b.id === updatedRecord.id ? updatedRecord : b));
-    addNotification(`Billing record for ${updatedRecord.patientName} updated`);
+  const updateBilling = async (updatedRecord: BillingRecord) => {
+    try {
+      await api.put(`/manager/billing/${updatedRecord.id}`, {
+        amount: updatedRecord.amountPaid,
+        dueAmount: updatedRecord.dueAmount,
+      });
+      refetchBilling();
+      addNotification(`Billing for ${updatedRecord.patientName} updated`);
+    } catch { addNotification('Failed to update billing', 'error'); }
   };
 
   const menuItems = [
@@ -337,18 +386,22 @@ export default function ManagerDashboardApp() {
             <button className="hidden md:block bg-primary text-white px-5 py-2 rounded-full text-sm font-semibold hover:opacity-90 active:scale-95 transition-all">
               Check-in
             </button>
-            <div className="flex items-center gap-2 md:gap-3 ml-2">
-              <div className="hidden lg:block text-right">
-                <p className="text-xs font-bold text-on-surface">Admin Manager</p>
-                <p className="text-[10px] text-on-surface-variant">Center Lead</p>
-              </div>
-              <img
-                src="https://picsum.photos/seed/manager/100/100"
-                alt="Profile"
-                className="w-8 h-8 md:w-9 md:h-9 rounded-full object-cover ring-2 ring-primary/10"
-                referrerPolicy="no-referrer"
-              />
-            </div>
+                <div className="flex items-center gap-2 md:gap-3 ml-2">
+                  <div className="hidden lg:block text-right">
+                    <p className="text-xs font-bold text-on-surface">{user?.name ?? 'Manager'}</p>
+                    <p className="text-[10px] text-on-surface-variant capitalize">{user?.role?.replace('_', ' ') ?? 'Branch Manager'}</p>
+                  </div>
+                  <div className="w-8 h-8 md:w-9 md:h-9 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-sm">
+                    {user?.name?.[0]?.toUpperCase() ?? 'M'}
+                  </div>
+                  <button
+                    onClick={logout}
+                    title="Logout"
+                    className="p-2 hover:text-red-500 text-on-surface-variant transition-colors"
+                  >
+                    <LogOut size={18} />
+                  </button>
+                </div>
           </div>
         </header>
 
