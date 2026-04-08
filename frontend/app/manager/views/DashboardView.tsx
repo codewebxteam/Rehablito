@@ -88,8 +88,8 @@ export default function DashboardView({ leads, staff, billing, patients, onNavig
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold text-on-surface tracking-tight">Good Morning, Team</h1>
-          <p className="text-on-surface-variant mt-1 text-sm md:text-base">Here is what's happening at Rehablito today.</p>
+          <h1 className="text-3xl md:text-4xl font-black text-on-surface tracking-tight leading-none">Good Morning, Team</h1>
+          <p className="text-on-surface-variant mt-2 text-sm md:text-base font-medium">Here is what&apos;s happening at Rehablito today.</p>
         </div>
         <Button 
           variant="surface"
@@ -164,7 +164,7 @@ export default function DashboardView({ leads, staff, billing, patients, onNavig
           </div>
 
           {/* Recent Leads Table */}
-          <div className="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden">
+          <div className="bg-surface-container-lowest rounded-xl shadow-sm overflow-visible">
             <div className="px-6 md:px-8 py-6 flex justify-between items-center">
               <h3 className="text-lg font-bold text-on-surface">Recent Leads</h3>
               <Button 
@@ -178,7 +178,7 @@ export default function DashboardView({ leads, staff, billing, patients, onNavig
             </div>
             
             {/* Desktop/Tablet Table View (> 640px) */}
-            <div className="hidden sm:block overflow-x-auto">
+            <div className="hidden sm:block overflow-x-auto overflow-y-visible">
               <table className="w-full text-left min-w-[600px]">
                 <thead className="bg-surface-container-low">
                   <tr>
@@ -190,7 +190,7 @@ export default function DashboardView({ leads, staff, billing, patients, onNavig
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant/10">
-                  {leads.slice(0, 4).map((lead) => (
+                  {leads.slice(0, 4).map((lead, index) => (
                     <tr key={lead.id} className="hover:bg-surface-container-low transition-colors">
                       <td className="px-8 py-4">
                         <div className="flex items-center gap-3">
@@ -206,7 +206,7 @@ export default function DashboardView({ leads, staff, billing, patients, onNavig
                       <td className="px-8 py-4 text-sm text-on-surface-variant">{lead.source}</td>
                       <td className="px-8 py-4">
                         <span className={cn(
-                          "px-3 py-1 rounded-full text-xs font-bold",
+                          "inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap min-w-[92px]",
                           lead.status === 'Hot' ? "bg-secondary-container/30 text-on-secondary-container" :
                           lead.status === 'Cold' ? "bg-error-container/30 text-on-error-container" :
                           "bg-surface-container-high text-on-surface-variant"
@@ -223,14 +223,35 @@ export default function DashboardView({ leads, staff, billing, patients, onNavig
                         </button>
                         
                         {activeMenu === lead.id && (
-                          <div className="absolute right-8 top-12 w-32 bg-white rounded-xl shadow-xl border border-outline-variant/10 z-50 py-2 overflow-hidden">
-                            <button className="w-full px-4 py-2 text-left text-xs font-bold hover:bg-surface-container-low flex items-center gap-2">
+                          <div className={cn(
+                            "absolute right-0 w-32 bg-white rounded-xl shadow-xl border border-outline-variant/10 z-50 py-2 overflow-hidden",
+                            index === 0 ? "top-full mt-2" : "bottom-full mb-2"
+                          )}>
+                            <button
+                              onClick={() => {
+                                onNavigate('leads');
+                                setActiveMenu(null);
+                              }}
+                              className="w-full px-4 py-2 text-left text-xs font-bold hover:bg-surface-container-low flex items-center gap-2"
+                            >
                               <Eye size={14} /> View
                             </button>
-                            <button className="w-full px-4 py-2 text-left text-xs font-bold hover:bg-surface-container-low flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                onNavigate('leads');
+                                setActiveMenu(null);
+                              }}
+                              className="w-full px-4 py-2 text-left text-xs font-bold hover:bg-surface-container-low flex items-center gap-2"
+                            >
                               <Edit size={14} /> Edit
                             </button>
-                            <button className="w-full px-4 py-2 text-left text-xs font-bold hover:bg-surface-container-low text-error flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                onNavigate('leads');
+                                setActiveMenu(null);
+                              }}
+                              className="w-full px-4 py-2 text-left text-xs font-bold hover:bg-surface-container-low text-error flex items-center gap-2"
+                            >
                               <Trash2 size={14} /> Delete
                             </button>
                           </div>
@@ -272,7 +293,7 @@ export default function DashboardView({ leads, staff, billing, patients, onNavig
                   </div>
                   <div className="flex justify-between items-center pt-2">
                     <span className={cn(
-                      "px-3 py-1 rounded-full text-[10px] font-bold",
+                      "inline-flex items-center justify-center px-3 py-1 rounded-full text-[10px] font-bold whitespace-nowrap min-w-[92px]",
                       lead.status === 'Hot' ? "bg-secondary-container/30 text-on-secondary-container" :
                       lead.status === 'Cold' ? "bg-error-container/30 text-on-error-container" :
                       "bg-surface-container-high text-on-surface-variant"
