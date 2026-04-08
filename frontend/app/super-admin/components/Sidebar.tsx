@@ -1,0 +1,156 @@
+import React from 'react';
+import { 
+  LayoutDashboard, 
+  Users, 
+  TrendingUp, 
+  UsersRound, 
+  ChevronDown, 
+  LogOut, 
+  TreeDeciduous,
+  Settings,
+  CalendarCheck,
+  Wallet
+} from 'lucide-react';
+import { motion } from 'motion/react';
+import { cn } from '@/lib/utils';
+
+interface SidebarProps {
+  active: string;
+  onChange: (tab: string) => void;
+}
+
+export const Sidebar = ({ active, onChange }: SidebarProps) => {
+  const navGroups = [
+    {
+      title: 'Overview',
+      items: [
+        { name: 'Dashboard', icon: <LayoutDashboard size={20} /> },
+        { name: 'Patients', icon: <Users size={20} /> },
+        { name: 'Leads', icon: <TrendingUp size={20} /> },
+      ]
+    },
+    {
+      title: 'Operations',
+      items: [
+        { name: 'Staff', icon: <UsersRound size={20} /> },
+        { name: 'Attendance', icon: <CalendarCheck size={20} /> },
+        { name: 'Finance', icon: <Wallet size={20} /> },
+      ]
+    },
+    {
+      title: 'System',
+      items: [
+        { name: 'Branches', icon: <TreeDeciduous size={20} /> },
+        { name: 'Settings', icon: <Settings size={20} /> },
+      ]
+    }
+  ];
+
+  return (
+    <aside className="fixed left-0 top-0 h-screen w-72 glass z-50 flex flex-col py-8 border-r border-outline-variant/10 shadow-2xl shadow-primary/5">
+      {/* Logo */}
+      <div className="mb-10 px-8 flex items-center gap-3.5">
+        <div className="flex items-center">
+          <div className="w-14 h-14 flex-shrink-0 rounded-md">
+            <img src="/logo.jpeg" alt="" className="w-full h-full object-contain" />
+          </div>
+          <div className="flex flex-col justify-center">
+            <span className="text-xl font-extrabold font-display text-on-surface tracking-tighter leading-none">Rehablito</span>
+            <span className="text-[10px] font-bold text-[#7dce82] tracking-wide leading-none">Physio & Autism Center</span>
+            <span className="text-[9px] font-bold text-on-surface leading-none">Everyone Deserves Trusted Hands...</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Branch Switcher */}
+      <div className="mb-10 px-6">
+        <div className="bg-surface-container-lowest border border-outline-variant/20 rounded-2xl p-4 shadow-sm hover:bg-surface-container-low transition-all cursor-pointer group">
+          <label className="text-[9px] font-bold text-on-surface-variant uppercase tracking-widest block mb-2.5 ml-1 opacity-60">Current Branch</label>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-primary/5 flex items-center justify-center text-primary">
+                <TreeDeciduous size={18} />
+              </div>
+              <span className="text-sm font-bold text-on-surface">All Branches</span>
+            </div>
+            <ChevronDown size={18} className="text-on-surface-variant group-hover:text-primary transition-colors" />
+          </div>
+        </div>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 space-y-8 overflow-y-auto px-0">
+        {navGroups.map((group, groupIdx) => (
+          <motion.div 
+            key={group.title} 
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: groupIdx * 0.1 }}
+            className="space-y-1"
+          >
+            <h3 className="px-8 text-[10px] font-bold text-on-surface-variant uppercase tracking-[0.2em] mb-4 opacity-50">{group.title}</h3>
+            <div className="space-y-0.5">
+              {group.items.map((item) => {
+                const isActive = active === item.name;
+                return (
+                  <button
+                    key={item.name}
+                    onClick={() => onChange(item.name)}
+                    className={cn(
+                      "w-full flex items-center gap-4 px-8 py-3.5 transition-all group relative overflow-hidden",
+                      isActive ? "text-primary font-bold" : "text-on-surface-variant hover:text-primary hover:bg-primary/5"
+                    )}
+                  >
+                    {/* Active Background Gradient */}
+                    {isActive && (
+                      <motion.div 
+                        layoutId="activeNavBg"
+                        className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent pointer-events-none"
+                        initial={false}
+                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                      />
+                    )}
+                    
+                    {/* Active Indicator Border */}
+                    {isActive && (
+                      <motion.div 
+                        layoutId="activeNavBorder"
+                        className="absolute left-0 top-0 bottom-0 w-1 bg-primary z-10"
+                        initial={false}
+                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                      />
+                    )}
+
+                    <span className={cn("transition-transform group-hover:scale-110 relative z-10", isActive ? "text-primary" : "text-on-surface-variant")}>
+                      {item.icon}
+                    </span>
+                    <span className="text-sm relative z-10">{item.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        ))}
+      </nav>
+
+      {/* Footer */}
+      <div className="mt-auto pt-6 px-6 pb-4">
+        <div className="bg-surface-container-lowest rounded-2xl p-4 flex items-center gap-3.5 shadow-sm border border-outline-variant/10">
+          <div className="relative">
+            <div className="w-11 h-11 rounded-xl bg-primary text-white flex items-center justify-center font-bold text-sm shadow-lg shadow-primary/30">
+              SA
+            </div>
+            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-on-surface truncate">Super Admin</p>
+            <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Global Access</p>
+          </div>
+          <button className="text-on-surface-variant hover:text-error transition-all hover:scale-110 p-1">
+            <LogOut size={18} />
+          </button>
+        </div>
+      </div>
+    </aside>
+  );
+};
