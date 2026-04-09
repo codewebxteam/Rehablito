@@ -38,8 +38,8 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
     if (!formData.condition) newErrors.condition = 'Medical condition summary is required';
     if (!formData.phone) {
       newErrors.phone = 'Contact number is required';
-    } else if (!/^\+?[\d\s-]{10,}$/.test(formData.phone)) {
-      newErrors.phone = 'Enter a valid phone format';
+    } else if (!/^\d{10}$/.test(formData.phone)) {
+      newErrors.phone = 'Enter exactly 10 digits';
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -101,7 +101,7 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
         age: parseInt(formData.age),
         gender: formData.gender,
         condition: formData.condition,
-        phone: formData.phone,
+        phone: `+91${formData.phone}`,
         onboardedAt: new Date().toISOString()
       };
       
@@ -165,16 +165,26 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
 
               <div className="space-y-2">
                 <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Contact Number</label>
-                <input 
-                  type="tel" 
-                  value={formData.phone}
-                  onChange={e => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                <div
                   className={cn(
-                    "w-full bg-surface-container-lowest border rounded-2xl px-5 py-4 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all",
+                    "w-full bg-surface-container-lowest border rounded-2xl px-5 py-4 flex items-center gap-3 focus-within:ring-4 focus-within:ring-primary/10 focus-within:border-primary transition-all",
                     errors.phone ? "border-error" : "border-outline-variant/30"
                   )}
-                  placeholder="+1 (555) 000-0000"
-                />
+                >
+                  <span className="text-on-surface font-semibold">+91</span>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={10}
+                    value={formData.phone}
+                    onChange={e => {
+                      const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setFormData(prev => ({ ...prev, phone: digitsOnly }));
+                    }}
+                    className="w-full bg-transparent outline-none"
+                    placeholder="9876543210"
+                  />
+                </div>
                 {errors.phone && (
                   <p className="text-[10px] text-error font-medium flex items-center gap-1 mt-1 px-1">
                     <AlertCircle size={14} />

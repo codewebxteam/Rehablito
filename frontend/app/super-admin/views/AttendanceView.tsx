@@ -160,7 +160,7 @@ export const AttendanceView = () => {
                             className={cn(
                               "px-3 py-1.5 rounded-lg text-xs font-bold transition-all",
                               staff.status === 'Absent' 
-                                ? "bg-error text-white shadow-md shadow-error/20" 
+                                ? "bg-red-600 text-white shadow-md shadow-red-600/20 hover:bg-red-700" 
                                 : "bg-surface-container-low text-on-surface-variant hover:bg-error/10 hover:text-error"
                             )}
                           >

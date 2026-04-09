@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Plus, PhoneCall, Mail, UserPlus, Filter, ChevronDown, CheckCircle2 } from 'lucide-react';
+import { Search, Plus, PhoneCall, Mail, UserPlus, Filter, ChevronDown, CheckCircle2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface Lead {
@@ -13,6 +13,8 @@ interface Lead {
   date: string;
 }
 
+type LeadStatusFilter = 'All' | Lead['status'];
+
 const INITIAL_LEADS: Lead[] = [
   { id: 'LD-001', name: 'Aman Sharma', phone: '+91 98765 43210', source: 'Website', service: 'Physiotherapy', status: 'New', date: 'Today, 10:30 AM' },
   { id: 'LD-002', name: 'Vikram Patnaik', phone: '+91 87654 32109', source: 'Google Ads', service: 'Autism Center', status: 'Contacted', date: 'Yesterday, 04:15 PM' },
@@ -24,12 +26,59 @@ const INITIAL_LEADS: Lead[] = [
 export const LeadsView = () => {
   const [leads, setLeads] = useState<Lead[]>(INITIAL_LEADS);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<LeadStatusFilter>('All');
+  const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [newLead, setNewLead] = useState<Omit<Lead, 'id' | 'date'>>({
+    name: '',
+    phone: '',
+    source: '',
+    service: '',
+    status: 'New'
+  });
 
-  const filteredLeads = leads.filter(l => 
-    l.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    l.phone.includes(searchTerm)
-  );
+  const resetLeadForm = () => {
+    setNewLead({
+      name: '',
+      phone: '',
+      source: '',
+      service: '',
+      status: 'New'
+    });
+  };
+
+  const handleAddLead = () => {
+    if (!newLead.name.trim() || !newLead.phone.trim() || !newLead.source.trim() || !newLead.service.trim()) {
+      return;
+    }
+
+    const highestId = leads.reduce((max, lead) => {
+      const numericPart = Number(lead.id.replace('LD-', ''));
+      return Number.isNaN(numericPart) ? max : Math.max(max, numericPart);
+    }, 0);
+
+    const id = `LD-${String(highestId + 1).padStart(3, '0')}`;
+    const date = new Date().toLocaleString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    setLeads(prev => [{ id, date, ...newLead }, ...prev]);
+    setIsAddModalOpen(false);
+    resetLeadForm();
+  };
+
+  const filteredLeads = leads.filter((l) => {
+    const matchesSearch =
+      l.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      l.phone.includes(searchTerm);
+    const matchesStatus = statusFilter === 'All' || l.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   const stats = {
     total: leads.length,
@@ -82,10 +131,48 @@ export const LeadsView = () => {
               className="w-full sm:w-64 bg-surface-container-low/50 border border-outline-variant/20 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all text-on-surface"
             />
           </div>
-          <button className="p-2.5 border border-outline-variant/20 rounded-xl text-on-surface-variant hover:bg-surface-container-low transition-colors">
-            <Filter size={18} />
-          </button>
-          <button className="bg-primary hover:bg-primary/90 text-white p-2.5 px-5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-primary/20 transition-all">
+          <div className="relative">
+            <button
+              onClick={() => setIsFilterMenuOpen(prev => !prev)}
+              className="p-2.5 border border-outline-variant/20 rounded-xl text-on-surface-variant hover:bg-surface-container-low transition-colors"
+              aria-label="Filter leads"
+            >
+              <Filter size={18} />
+            </button>
+
+            <AnimatePresence>
+              {isFilterMenuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  className="absolute right-0 mt-2 w-44 rounded-xl border border-outline-variant/20 bg-surface-container-lowest shadow-xl p-2 z-20"
+                >
+                  {(['All', 'New', 'Contacted', 'Converted', 'Lost'] as LeadStatusFilter[]).map((option) => (
+                    <button
+                      key={option}
+                      onClick={() => {
+                        setStatusFilter(option);
+                        setIsFilterMenuOpen(false);
+                      }}
+                      className={cn(
+                        "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors",
+                        statusFilter === option
+                          ? "bg-primary/10 text-primary font-semibold"
+                          : "text-on-surface-variant hover:bg-surface-container-low"
+                      )}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="bg-primary hover:bg-primary/90 text-white p-2.5 px-5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-primary/20 transition-all"
+          >
             <Plus size={18} />
             <span className="hidden sm:inline">Add Lead</span>
           </button>
@@ -178,6 +265,110 @@ export const LeadsView = () => {
           )}
         </div>
       </div>
+
+      <AnimatePresence>
+        {isAddModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => {
+              setIsAddModalOpen(false);
+              resetLeadForm();
+            }}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 8, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              transition={{ duration: 0.16 }}
+              className="w-full max-w-lg rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-2xl p-6"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Add lead"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-4 mb-5">
+                <div>
+                  <h4 className="text-lg font-extrabold text-on-surface">Add Lead</h4>
+                  <p className="text-sm text-on-surface-variant mt-1">Create a new lead in the pipeline.</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setIsAddModalOpen(false);
+                    resetLeadForm();
+                  }}
+                  className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low"
+                  aria-label="Close add lead modal"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  value={newLead.name}
+                  onChange={(e) => setNewLead(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                  placeholder="Lead name"
+                />
+                <input
+                  type="text"
+                  value={newLead.phone}
+                  onChange={(e) => setNewLead(prev => ({ ...prev, phone: e.target.value }))}
+                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                  placeholder="Phone number"
+                />
+                <input
+                  type="text"
+                  value={newLead.source}
+                  onChange={(e) => setNewLead(prev => ({ ...prev, source: e.target.value }))}
+                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                  placeholder="Source"
+                />
+                <input
+                  type="text"
+                  value={newLead.service}
+                  onChange={(e) => setNewLead(prev => ({ ...prev, service: e.target.value }))}
+                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                  placeholder="Service required"
+                />
+                <select
+                  value={newLead.status}
+                  onChange={(e) => setNewLead(prev => ({ ...prev, status: e.target.value as Lead['status'] }))}
+                  className="sm:col-span-2 w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                >
+                  <option value="New">New</option>
+                  <option value="Contacted">Contacted</option>
+                  <option value="Converted">Converted</option>
+                  <option value="Lost">Lost</option>
+                </select>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setIsAddModalOpen(false);
+                    resetLeadForm();
+                  }}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold text-on-surface-variant border border-outline-variant/30 hover:text-on-surface hover:bg-surface-container-low transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddLead}
+                  disabled={!newLead.name.trim() || !newLead.phone.trim() || !newLead.source.trim() || !newLead.service.trim()}
+                  className="px-4 py-2 rounded-xl text-sm font-bold bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Add Lead
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
