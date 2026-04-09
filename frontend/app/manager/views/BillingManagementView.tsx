@@ -1,6 +1,7 @@
 ﻿"use client";
 import { useState, useMemo } from 'react';
 import { 
+  CreditCard, 
   TrendingUp, 
   AlertCircle, 
   FileText, 
@@ -9,10 +10,12 @@ import {
   Edit, 
   Trash2, 
   Plus,
-  Filter
+  Filter,
+  CheckCircle2,
+  X
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
-import { BillingRecord } from '../types';
+import { BillingRecord, InvoiceItem } from '../types';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import React from 'react';
@@ -37,7 +40,6 @@ export default function BillingManagementView({ billing, onAddPayment, onDeleteB
     amount: '',
     description: 'General Consultation'
   });
-  const formatINR = (amount: number | string) => `\u20B9${amount}`;
 
   const stats = useMemo(() => {
     const total = billing.reduce((acc, curr) => acc + curr.amountPaid, 0);
@@ -212,7 +214,7 @@ export default function BillingManagementView({ billing, onAddPayment, onDeleteB
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             <div className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm">
               <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/60 mb-2">Total Collected</p>
-              <h3 className="text-xl md:text-2xl font-extrabold text-on-surface">{formatINR(stats.total)}</h3>
+              <h3 className="text-xl md:text-2xl font-extrabold text-on-surface">â‚¹{stats.total}</h3>
               <div className="flex items-center gap-1 mt-2 text-secondary font-bold text-[10px]">
                 <TrendingUp size={12} />
                 +12% this month
@@ -220,7 +222,7 @@ export default function BillingManagementView({ billing, onAddPayment, onDeleteB
             </div>
             <div className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm">
               <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/60 mb-2">Pending Dues</p>
-              <h3 className="text-xl md:text-2xl font-extrabold text-error">{formatINR(stats.pending)}</h3>
+              <h3 className="text-xl md:text-2xl font-extrabold text-error">â‚¹{stats.pending}</h3>
               <div className="flex items-center gap-1 mt-2 text-error font-bold text-[10px]">
                 <AlertCircle size={12} />
                 14 Overdue
@@ -275,9 +277,9 @@ export default function BillingManagementView({ billing, onAddPayment, onDeleteB
                           <span className="font-semibold text-on-surface">{record.patientName}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-5 text-right font-bold text-on-surface">{formatINR(record.amountPaid.toLocaleString())}</td>
+                      <td className="px-6 py-5 text-right font-bold text-on-surface">â‚¹{record.amountPaid.toLocaleString()}</td>
                       <td className={cn("px-6 py-5 text-right font-bold", record.dueAmount > 0 ? "text-error" : "text-on-surface-variant/40")}>
-                        {formatINR(record.dueAmount.toLocaleString())}
+                        â‚¹{record.dueAmount.toLocaleString()}
                       </td>
                       <td className="px-6 py-5 text-on-surface-variant text-sm">{record.date}</td>
                       <td className="px-6 py-5">
@@ -326,12 +328,12 @@ export default function BillingManagementView({ billing, onAddPayment, onDeleteB
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest mb-1">Paid</p>
-                      <p className="font-bold text-on-surface">{formatINR(record.amountPaid.toLocaleString())}</p>
+                      <p className="font-bold text-on-surface">â‚¹{record.amountPaid.toLocaleString()}</p>
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest mb-1">Due</p>
                       <p className={cn("font-bold", record.dueAmount > 0 ? "text-error" : "text-on-surface-variant/40")}>
-                        {formatINR(record.dueAmount.toLocaleString())}
+                        â‚¹{record.dueAmount.toLocaleString()}
                       </p>
                     </div>
                   </div>
@@ -426,13 +428,13 @@ export default function BillingManagementView({ billing, onAddPayment, onDeleteB
                         <tr key={i} className="border-b border-outline-variant/5">
                           <td className="py-4 font-medium text-on-surface">{item.description}</td>
                           <td className="py-4 text-center">{item.sessions}</td>
-                          <td className="py-4 text-right font-bold">{formatINR(item.price.toLocaleString())}</td>
+                          <td className="py-4 text-right font-bold">â‚¹{item.price.toLocaleString()}</td>
                         </tr>
                       )) : (
                         <tr className="border-b border-outline-variant/5">
                           <td className="py-4 font-medium text-on-surface">General Medical Services</td>
                           <td className="py-4 text-center">1</td>
-                          <td className="py-4 text-right font-bold">{formatINR(selectedInvoice.amountPaid.toLocaleString())}</td>
+                          <td className="py-4 text-right font-bold">â‚¹{selectedInvoice.amountPaid.toLocaleString()}</td>
                         </tr>
                       )}
                     </tbody>
@@ -443,15 +445,15 @@ export default function BillingManagementView({ billing, onAddPayment, onDeleteB
                   <div className="w-full max-w-[200px] space-y-3">
                     <div className="flex justify-between text-sm text-on-surface-variant">
                       <span>Subtotal</span>
-                      <span>{formatINR(selectedInvoice.amountPaid.toLocaleString())}</span>
+                      <span>â‚¹{selectedInvoice.amountPaid.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between text-sm text-on-surface-variant">
                       <span>Tax (0%)</span>
-                      <span>{formatINR('0.00')}</span>
+                      <span>â‚¹0.00</span>
                     </div>
                     <div className="pt-3 border-t border-outline-variant/20 flex justify-between font-bold text-on-surface">
                       <span className="text-lg">Total</span>
-                      <span className="text-lg">{formatINR(selectedInvoice.amountPaid.toLocaleString())}</span>
+                      <span className="text-lg">â‚¹{selectedInvoice.amountPaid.toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
@@ -513,7 +515,7 @@ export default function BillingManagementView({ billing, onAddPayment, onDeleteB
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Amount (₹)</label>
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Amount (â‚¹)</label>
                   <input 
                     type="number" 
                     required
@@ -577,7 +579,7 @@ export default function BillingManagementView({ billing, onAddPayment, onDeleteB
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Amount Paid (₹)</label>
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Amount Paid (â‚¹)</label>
                   <input 
                     type="number" 
                     required
@@ -587,7 +589,7 @@ export default function BillingManagementView({ billing, onAddPayment, onDeleteB
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Due Amount (₹)</label>
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Due Amount (â‚¹)</label>
                   <input 
                     type="number" 
                     required
