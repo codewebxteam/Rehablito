@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState } from 'react';
 import { 
   UserPlus, 
@@ -76,7 +76,7 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
     
     doc.text('Medical Condition Summary:', 20, 96);
     doc.setFontSize(10);
-    const splitCondition = doc.splitTextToSize(patient.condition, 160);
+    const splitCondition = doc.splitTextToSize(patient.diagnosis, 160);
     doc.text(splitCondition, 20, 103);
     
     // Footer
@@ -100,9 +100,11 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
         name: formData.name,
         age: parseInt(formData.age),
         gender: formData.gender,
-        condition: formData.condition,
+        diagnosis: formData.condition,
         phone: `+91${formData.phone}`,
-        onboardedAt: new Date().toISOString()
+        address: 'TBD', // Placeholder as not in form
+        admissionDate: new Date().toISOString(),
+        status: 'Active'
       };
       
       onOnboard(newPatient);
