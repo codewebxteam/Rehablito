@@ -2,11 +2,10 @@ export interface Patient {
   id: string;
   name: string;
   age: number;
-  diagnosis: string;
+  gender: string;
+  condition: string;
   phone: string;
-  address: string;
-  admissionDate: string;
-  status: 'Active' | 'Discharged' | 'On Hold';
+  onboardedAt: string;
 }
 
 export interface Lead {
@@ -21,7 +20,7 @@ export interface Lead {
 export interface Staff {
   id: string;
   name: string;
-  role: string;
+  role: 'Physio' | 'Admin' | 'Support';
   status: 'Active' | 'Inactive';
   email: string;
   attendance: AttendanceRecord[];

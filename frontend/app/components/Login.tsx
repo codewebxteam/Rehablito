@@ -1,26 +1,9 @@
 "use client";
 import { motion } from "motion/react";
-import {
-  ArrowRight,
-  Lock,
-  Mail,
-  Stethoscope,
-  Eye,
-  EyeOff,
-  ChevronDown,
-  ShieldCheck,
-  GitBranch,
-  UserRound,
-  Stethoscope as TherapistIcon,
-  Loader2,
-  UserPlus,
-} from "lucide-react";
+import { ArrowRight, Lock, Mail, Stethoscope, Eye, ChevronDown, ShieldCheck, GitBranch, UserRound, Stethoscope as TherapistIcon } from "lucide-react";
 import Link from "next/link";
-import { useState, useRef, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useState } from "react";
 import SplitLayout from "./SplitLayout";
-import { useAuth } from "../context/AuthContext";
-import { api } from "@/lib/api";
 
 const roles = [
   {
@@ -28,133 +11,38 @@ const roles = [
     label: "Super Admin",
     icon: ShieldCheck,
     description: "Full system access",
-    backendRole: "super_admin",
   },
   {
     value: "branch_manager",
     label: "Branch Manager",
     icon: GitBranch,
     description: "Manage branch operations",
-    backendRole: "branch_manager",
   },
   {
     value: "staff_therapist",
     label: "Staff / Therapist",
     icon: TherapistIcon,
     description: "Clinical & therapy workflows",
-    backendRole: "staff",
   },
   {
     value: "user",
     label: "User",
     icon: UserRound,
     description: "Patient / general access",
-    backendRole: "public_user",
   },
 ];
 
 type Role = (typeof roles)[number];
 
 export default function Login() {
-  const { login, isAuthenticated, user } = useAuth();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const justRegistered = searchParams?.get("registered") === "1";
-
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(
-    justRegistered ? "Account created! Please log in." : null
-  );
-
-  const emailRef    = useRef<HTMLInputElement>(null);
-  const passwordRef = useRef<HTMLInputElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const nameRef     = useRef<HTMLInputElement>(null);
-
-  // Super Admin first-time setup mode
-  const [adminSetup, setAdminSetup] = useState(false);
-
   const SelectedRoleIcon = selectedRole?.icon;
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    function handle(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
-  }, []);
-
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      if (user.role === "super_admin") router.push("/super-admin");
-      else if (user.role === "branch_manager") router.push("/manager");
-    }
-  }, [isAuthenticated, user, router]);
 
   const handleRoleSelect = (role: Role) => {
     setSelectedRole(role);
     setDropdownOpen(false);
-    setError(null);
-    if (role.value !== 'super_admin') setAdminSetup(false);
-  };
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError(null);
-    setSuccessMsg(null);
-
-    const email    = emailRef.current?.value?.trim() ?? "";
-    const password = passwordRef.current?.value ?? "";
-
-    if (!email || !password) {
-      setError("Please enter your email and password.");
-      return;
-    }
-
-    // Super Admin first-time setup
-    if (adminSetup) {
-      const name = nameRef.current?.value?.trim() ?? "";
-      if (!name) { setError("Please enter your full name."); return; }
-      if (password.length < 8) { setError("Password must be at least 8 characters."); return; }
-      setIsLoading(true);
-      try {
-        const data = await api.post<{ success: boolean; token: string; user: { id: string; name: string; email: string; role: string } }>(
-          '/auth/setup-admin',
-          { name, email, password }
-        );
-        // Auto-login after setup
-        await login({ email, password, role: 'super_admin' });
-        setSuccessMsg("Super Admin account created! Redirecting...");
-      } catch (err: unknown) {
-        if (err instanceof Error) setError(err.message);
-        else setError("Setup failed. An admin account may already exist — try logging in.");
-      } finally {
-        setIsLoading(false);
-      }
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const backendRole = selectedRole?.backendRole;
-      await login({ email, password, role: backendRole });
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("Login failed. Please try again.");
-      }
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const leftContent = (
@@ -204,31 +92,11 @@ export default function Login() {
         <p className="text-on-surface-variant mt-2 font-body">Please enter your clinical credentials to continue.</p>
       </div>
 
-      {/* Success / Error Messages */}
-      {successMsg && (
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6 px-4 py-3 rounded-xl bg-brand-sage/10 border border-brand-sage/20 text-brand-sage text-sm font-semibold"
-        >
-          {successMsg}
-        </motion.div>
-      )}
-      {error && (
-        <motion.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm font-semibold"
-        >
-          {error}
-        </motion.div>
-      )}
-
-      <form className="space-y-6" onSubmit={handleSubmit}>
+      <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
         {/* Role Dropdown */}
         <div className="space-y-2">
           <label className="block text-sm font-semibold text-on-background ml-1">Role</label>
-          <div className="relative" ref={dropdownRef}>
+          <div className="relative">
             <button
               type="button"
               onClick={() => setDropdownOpen((prev) => !prev)}
@@ -302,64 +170,18 @@ export default function Login() {
           </div>
         </div>
 
-        {/* Super Admin First-Time Setup Toggle */}
-        {selectedRole?.value === 'super_admin' && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            className="p-4 rounded-xl border border-amber-200 bg-amber-50"
-          >
-            <p className="text-xs text-amber-700 font-semibold mb-2">
-              🛡️ Super Admin access requires a pre-existing account.
-            </p>
-            <button
-              type="button"
-              onClick={() => { setAdminSetup(v => !v); setError(null); }}
-              className="flex items-center gap-2 text-xs font-bold text-amber-700 hover:text-amber-900 transition-colors"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              {adminSetup ? 'Back to Login →' : 'First time? Create Admin Account →'}
-            </button>
-          </motion.div>
-        )}
-
-        {/* Name Field — shown only in admin setup mode */}
-        {adminSetup && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            className="space-y-2"
-          >
-            <label className="block text-sm font-semibold text-on-background ml-1" htmlFor="admin-name">Full Name</label>
-            <div className="relative group">
-              <UserPlus className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-outline group-focus-within:text-brand-sage transition-colors" />
-              <input
-                ref={nameRef}
-                className="block w-full pl-12 pr-4 py-4 bg-surface-container-low border border-outline-variant/30 rounded-xl focus:ring-4 focus:ring-brand-sage/10 focus:border-brand-sage transition-all outline-none text-on-background placeholder:text-outline"
-                id="admin-name"
-                name="name"
-                placeholder="Super Admin Name"
-                type="text"
-                autoComplete="name"
-              />
-            </div>
-          </motion.div>
-        )}
-
         {/* Email Field */}
         <div className="space-y-2">
-          <label className="block text-sm font-semibold text-on-background ml-1" htmlFor="login-email">Email Address</label>
+          <label className="block text-sm font-semibold text-on-background ml-1" htmlFor="email">Email Address</label>
           <div className="relative group">
             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-outline group-focus-within:text-brand-sage transition-colors" />
             <input
-              ref={emailRef}
               className="block w-full pl-12 pr-4 py-4 bg-surface-container-low border border-outline-variant/30 rounded-xl focus:ring-4 focus:ring-brand-sage/10 focus:border-brand-sage transition-all outline-none text-on-background placeholder:text-outline"
-              id="login-email"
+              id="email"
               name="email"
               placeholder="dr.smith@rehablito.com"
               required
               type="email"
-              autoComplete="email"
             />
           </div>
         </div>
@@ -367,53 +189,60 @@ export default function Login() {
         {/* Password Field */}
         <div className="space-y-2">
           <div className="flex items-center justify-between px-1">
-            <label className="block text-sm font-semibold text-on-background" htmlFor="login-password">
-              {adminSetup ? 'Create Password' : 'Password'}
-            </label>
-            {!adminSetup && (
-              <a className="text-sm font-bold text-brand-sage hover:text-brand-sage/80 transition-colors" href="#">Forgot Password?</a>
-            )}
+            <label className="block text-sm font-semibold text-on-background" htmlFor="password">Password</label>
+            <a className="text-sm font-bold text-brand-sage hover:text-brand-sage/80 transition-colors" href="#">Forgot Password?</a>
           </div>
           <div className="relative group">
             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-outline group-focus-within:text-brand-sage transition-colors" />
             <input
-              ref={passwordRef}
               className="block w-full pl-12 pr-12 py-4 bg-surface-container-low border border-outline-variant/30 rounded-xl focus:ring-4 focus:ring-brand-sage/10 focus:border-brand-sage transition-all outline-none text-on-background placeholder:text-outline"
-              id="login-password"
+              id="password"
               name="password"
-              placeholder={adminSetup ? "Min. 8 characters" : "Password"}
+              placeholder="Password"
               required
               type={showPassword ? "text" : "password"}
-              autoComplete={adminSetup ? "new-password" : "current-password"}
             />
             <button
               className="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface-variant transition-colors"
               type="button"
               onClick={() => setShowPassword((v) => !v)}
-              aria-label={showPassword ? "Hide password" : "Show password"}
             >
-              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              <Eye className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Submit Button */}
+        {/* Login Button */}
         <button
-          className="w-full py-4 px-6 bg-brand-sage text-white font-headline font-bold rounded-xl shadow-lg shadow-brand-sage/25 hover:shadow-xl hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-full py-4 px-6 bg-brand-sage text-white font-headline font-bold rounded-xl shadow-lg shadow-brand-sage/25 hover:shadow-xl hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
           type="submit"
-          disabled={isLoading}
-          id="login-submit-btn"
         >
-          {isLoading ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              {adminSetup ? 'Creating Account...' : 'Signing in...'}
-            </>
-          ) : (
-            <>
-              {adminSetup ? <><UserPlus className="w-5 h-5" /> Create Admin Account</> : <>Login <ArrowRight className="w-5 h-5" /></>}
-            </>
-          )}
+          Login
+          <ArrowRight className="w-5 h-5" />
+        </button>
+
+        {/* Divider */}
+        <div className="relative py-4">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-outline-variant/30"></div>
+          </div>
+          <div className="relative flex justify-center text-xs uppercase tracking-widest font-bold">
+            <span className="bg-white px-4 text-outline">Or sign in with</span>
+          </div>
+        </div>
+
+        {/* Social Login */}
+        <button
+          className="w-full py-3.5 px-6 bg-white border border-outline-variant/30 rounded-xl font-semibold text-on-background hover:bg-surface-container transition-colors flex items-center justify-center gap-3"
+          type="button"
+        >
+          <svg className="w-5 h-5" viewBox="0 0 24 24">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 12-4.53z" fill="#EA4335" />
+          </svg>
+          Google
         </button>
       </form>
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { IndianRupee, TrendingUp, TrendingDown, Download, Filter, Search, RefreshCw } from 'lucide-react';
+import { IndianRupee, TrendingUp, TrendingDown, Download, Filter, Search } from 'lucide-react';
 import { 
   AreaChart, 
   Area, 
@@ -11,9 +11,8 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import { cn } from '@/lib/utils';
-import { useAdminFees, useAdminFeeSummary, AdminFee } from '../hooks/useAdminData';
 
-// Static chart data (real aggregate endpoint not available)
+// --- Mock Data ---
 const REVENUE_DATA = [
   { name: 'Jan', Income: 400000, Expense: 240000 },
   { name: 'Feb', Income: 300000, Expense: 139000 },
@@ -23,7 +22,6 @@ const REVENUE_DATA = [
   { name: 'Jun', Income: 639000, Expense: 380000 },
   { name: 'Jul', Income: 800000, Expense: 430000 },
 ];
-
 
 interface Transaction {
   id: string;
@@ -91,14 +89,10 @@ const FinanceChart = () => {
 
 export const FinanceView = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const { data: summary, isLoading: summaryLoading } = useAdminFeeSummary();
-  const { data: fees = [], isLoading: feesLoading, refetch } = useAdminFees();
 
-  const fmt = (n?: number) => n != null ? `₹${n.toLocaleString('en-IN')}` : '₹—';
-
-  const filteredFees = fees.filter((f: AdminFee) =>
-    f._id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    f.type?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredTransactions = TRANSACTIONS.filter(t => 
+    t.description.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    t.id.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -110,25 +104,25 @@ export const FinanceView = () => {
             <IndianRupee size={120} />
           </div>
           <p className="text-sm font-bold text-on-surface-variant opacity-70 mb-1">Total Revenue</p>
-          <h3 className="text-4xl font-black text-on-surface">{summaryLoading ? '…' : fmt(summary?.totalPaid)}</h3>
+          <h3 className="text-4xl font-black text-on-surface">₹48.5L</h3>
           <p className="text-xs text-green-600 font-bold mt-2 flex items-center gap-1">
-            <TrendingUp size={14} /> Live from database
+            <TrendingUp size={14} /> +12% from last month
           </p>
         </div>
         <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm relative overflow-hidden">
-          <p className="text-sm font-bold text-on-surface-variant opacity-70 mb-1">Outstanding Dues</p>
-          <h3 className="text-4xl font-black text-on-surface">{summaryLoading ? '…' : fmt(summary?.totalDue)}</h3>
+          <p className="text-sm font-bold text-on-surface-variant opacity-70 mb-1">Total Expenses</p>
+          <h3 className="text-4xl font-black text-on-surface">₹22.1L</h3>
           <p className="text-xs text-error font-bold mt-2 flex items-center gap-1">
-            <TrendingDown size={14} /> Pending collection
+            <TrendingDown size={14} /> -5% from last month
           </p>
         </div>
         <div className="bg-primary/5 p-6 rounded-2xl border border-primary/20 shadow-sm relative overflow-hidden">
-          <p className="text-sm font-bold text-primary opacity-80 mb-1">Total Revenue</p>
-          <h3 className="text-4xl font-black text-primary">{summaryLoading ? '…' : fmt(summary?.totalRevenue)}</h3>
+          <p className="text-sm font-bold text-primary opacity-80 mb-1">Net Profit</p>
+          <h3 className="text-4xl font-black text-primary">₹26.4L</h3>
           <div className="mt-2 w-full bg-primary/20 rounded-full h-1.5 overflow-hidden">
-            <div className="bg-primary h-full w-[75%] rounded-full"></div>
+            <div className="bg-primary h-full w-[54%] rounded-full"></div>
           </div>
-          <p className="text-[10px] text-primary/70 font-bold mt-2 uppercase tracking-wider">All fees collected</p>
+          <p className="text-[10px] text-primary/70 font-bold mt-2 uppercase tracking-wider">54% Profit Margin</p>
         </div>
       </div>
 
@@ -151,21 +145,21 @@ export const FinanceView = () => {
       {/* Transactions Table */}
       <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden">
         <div className="p-6 md:p-8 border-b border-surface-container-low flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <h3 className="text-xl font-bold font-headline text-on-surface">Fee Payments</h3>
+          <h3 className="text-xl font-bold font-headline text-on-surface">Recent Transactions</h3>
           
           <div className="flex w-full md:w-auto items-center gap-3">
             <div className="relative flex-1 md:flex-none">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/50" size={18} />
               <input 
                 type="text" 
-                placeholder="Search by ID or type..."
+                placeholder="Search description or ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full md:w-64 bg-surface-container-low/50 border border-outline-variant/20 rounded-xl py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all font-medium text-on-surface"
               />
             </div>
-            <button onClick={refetch} className="p-2 border border-outline-variant/20 rounded-xl text-on-surface-variant hover:bg-surface-container-low transition-colors">
-              <RefreshCw size={18} className={feesLoading ? 'animate-spin' : ''} />
+            <button className="p-2 border border-outline-variant/20 rounded-xl text-on-surface-variant hover:bg-surface-container-low transition-colors">
+              <Filter size={18} />
             </button>
             <button className="p-2 border border-outline-variant/20 rounded-xl text-on-surface-variant hover:bg-surface-container-low transition-colors">
               <Download size={18} />
@@ -177,59 +171,67 @@ export const FinanceView = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-surface-container-low/30">
-                <th className="px-8 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Fee ID</th>
-                <th className="px-8 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Type</th>
+                <th className="px-8 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Transaction</th>
+                <th className="px-8 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Category</th>
                 <th className="px-8 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Date</th>
                 <th className="px-8 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Amount</th>
+                <th className="px-8 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70 text-right">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-container-low/50">
-              {feesLoading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i}>
-                    {Array.from({ length: 4 }).map((__, j) => (
-                      <td key={j} className="px-8 py-4">
-                        <div className="h-3 bg-surface-container-low animate-pulse rounded-full w-3/4" />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : (
-                filteredFees.map((fee: AdminFee) => (
-                  <motion.tr 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    key={fee._id} 
-                    className="hover:bg-surface-container-low/20 transition-colors"
-                  >
-                    <td className="px-8 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold bg-green-50 text-green-600">
-                          <TrendingUp size={18} />
-                        </div>
-                        <span className="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold opacity-60 mt-0.5">{fee._id.slice(-8).toUpperCase()}</span>
+              {filteredTransactions.map((trx) => (
+                <motion.tr 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  key={trx.id} 
+                  className="hover:bg-surface-container-low/20 transition-colors"
+                >
+                  <td className="px-8 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "w-10 h-10 rounded-xl flex items-center justify-center font-bold",
+                        trx.type === 'Income' ? "bg-green-50 text-green-600" : "bg-error/10 text-error"
+                      )}>
+                        {trx.type === 'Income' ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
                       </div>
-                    </td>
-                    <td className="px-8 py-4">
-                      <span className="px-3 py-1 bg-surface-container-low rounded-lg text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
-                        {fee.type ?? 'Payment'}
-                      </span>
-                    </td>
-                    <td className="px-8 py-4 text-sm font-medium text-on-surface-variant">
-                      {new Date(fee.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </td>
-                    <td className="px-8 py-4">
-                      <span className="text-sm font-black text-green-600">+₹{fee.amount.toLocaleString('en-IN')}</span>
-                    </td>
-                  </motion.tr>
-                ))
-              )}
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-on-surface">{trx.description}</span>
+                        <span className="text-[10px] text-on-surface-variant uppercase tracking-wider font-bold opacity-60 mt-0.5">{trx.id}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-8 py-4">
+                    <span className="px-3 py-1 bg-surface-container-low rounded-lg text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
+                      {trx.category}
+                    </span>
+                  </td>
+                  <td className="px-8 py-4 text-sm font-medium text-on-surface-variant">{trx.date}</td>
+                  <td className="px-8 py-4">
+                    <span className={cn(
+                      "text-sm font-black",
+                      trx.type === 'Income' ? "text-green-600" : "text-error"
+                    )}>
+                      {trx.type === 'Income' ? '+' : '-'}₹{trx.amount.toLocaleString()}
+                    </span>
+                  </td>
+                  <td className="px-8 py-4 text-right">
+                    <span className={cn(
+                      "px-3 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-wider",
+                      trx.status === 'Completed' && "bg-green-50 text-green-700",
+                      trx.status === 'Pending' && "bg-amber-50 text-amber-700",
+                      trx.status === 'Failed' && "bg-error/10 text-error"
+                    )}>
+                      {trx.status}
+                    </span>
+                  </td>
+                </motion.tr>
+              ))}
             </tbody>
           </table>
           
-          {!feesLoading && filteredFees.length === 0 && (
+          {filteredTransactions.length === 0 && (
             <div className="p-10 text-center text-on-surface-variant opacity-60">
-              No fee records found.
+              No transactions found.
             </div>
           )}
         </div>
