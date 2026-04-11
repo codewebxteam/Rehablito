@@ -14,6 +14,7 @@ import {
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { SuperAdminTab, TAB_LABELS } from '../lib/navigation';
+import { useAuth } from '@/app/context/AuthContext';
 
 interface SidebarProps {
   active: SuperAdminTab;
@@ -21,6 +22,7 @@ interface SidebarProps {
 }
 
 export const Sidebar = ({ active, onChange }: SidebarProps) => {
+  const { logout } = useAuth();
   const [selectedBranch, setSelectedBranch] = useState('All Branches');
   const [isBranchMenuOpen, setIsBranchMenuOpen] = useState(false);
 
@@ -192,7 +194,10 @@ export const Sidebar = ({ active, onChange }: SidebarProps) => {
             <p className="text-sm font-bold text-on-surface truncate">Super Admin</p>
             <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Global Access</p>
           </div>
-          <button className="text-on-surface-variant hover:text-error transition-all hover:scale-110 p-1">
+          <button 
+            onClick={logout}
+            className="text-on-surface-variant hover:text-error transition-all hover:scale-110 p-1"
+          >
             <LogOut size={18} />
           </button>
         </div>

@@ -19,10 +19,12 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  LogOut
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
+import { useAuth } from '../context/AuthContext';
 import {
   Patient,
   Lead,
@@ -71,6 +73,7 @@ const INITIAL_BILLING: BillingRecord[] = [
 ];
 
 export default function ManagerDashboardApp() {
+  const { logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const [patients, setPatients] = useState<Patient[]>([]);
@@ -281,13 +284,22 @@ export default function ManagerDashboardApp() {
             {!isSidebarCollapsed && <span>Settings</span>}
           </button>
 
-          {/* Collapse Toggle for Desktop - Only show on Tablet/Laptop range */}
           <button
             onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             className="hidden lg:flex 2xl:hidden w-full items-center gap-3 px-4 py-2 text-on-surface-variant font-semibold text-sm hover:text-primary transition-colors"
           >
             {isSidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
             {!isSidebarCollapsed && <span>Collapse Sidebar</span>}
+          </button>
+
+          <button 
+            onClick={logout}
+            className={cn(
+            "w-full flex items-center gap-3 px-4 py-2 text-on-surface-variant font-semibold text-sm hover:text-error transition-colors",
+            isSidebarCollapsed && "lg:justify-center lg:px-0"
+          )}>
+            <LogOut size={18} />
+            {!isSidebarCollapsed && <span>Logout</span>}
           </button>
         </div>
       </aside>

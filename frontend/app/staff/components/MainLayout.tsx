@@ -56,21 +56,21 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
     console.log("Sidebar Clock In button clicked");
     if (!activeRecord && isInsideOffice) {
       checkIn('General Ward');
-      router.push('/staff-web/attendance');
+      router.push('/staff/attendance');
     } else if (activeRecord) {
-      router.push('/staff-web/attendance');
+      router.push('/staff/attendance');
     }
   };
 
   const menuItems = [
-    { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', path: '/staff-web/dashboard' },
-    { id: 'attendance', icon: CalendarDays, label: 'Attendance', path: '/staff-web/attendance' },
-    { id: 'history', icon: Clock, label: 'History', path: '/staff-web/history' },
-    { id: 'schedules', icon: Calendar, label: 'Schedules', path: '/staff-web/schedules' },
-    { id: 'staff', icon: Users, label: 'Staff Directory', path: '/staff-web/staff' },
-    { id: 'reports', icon: FileBarChart, label: 'Reports', path: '/staff-web/reports' },
-    { id: 'requests', icon: ClipboardList, label: 'Requests', path: '/staff-web/requests' },
-    { id: 'settings', icon: Settings, label: 'Settings', path: '/staff-web/settings' },
+    { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', path: '/staff/dashboard' },
+    { id: 'attendance', icon: CalendarDays, label: 'Attendance', path: '/staff/attendance' },
+    { id: 'history', icon: Clock, label: 'History', path: '/staff/history' },
+    { id: 'schedules', icon: Calendar, label: 'Schedules', path: '/staff/schedules' },
+    { id: 'staff', icon: Users, label: 'Staff Directory', path: '/staff/staff' },
+    { id: 'reports', icon: FileBarChart, label: 'Reports', path: '/staff/reports' },
+    { id: 'requests', icon: ClipboardList, label: 'Requests', path: '/staff/requests' },
+    { id: 'settings', icon: Settings, label: 'Settings', path: '/staff/settings' },
   ];
 
   return (
@@ -155,10 +155,10 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
 
           <div className="flex flex-col gap-1">
             <Link 
-              href="/staff-web/help"
+              href="/staff/help"
               className={cn(
                 "flex items-center gap-3 px-4 py-3 text-on-surface-variant font-medium hover:bg-surface-container-high rounded-xl transition-all",
-                pathname === "/staff-web/help" && "text-primary bg-primary/5"
+                pathname === "/staff/help" && "text-primary bg-primary/5"
               )}
             >
               <HelpCircle className="w-5 h-5" />
@@ -227,7 +227,7 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
                     onClick={() => {
                       console.log("Confirmed logout");
                       logout();
-                      router.push('/staff-web');
+                      router.push('/staff');
                     }}
                     className="px-6 py-3 bg-error text-white font-bold rounded-xl shadow-lg shadow-error/20 hover:bg-error/90 transition-all active:scale-[0.98]"
                   >

@@ -54,7 +54,7 @@ export default function DashboardPage() {
               <h3 className="text-xl md:text-2xl font-headline font-bold">Ready for your next shift?</h3>
               <p className="text-white/80 text-sm max-w-md mt-1 mb-6">Check your schedule and prepare for today&apos;s clinical rounds.</p>
             </div>
-            <Link href="/staff-web/attendance" className="inline-flex bg-white text-primary px-6 py-4 md:py-3 rounded-xl text-sm font-bold shadow-xl hover:bg-surface-container-low transition-colors items-center justify-center gap-2 w-full md:w-auto min-h-[44px]">
+            <Link href="/staff/attendance" className="inline-flex bg-white text-primary px-6 py-4 md:py-3 rounded-xl text-sm font-bold shadow-xl hover:bg-surface-container-low transition-colors items-center justify-center gap-2 w-full md:w-auto min-h-[44px]">
               Go to Attendance
               <ArrowRight className="w-4 h-4" />
             </Link>

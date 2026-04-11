@@ -2,6 +2,8 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, MOCK_STAFF } from '../types';
+import Cookies from 'js-cookie';
+import api from '@/lib/api';
 
 interface AuthContextType {
   user: User | null;
@@ -16,24 +18,43 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [tempUser, setTempUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Use effect for hydration
+  // Sync with global session
   useEffect(() => {
-    const saved = localStorage.getItem('auth_user');
-    if (saved) {
-      setUser(JSON.parse(saved));
-    }
-  }, []);
+    const syncSession = async () => {
+      const token = Cookies.get('rehablito_token');
+      const savedUser = localStorage.getItem('auth_user');
 
-  useEffect(() => {
-    if (user !== null) {
-      if (user) {
-        localStorage.setItem('auth_user', JSON.stringify(user));
-      } else {
-        localStorage.removeItem('auth_user');
+      if (token) {
+        try {
+          const res = await api.get('/auth/me');
+          const backendUser = res.data;
+          
+          const staffUser: User = {
+            id: backendUser._id,
+            staffId: backendUser.staffId || "HC-000-0000",
+            name: backendUser.name || "Staff Member",
+            role: backendUser.role === 'staff' ? 'Therapist' : backendUser.role,
+            mobile: backendUser.mobileNumber || "",
+            photoUrl: backendUser.photoUrl || "https://picsum.photos/seed/staff/100/100"
+          };
+          
+          setUser(staffUser);
+          localStorage.setItem('auth_user', JSON.stringify(staffUser));
+        } catch (error) {
+          console.error("Failed to sync session:", error);
+          localStorage.removeItem('auth_user');
+        }
+      } else if (savedUser) {
+        // Fallback for offline/mock testing if desired
+        setUser(JSON.parse(savedUser));
       }
-    }
-  }, [user]);
+      setIsLoading(false);
+    };
+
+    syncSession();
+  }, []);
 
   const login = async (staffId: string) => {
     // Mock API call
@@ -56,6 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setUser(null);
     localStorage.removeItem('auth_user');
+    Cookies.remove('rehablito_token');
   };
 
   return (

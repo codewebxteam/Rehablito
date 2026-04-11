@@ -1,0 +1,10 @@
+/node_modules
+.env*
+
+# Local dumps and generated outputs
+*.txt
+
+# Optional local test scripts/artifacts
+test-api.js
+test-admin.js
+test-otp.js
