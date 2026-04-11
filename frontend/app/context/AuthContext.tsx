@@ -126,7 +126,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = () => {
     Cookies.remove('rehablito_token');
     setUser(null);
-    router.push('/login');
+    router.push('/');
     toast.message('You have been logged out.');
   };
 

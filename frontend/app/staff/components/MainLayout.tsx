@@ -227,7 +227,7 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
                     onClick={() => {
                       console.log("Confirmed logout");
                       logout();
-                      router.push('/staff');
+                      router.push('/');
                     }}
                     className="px-6 py-3 bg-error text-white font-bold rounded-xl shadow-lg shadow-error/20 hover:bg-error/90 transition-all active:scale-[0.98]"
                   >
