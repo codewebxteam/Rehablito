@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Search, Plus, Filter, MoreVertical, FileText, X, Edit, CheckCircle2, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import api from '@/lib/api';
+import { toast } from 'sonner';
 
 // --- Types ---
 interface Patient {
-  id: string;
+  _id?: string;
+  id?: string;
   name: string;
   age: number;
   condition: string;
@@ -16,18 +19,32 @@ interface Patient {
 
 type PatientStatusFilter = 'All' | Patient['status'];
 
-// --- Mock Data ---
-const PATIENTS: Patient[] = [
+interface ApiPatient {
+  _id: string;
+  name: string;
+  age: number;
+  condition: string;
+  branchId?: { _id: string; name: string };
+  status: 'active' | 'discharged' | 'on_hold';
+  admissionDate: string;
+}
+
+// Default fallback data
+const DEFAULT_PATIENTS: Patient[] = [
   { id: 'PT-001', name: 'Aarav Gupta', age: 34, condition: 'Post-Op Rehab', branch: 'Mumbai', status: 'Active', lastVisit: '10 May 2026' },
   { id: 'PT-002', name: 'Riya Sharma', age: 10, condition: 'Autism Spectrum', branch: 'Delhi', status: 'Active', lastVisit: '09 May 2026' },
-  { id: 'PT-003', name: 'Karan Desai', age: 65, condition: 'Knee Replacement', branch: 'Patna', status: 'Discharged', lastVisit: '25 Apr 2026' },
-  { id: 'PT-004', name: 'Ananya Verma', age: 28, condition: 'Sports Injury', branch: 'Mumbai', status: 'Active', lastVisit: '11 May 2026' },
-  { id: 'PT-005', name: 'Vihaan Singh', age: 8, condition: 'ADHD / Autism', branch: 'Delhi', status: 'Active', lastVisit: '08 May 2026' },
-  { id: 'PT-006', name: 'Megha Rao', age: 45, condition: 'Stroke Paralysis', branch: 'Patna', status: 'Critical', lastVisit: '11 May 2026' },
 ];
 
+interface Branch {
+  _id: string;
+  name: string;
+}
+
 export const PatientsView = () => {
-  const [patients, setPatients] = useState<Patient[]>(PATIENTS);
+  const [patients, setPatients] = useState<Patient[]>(DEFAULT_PATIENTS);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<PatientStatusFilter>('All');
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
@@ -55,49 +72,132 @@ export const PatientsView = () => {
     });
   };
 
-  const handleAddPatient = () => {
+  useEffect(() => {
+    const fetchPatients = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const [patientRes, branchRes] = await Promise.all([
+          api.get('/admin/patients'),
+          api.get('/admin/branches')
+        ]);
+        
+        if (patientRes.data.success) {
+          const transformed = patientRes.data.data.map((p: ApiPatient) => ({
+            _id: p._id,
+            id: p._id,
+            name: p.name,
+            age: p.age,
+            condition: p.condition,
+            branch: typeof p.branchId === 'string' ? p.branchId : (p.branchId?.name || 'Unknown'),
+            status: p.status === 'active' ? 'Active' : p.status === 'discharged' ? 'Discharged' : 'Critical',
+            lastVisit: p.admissionDate ? new Date(p.admissionDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'
+          }));
+          setPatients(transformed);
+        }
+        
+        if (branchRes.data.success && branchRes.data.data) {
+          setBranches(branchRes.data.data);
+        }
+      } catch (err: unknown) {
+        console.error('Failed to fetch patients:', err);
+        const message = 'Failed to load patients';
+        setError(message);
+        toast.error(message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchPatients();
+  }, []);
+
+  const handleAddPatient = async () => {
     if (!newPatient.name.trim() || !newPatient.condition.trim() || !newPatient.branch.trim() || newPatient.age <= 0) {
       return;
     }
 
-    const highestId = patients.reduce((max, patient) => {
-      const numericPart = Number(patient.id.replace('PT-', ''));
-      return Number.isNaN(numericPart) ? max : Math.max(max, numericPart);
-    }, 0);
-
-    const id = `PT-${String(highestId + 1).padStart(3, '0')}`;
-    setPatients(prev => [{ id, ...newPatient }, ...prev]);
-    setIsAddModalOpen(false);
-    resetPatientForm();
+    try {
+      const payload = {
+        name: newPatient.name,
+        age: newPatient.age,
+        condition: newPatient.condition,
+        branchId: newPatient.branch,
+        status: newPatient.status === 'Active' ? 'active' : newPatient.status === 'Discharged' ? 'discharged' : 'on_hold'
+      };
+      const { data } = await api.post('/admin/patients', payload);
+      if (data.success) {
+        toast.success('Patient added successfully');
+        setPatients(prev => [{
+          ...newPatient,
+          _id: data.data._id,
+          id: data.data._id
+        }, ...prev]);
+        setIsAddModalOpen(false);
+        resetPatientForm();
+      }
+    } catch (err: unknown) {
+      toast.error('Failed to add patient');
+    }
   };
 
-  const handleDeletePatient = () => {
-    if (!deletingPatient) return;
-    setPatients(prev => prev.filter(patient => patient.id !== deletingPatient.id));
-    setDeletingPatient(null);
+  const handleDeletePatient = async () => {
+    if (!deletingPatient || !deletingPatient._id) return;
+    try {
+      const { data } = await api.delete(`/admin/patients/${deletingPatient._id}`);
+      if (data.success) {
+        toast.success('Patient deleted successfully');
+        setPatients(prev => prev.filter(patient => patient._id !== deletingPatient._id));
+        setDeletingPatient(null);
+      }
+    } catch (err: unknown) {
+      toast.error('Failed to delete patient');
+    }
   };
 
-  const handleMarkDischarged = (id: string) => {
-    setPatients(prev => prev.map(patient => (
-      patient.id === id ? { ...patient, status: 'Discharged' } : patient
-    )));
-    setActiveMenu(null);
+  const handleMarkDischarged = async (id: string) => {
+    try {
+      const { data } = await api.put(`/admin/patients/${id}`, { status: 'discharged' });
+      if (data.success) {
+        toast.success('Patient marked as discharged');
+        setPatients(prev => prev.map(patient => (
+          patient._id === id ? { ...patient, status: 'Discharged' } : patient
+        )));
+        setActiveMenu(null);
+      }
+    } catch (err: unknown) {
+      toast.error('Failed to update patient status');
+    }
   };
 
-  const handleSaveEditedPatient = () => {
-    if (!editingPatient) return;
+  const handleSaveEditedPatient = async () => {
+    if (!editingPatient || !editingPatient._id) return;
     if (!editingPatient.name.trim() || !editingPatient.condition.trim() || !editingPatient.branch.trim() || editingPatient.age <= 0) {
       return;
     }
-    setPatients(prev => prev.map(patient => (patient.id === editingPatient.id ? editingPatient : patient)));
-    setEditingPatient(null);
-    setActiveMenu(null);
+    try {
+      const payload = {
+        name: editingPatient.name,
+        age: editingPatient.age,
+        condition: editingPatient.condition,
+        branchId: editingPatient.branch,
+        status: editingPatient.status === 'Active' ? 'active' : editingPatient.status === 'Discharged' ? 'discharged' : 'on_hold'
+      };
+      const { data } = await api.put(`/admin/patients/${editingPatient._id}`, payload);
+      if (data.success) {
+        toast.success('Patient updated successfully');
+        setPatients(prev => prev.map(patient => (patient._id === editingPatient._id ? editingPatient : patient)));
+        setEditingPatient(null);
+        setActiveMenu(null);
+      }
+    } catch (err: unknown) {
+      toast.error('Failed to update patient');
+    }
   };
 
   const filteredPatients = patients.filter(p => {
     const matchesSearch =
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.id.toLowerCase().includes(searchTerm.toLowerCase());
+      (p.id?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
     const matchesStatus = statusFilter === 'All' || p.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -177,21 +277,29 @@ export const PatientsView = () => {
 
       {/* Table */}
       <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-surface-container-low/30">
-                <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Patient</th>
-                <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Age</th>
-                <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Condition</th>
-                <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Branch</th>
-                <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Last Visit</th>
-                <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Status</th>
-                <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-surface-container-low/50">
-              {filteredPatients.map((patient) => (
+        {isLoading ? (
+          <div className="h-96 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin mx-auto mb-4"></div>
+              <p className="text-on-surface-variant">Loading patients...</p>
+            </div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-surface-container-low/30">
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Patient</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Age</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Condition</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Branch</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Last Visit</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Status</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-container-low/50">
+                {filteredPatients.map((patient) => (
                 <motion.tr 
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -201,7 +309,7 @@ export const PatientsView = () => {
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
                       <span className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">{patient.name}</span>
-                      <span className="text-[10px] text-on-surface-variant uppercase tracking-wider mt-0.5 opacity-60 font-bold">{patient.id}</span>
+                      <span className="text-[10px] text-on-surface-variant uppercase tracking-wider mt-0.5 opacity-60 font-bold">{patient._id?.slice(-8)}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{patient.age} yrs</td>
@@ -221,7 +329,7 @@ export const PatientsView = () => {
                   <td className="px-6 py-4 text-right">
                     <div className="relative inline-block text-left">
                       <button
-                        onClick={() => setActiveMenu(activeMenu === patient.id ? null : patient.id)}
+                        onClick={() => patient.id && setActiveMenu(activeMenu === patient.id ? null : patient.id)}
                         className="p-2 hover:bg-surface-container-low rounded-lg text-on-surface-variant transition-colors"
                       >
                         <MoreVertical size={16} />
@@ -238,9 +346,9 @@ export const PatientsView = () => {
                             <Edit size={14} />
                             Edit
                           </button>
-                          {patient.status !== 'Discharged' && (
+                          {patient.status !== 'Discharged' && patient._id && (
                             <button
-                              onClick={() => handleMarkDischarged(patient.id)}
+                              onClick={() => handleMarkDischarged(patient._id!)}
                               className="w-full px-3 py-2 text-left text-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low flex items-center gap-2"
                             >
                               <CheckCircle2 size={14} />
@@ -263,15 +371,17 @@ export const PatientsView = () => {
                   </td>
                 </motion.tr>
               ))}
+              {filteredPatients.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="p-10 text-center text-on-surface-variant opacity-60">
+                    No patients found.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
-          
-          {filteredPatients.length === 0 && (
-            <div className="p-10 text-center text-on-surface-variant opacity-60">
-              No patients found.
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       <AnimatePresence>
@@ -337,13 +447,16 @@ export const PatientsView = () => {
                   className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
                   placeholder="Condition"
                 />
-                <input
-                  type="text"
+                <select
                   value={newPatient.branch}
                   onChange={(e) => setNewPatient(prev => ({ ...prev, branch: e.target.value }))}
                   className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Branch"
-                />
+                >
+                  <option value="">Select Branch</option>
+                  {branches.map(branch => (
+                    <option key={branch._id} value={branch._id}>{branch.name}</option>
+                  ))}
+                </select>
                 <select
                   value={newPatient.status}
                   onChange={(e) => setNewPatient(prev => ({ ...prev, status: e.target.value as Patient['status'] }))}
@@ -493,13 +606,16 @@ export const PatientsView = () => {
                   className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
                   placeholder="Condition"
                 />
-                <input
-                  type="text"
+                <select
                   value={editingPatient.branch}
                   onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, branch: e.target.value }) : prev)}
                   className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Branch"
-                />
+                >
+                  <option value="">Select Branch</option>
+                  {branches.map(branch => (
+                    <option key={branch._id} value={branch._id}>{branch.name}</option>
+                  ))}
+                </select>
                 <select
                   value={editingPatient.status}
                   onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, status: e.target.value as Patient['status'] }) : prev)}

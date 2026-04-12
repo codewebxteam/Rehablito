@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, Plus, PhoneCall, Mail, UserPlus, Filter, ChevronDown, CheckCircle2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import api from '@/lib/api';
+import { toast } from 'sonner';
 
 interface Lead {
-  id: string;
+  _id?: string;
+  id?: string;
   name: string;
   phone: string;
   source: string;
@@ -15,61 +18,143 @@ interface Lead {
 
 type LeadStatusFilter = 'All' | Lead['status'];
 
-const INITIAL_LEADS: Lead[] = [
+interface ApiLead {
+  _id: string;
+  name: string;
+  phone: string;
+  source: string;
+  service?: string;
+  status: 'new' | 'contacted' | 'converted' | 'closed';
+  createdAt: string;
+}
+
+interface Branch {
+  _id: string;
+  name: string;
+}
+
+const DEFAULT_LEADS: Lead[] = [
   { id: 'LD-001', name: 'Aman Sharma', phone: '+91 98765 43210', source: 'Website', service: 'Physiotherapy', status: 'New', date: 'Today, 10:30 AM' },
   { id: 'LD-002', name: 'Vikram Patnaik', phone: '+91 87654 32109', source: 'Google Ads', service: 'Autism Center', status: 'Contacted', date: 'Yesterday, 04:15 PM' },
-  { id: 'LD-003', name: 'Kavita Rao', phone: '+91 76543 21098', source: 'Referral', service: 'Physiotherapy', status: 'Converted', date: '10 May, 11:00 AM' },
-  { id: 'LD-004', name: 'Meher Khan', phone: '+91 65432 10987', source: 'Facebook', service: 'Autism Center', status: 'New', date: '10 May, 09:20 AM' },
-  { id: 'LD-005', name: 'Rahul Desai', phone: '+91 54321 09876', source: 'Direct', service: 'Chiropractic', status: 'Lost', date: '08 May, 02:45 PM' },
 ];
 
 export const LeadsView = () => {
-  const [leads, setLeads] = useState<Lead[]>(INITIAL_LEADS);
+  const [leads, setLeads] = useState<Lead[]>(DEFAULT_LEADS);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<LeadStatusFilter>('All');
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
-  const [newLead, setNewLead] = useState<Omit<Lead, 'id' | 'date'>>({
-    name: '',
-    phone: '',
-    source: '',
-    service: '',
-    status: 'New'
+  const [newLead, setNewLead] = useState({
+    childName: '',
+    parentName: '',
+    parentPhone: '',
+    parentEmail: '',
+    age: '',
+    diagnosis: '',
+    referredBy: '',
+    branchId: '',
+    status: 'new'
   });
 
   const resetLeadForm = () => {
     setNewLead({
-      name: '',
-      phone: '',
-      source: '',
-      service: '',
-      status: 'New'
+      childName: '',
+      parentName: '',
+      parentPhone: '',
+      parentEmail: '',
+      age: '',
+      diagnosis: '',
+      referredBy: '',
+      branchId: '',
+      status: 'new'
     });
   };
 
-  const handleAddLead = () => {
-    if (!newLead.name.trim() || !newLead.phone.trim() || !newLead.source.trim() || !newLead.service.trim()) {
+  useEffect(() => {
+    const fetchLeads = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const [leadsRes, branchRes] = await Promise.all([
+          api.get('/admin/leads'),
+          api.get('/admin/branches')
+        ]);
+        
+        if (leadsRes.data.success) {
+          const transformed = leadsRes.data.data.map((l: ApiLead) => ({
+            _id: l._id,
+            id: l._id,
+            name: l.name,
+            phone: l.phone,
+            source: l.source,
+            service: l.service || 'Service',
+            status: l.status === 'new' ? 'New' : l.status === 'contacted' ? 'Contacted' : l.status === 'converted' ? 'Converted' : 'Lost',
+            date: new Date(l.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })
+          }));
+          setLeads(transformed);
+        }
+        
+        if (branchRes.data.success && branchRes.data.data) {
+          setBranches(branchRes.data.data);
+        }
+      } catch (err: unknown) {
+        console.error('Failed to fetch leads:', err);
+        setError('Failed to load leads');
+        toast.error('Failed to load leads');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchLeads();
+  }, []);
+
+  const handleAddLead = async () => {
+    if (!newLead.childName.trim() || !newLead.parentName.trim() || !newLead.parentPhone.trim() || !newLead.branchId) {
+      toast.error('Please fill in all required fields');
       return;
     }
 
-    const highestId = leads.reduce((max, lead) => {
-      const numericPart = Number(lead.id.replace('LD-', ''));
-      return Number.isNaN(numericPart) ? max : Math.max(max, numericPart);
-    }, 0);
-
-    const id = `LD-${String(highestId + 1).padStart(3, '0')}`;
-    const date = new Date().toLocaleString('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
-
-    setLeads(prev => [{ id, date, ...newLead }, ...prev]);
-    setIsAddModalOpen(false);
-    resetLeadForm();
+    try {
+      const payload = {
+        childName: newLead.childName,
+        parentName: newLead.parentName,
+        parentPhone: newLead.parentPhone,
+        parentEmail: newLead.parentEmail || undefined,
+        age: newLead.age ? Number(newLead.age) : undefined,
+        diagnosis: newLead.diagnosis || undefined,
+        referredBy: newLead.referredBy || undefined,
+        branchId: newLead.branchId,
+        status: newLead.status
+      };
+      const { data } = await api.post('/admin/leads', payload);
+      if (data.success) {
+        toast.success('Lead added successfully');
+        // Refresh leads after adding
+        const leadsRes = await api.get('/admin/leads');
+        if (leadsRes.data.success) {
+          const transformed = leadsRes.data.data.map((l: ApiLead) => ({
+            _id: l._id,
+            id: l._id,
+            name: l.name,
+            phone: l.phone,
+            source: l.source,
+            service: l.service || 'Service',
+            status: l.status === 'new' ? 'New' : l.status === 'contacted' ? 'Contacted' : l.status === 'converted' ? 'Converted' : 'Lost',
+            date: new Date(l.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })
+          }));
+          setLeads(transformed);
+        }
+        setIsAddModalOpen(false);
+        resetLeadForm();
+      }
+    } catch (err: unknown) {
+      console.error('Failed to add lead:', err);
+      toast.error('Failed to add lead');
+    }
   };
 
   const filteredLeads = leads.filter((l) => {
@@ -87,9 +172,18 @@ export const LeadsView = () => {
     converted: leads.filter(l => l.status === 'Converted').length,
   };
 
-  const updateStatus = (id: string, newStatus: Lead['status']) => {
-    setLeads(prev => prev.map(lead => lead.id === id ? { ...lead, status: newStatus } : lead));
-    setOpenDropdownId(null);
+  const updateStatus = async (id: string, newStatus: Lead['status']) => {
+    try {
+      const statusMap = { 'New': 'new', 'Contacted': 'contacted', 'Converted': 'converted', 'Lost': 'closed' } as const;
+      const { data } = await api.put(`/admin/leads/${id}`, { status: statusMap[newStatus] });
+      if (data.success) {
+        toast.success('Lead status updated');
+        setLeads(prev => prev.map(lead => lead._id === id ? { ...lead, status: newStatus } : lead));
+        setOpenDropdownId(null);
+      }
+    } catch (err: unknown) {
+      toast.error('Failed to update lead status');
+    }
   };
 
   return (
@@ -180,20 +274,28 @@ export const LeadsView = () => {
       </div>
 
       {/* Table */}
-      <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/10 min-h-[400px]">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-surface-container-low/30 border-b border-outline-variant/10">
-                <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Lead Info</th>
-                <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Source</th>
-                <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Service Required</th>
-                <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Date</th>
-                <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-surface-container-low/50">
-              {filteredLeads.map((lead) => (
+      <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/10 min-h-96">
+        {isLoading ? (
+          <div className="h-96 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin mx-auto mb-4"></div>
+              <p className="text-on-surface-variant">Loading leads...</p>
+            </div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-surface-container-low/30 border-b border-outline-variant/10">
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Lead Info</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Source</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Service Required</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Date</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-container-low/50">
+                {filteredLeads.map((lead) => (
                 <tr key={lead.id} className="hover:bg-surface-container-low/20 transition-colors group">
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
@@ -212,7 +314,7 @@ export const LeadsView = () => {
                     {/* Status Dropdown */}
                     <div className="relative inline-block">
                       <button 
-                        onClick={() => setOpenDropdownId(openDropdownId === lead.id ? null : lead.id)}
+                        onClick={() => lead._id && setOpenDropdownId(openDropdownId === lead._id ? null : lead._id)}
                         className={cn(
                           "flex items-center gap-2 px-3 py-1.5 text-xs font-black rounded-lg uppercase tracking-wider transition-all border",
                           lead.status === 'New' && "bg-blue-50 text-blue-700 border-blue-200/50 hover:bg-blue-100",
@@ -226,7 +328,7 @@ export const LeadsView = () => {
                       </button>
 
                       <AnimatePresence>
-                        {openDropdownId === lead.id && (
+                        {openDropdownId === lead._id && (
                           <motion.div 
                             initial={{ opacity: 0, y: 10, scale: 0.95 }}
                             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -236,7 +338,7 @@ export const LeadsView = () => {
                             {(['New', 'Contacted', 'Converted', 'Lost'] as const).map(status => (
                               <button
                                 key={status}
-                                onClick={() => updateStatus(lead.id, status)}
+                                onClick={() => updateStatus(lead._id!, status)}
                                 className={cn(
                                   "w-full text-left px-4 py-2 text-xs font-bold transition-colors hover:bg-surface-container-low",
                                   status === 'New' && "text-blue-600",
@@ -255,15 +357,17 @@ export const LeadsView = () => {
                   </td>
                 </tr>
               ))}
+              {filteredLeads.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="p-10 text-center text-on-surface-variant opacity-60">
+                    No leads found.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
-          
-          {filteredLeads.length === 0 && (
-            <div className="p-10 text-center text-on-surface-variant opacity-60">
-              No leads found.
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       <AnimatePresence>
@@ -306,44 +410,77 @@ export const LeadsView = () => {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <input
-                  type="text"
-                  value={newLead.name}
-                  onChange={(e) => setNewLead(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Lead name"
-                />
-                <input
-                  type="text"
-                  value={newLead.phone}
-                  onChange={(e) => setNewLead(prev => ({ ...prev, phone: e.target.value }))}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Phone number"
-                />
-                <input
-                  type="text"
-                  value={newLead.source}
-                  onChange={(e) => setNewLead(prev => ({ ...prev, source: e.target.value }))}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Source"
-                />
-                <input
-                  type="text"
-                  value={newLead.service}
-                  onChange={(e) => setNewLead(prev => ({ ...prev, service: e.target.value }))}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Service required"
-                />
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <input
+                    type="text"
+                    value={newLead.childName}
+                    onChange={(e) => setNewLead(prev => ({ ...prev, childName: e.target.value }))}
+                    className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                    placeholder="Child name *"
+                  />
+                  <input
+                    type="text"
+                    value={newLead.parentName}
+                    onChange={(e) => setNewLead(prev => ({ ...prev, parentName: e.target.value }))}
+                    className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                    placeholder="Parent name *"
+                  />
+                  <input
+                    type="tel"
+                    value={newLead.parentPhone}
+                    onChange={(e) => setNewLead(prev => ({ ...prev, parentPhone: e.target.value }))}
+                    className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                    placeholder="Parent phone *"
+                  />
+                  <input
+                    type="email"
+                    value={newLead.parentEmail}
+                    onChange={(e) => setNewLead(prev => ({ ...prev, parentEmail: e.target.value }))}
+                    className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                    placeholder="Parent email"
+                  />
+                  <input
+                    type="number"
+                    value={newLead.age}
+                    onChange={(e) => setNewLead(prev => ({ ...prev, age: e.target.value }))}
+                    className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                    placeholder="Age"
+                  />
+                  <input
+                    type="text"
+                    value={newLead.diagnosis}
+                    onChange={(e) => setNewLead(prev => ({ ...prev, diagnosis: e.target.value }))}
+                    className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                    placeholder="Diagnosis"
+                  />
+                  <input
+                    type="text"
+                    value={newLead.referredBy}
+                    onChange={(e) => setNewLead(prev => ({ ...prev, referredBy: e.target.value }))}
+                    className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                    placeholder="Referred by"
+                  />
+                  <select
+                    value={newLead.branchId}
+                    onChange={(e) => setNewLead(prev => ({ ...prev, branchId: e.target.value }))}
+                    className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                  >
+                    <option value="">Select Branch *</option>
+                    {branches.map(branch => (
+                      <option key={branch._id} value={branch._id}>{branch.name}</option>
+                    ))}
+                  </select>
+                </div>
                 <select
                   value={newLead.status}
-                  onChange={(e) => setNewLead(prev => ({ ...prev, status: e.target.value as Lead['status'] }))}
-                  className="sm:col-span-2 w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                  onChange={(e) => setNewLead(prev => ({ ...prev, status: e.target.value }))}
+                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
                 >
-                  <option value="New">New</option>
-                  <option value="Contacted">Contacted</option>
-                  <option value="Converted">Converted</option>
-                  <option value="Lost">Lost</option>
+                  <option value="new">New</option>
+                  <option value="contacted">Contacted</option>
+                  <option value="converted">Converted</option>
+                  <option value="closed">Closed</option>
                 </select>
               </div>
 
@@ -359,7 +496,7 @@ export const LeadsView = () => {
                 </button>
                 <button
                   onClick={handleAddLead}
-                  disabled={!newLead.name.trim() || !newLead.phone.trim() || !newLead.source.trim() || !newLead.service.trim()}
+                  disabled={!newLead.childName.trim() || !newLead.parentName.trim() || !newLead.parentPhone.trim() || !newLead.branchId}
                   className="px-4 py-2 rounded-xl text-sm font-bold bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   Add Lead

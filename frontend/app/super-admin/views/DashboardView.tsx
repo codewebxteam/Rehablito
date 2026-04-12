@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import { 
   Users, 
@@ -20,6 +20,8 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import { cn } from '@/lib/utils';
+import api from '@/lib/api';
+import { toast } from 'sonner';
 
 // --- Types ---
 interface StatCardProps {
@@ -52,7 +54,7 @@ interface LeadItem {
   color: string;
 }
 
-// --- Mock Data ---
+// --- Mock Data (Fallback) ---
 const REVENUE_DATA = [
   { name: 'JAN', Mumbai: 60, Patna: 40, Delhi: 30 },
   { name: 'FEB', Mumbai: 70, Patna: 45, Delhi: 35 },
@@ -62,6 +64,56 @@ const REVENUE_DATA = [
   { name: 'JUN', Mumbai: 80, Patna: 60, Delhi: 45 },
 ];
 
+// Dashboard API Response Types
+interface PatientStats {
+  total: number;
+  active: number;
+  discharged: number;
+  onHold: number;
+}
+
+interface LeadStats {
+  total: number;
+  new: number;
+  contacted: number;
+  converted: number;
+  closed: number;
+}
+
+interface AttendanceStats {
+  date: string;
+  present: number;
+  absent: number;
+  leave: number;
+  halfDay: number;
+  total: number;
+}
+
+interface FeeSummary {
+  totalRevenue: number;
+  totalDues: number;
+  totalTransactions: number;
+  branchWise: Array<{
+    branchName: string;
+    revenue: number;
+    dues: number;
+    count: number;
+  }>;
+  methodBreakdown: Array<{
+    _id: string;
+    total: number;
+    count: number;
+  }>;
+}
+
+interface ApiLead {
+  _id: string;
+  name: string;
+  phone?: string;
+  service?: string;
+  location?: string;
+}
+
 const ACTIVITIES: ActivityItem[] = [
   { id: '1', user: 'Rohit Desai', action: 'registered at', location: 'Mumbai', time: '10:42 AM', icon: <Users size={18} />, color: 'bg-blue-50 text-blue-600' },
   { id: '2', user: 'Payment ₹3,500', action: 'received at', location: 'Patna', time: '10:15 AM', icon: <CreditCard size={18} />, color: 'bg-secondary-container/20 text-secondary' },
@@ -69,7 +121,8 @@ const ACTIVITIES: ActivityItem[] = [
   { id: '4', user: 'Inquiry from N. Khan', action: 'for', location: 'Mumbai', time: '09:30 AM', icon: <Mail size={18} />, color: 'bg-surface-container-low text-on-surface-variant' },
 ];
 
-const LEADS: LeadItem[] = [
+// Mock leads - will be replaced with API data
+const DEFAULT_LEADS: LeadItem[] = [
   { id: '1', name: 'Aman Sharma', phone: 'XXXXXX1234', type: 'PHYSIO', location: 'Mumbai', initials: 'AS', color: 'bg-blue-50 text-blue-700' },
   { id: '2', name: 'Vikram Patnaik', phone: 'XXXXXX5678', type: 'AUTISM', location: 'Patna', initials: 'VP', color: 'bg-secondary-container/20 text-secondary' },
   { id: '3', name: 'Kavita Rao', phone: 'XXXXXX9012', type: 'PHYSIO', location: 'Delhi', initials: 'KR', color: 'bg-surface-container-low text-on-surface-variant' },
@@ -190,7 +243,7 @@ const ActivityFeed = () => (
       {ACTIVITIES.map((item, idx) => (
         <div key={item.id} className="flex gap-4 relative">
           {idx !== ACTIVITIES.length - 1 && (
-            <div className="absolute top-10 left-[18px] bottom-[-32px] w-[2px] bg-surface-container-low"></div>
+            <div className="absolute top-10 left-4.5 -bottom-8 w-0.5 bg-surface-container-low"></div>
           )}
           <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 z-10 border border-outline-variant/10", item.color)}>
             {item.icon}
@@ -238,7 +291,12 @@ const BranchPerformance = () => (
   </div>
 );
 
-const RecentLeads = () => (
+interface RecentLeadsProps {
+  leads?: LeadItem[];
+  isLoading?: boolean;
+}
+
+const RecentLeads = ({ leads = DEFAULT_LEADS, isLoading = false }: RecentLeadsProps) => (
   <div className="space-y-6">
     <div className="flex items-center justify-between">
       <h4 className="text-xl font-bold font-headline text-on-surface">Recent Leads</h4>
@@ -246,8 +304,15 @@ const RecentLeads = () => (
         View All Activity
       </button>
     </div>
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {LEADS.map((lead) => (
+    {isLoading ? (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-surface-container-lowest p-5 rounded-xl animate-pulse h-24"></div>
+        ))}
+      </div>
+    ) : (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {leads.map((lead) => (
         <motion.div 
           key={lead.id}
           whileHover={{ scale: 1.02 }}
@@ -269,11 +334,89 @@ const RecentLeads = () => (
         </motion.div>
       ))}
     </div>
+    )}
   </div>
 );
 
 // --- Main View ---
 export const DashboardView = () => {
+  const [patientStats, setPatientStats] = useState<PatientStats | null>(null);
+  const [leadStats, setLeadStats] = useState<LeadStats | null>(null);
+  const [attendanceStats, setAttendanceStats] = useState<AttendanceStats | null>(null);
+  const [feeSummary, setFeeSummary] = useState<FeeSummary | null>(null);
+  const [recentLeads, setRecentLeads] = useState<LeadItem[]>(DEFAULT_LEADS);
+  
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        // Fetch all stats in parallel
+        const [patientsRes, leadsRes, attendanceRes, feesRes, leadsListRes] = await Promise.all([
+          api.get('/admin/patients/stats'),
+          api.get('/admin/leads/stats'),
+          api.get('/admin/attendance/stats'),
+          api.get('/admin/fees/summary'),
+          api.get('/admin/leads?limit=4&sort=-createdAt')
+        ]);
+
+        if (patientsRes.data.success) {
+          setPatientStats(patientsRes.data.data);
+        }
+        if (leadsRes.data.success) {
+          setLeadStats(leadsRes.data.data);
+        }
+        if (attendanceRes.data.success) {
+          setAttendanceStats(attendanceRes.data.data);
+        }
+        if (feesRes.data.success) {
+          setFeeSummary(feesRes.data.data);
+        }
+        if (leadsListRes.data.success && leadsListRes.data.data.length > 0) {
+          // Transform leads data to match LeadItem type
+          const transformedLeads = leadsListRes.data.data.map((lead: ApiLead, idx: number) => ({
+            id: lead._id,
+            name: lead.name,
+            phone: lead.phone ? `XXXXXX${String(lead.phone).slice(-4)}` : 'N/A',
+            type: lead.service || 'SERVICE',
+            location: lead.location || 'Unknown',
+            initials: lead.name?.split(' ').slice(0, 2).map((n: string) => n[0]).join('') || 'XX',
+            color: ['bg-blue-50 text-blue-700', 'bg-secondary-container/20 text-secondary', 'bg-surface-container-low text-on-surface-variant'][idx % 3]
+          }));
+          setRecentLeads(transformedLeads.slice(0, 4));
+        }
+      } catch (err: unknown) {
+        console.error('Failed to fetch dashboard data:', err);
+        const axiosError = err as { response?: { data?: { message?: string } } };
+        const message = axiosError?.response?.data?.message || 'Failed to load dashboard data';
+        setError(message);
+        toast.error(message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  // Format currency value
+  const formatCurrency = (value: number | undefined) => {
+    if (value === undefined || value === null) return '₹0';
+    if (value >= 100000) {
+      return `₹${(value / 100000).toFixed(1)}L`;
+    }
+    return `₹${value.toLocaleString()}`;
+  };
+
+  // Calculate staff percentage
+  const staffPercentage = attendanceStats 
+    ? `${attendanceStats.present}/${attendanceStats.total}`
+    : '0/0';
+
   return (
     <div className="space-y-10 relative z-10 max-w-7xl mx-auto">
       {/* KPI Grid */}
@@ -283,35 +426,86 @@ export const DashboardView = () => {
         transition={{ delay: 0.1 }}
         className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
       >
-        <StatCard 
-          title="Total Revenue" 
-          value="₹4.8L" 
-          change="12%" 
-          trend="up"
-          icon={<Wallet className="text-secondary" size={32} />}
-          color="bg-secondary-container/30"
-        />
-        <StatCard 
-          title="Active Patients" 
-          value="312" 
-          change="+8" 
-          trend="up"
-          icon={<UsersRound className="text-primary" size={32} />}
-          color="bg-primary-container/10"
-        />
-        <StatCard 
-          title="Outstanding Dues" 
-          value="₹67,400" 
-          status="CRITICAL"
-          icon={<CreditCard className="text-error" size={32} />}
-          color="bg-error-container/20"
-        />
-        <StatCard 
-          title="Staff on Duty" 
-          value="14/21" 
-          icon={<BadgeCheck className="text-on-surface" size={32} />}
-          color="bg-surface-container-low"
-        />
+        {/* Total Revenue - from Fee Summary */}
+        <div className="bg-surface-container-lowest p-7 rounded-xl shadow-sm border border-outline-variant/10 animate-pulse" style={{ animationPlayState: isLoading ? 'running' : 'paused' }}>
+          {!isLoading && (
+            <>
+              <div className="flex items-start justify-between mb-5">
+                <div className="p-3.5 rounded-xl bg-secondary-container/30">
+                  <Wallet className="text-secondary" size={32} />
+                </div>
+              </div>
+              <p className="text-on-surface-variant text-[11px] uppercase tracking-widest mb-1.5 font-bold opacity-60">Total Revenue</p>
+              <h3 className="text-3xl font-black font-headline text-on-surface">{formatCurrency(feeSummary?.totalRevenue)}</h3>
+              <p className="text-on-surface-variant/40 text-xs mt-3 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                From {feeSummary?.totalTransactions || 0} transactions
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* Active Patients */}
+        <div className="bg-surface-container-lowest p-7 rounded-xl shadow-sm border border-outline-variant/10 animate-pulse" style={{ animationPlayState: isLoading ? 'running' : 'paused' }}>
+          {!isLoading && (
+            <>
+              <div className="flex items-start justify-between mb-5">
+                <div className="p-3.5 rounded-xl bg-primary-container/10">
+                  <UsersRound className="text-primary" size={32} />
+                </div>
+              </div>
+              <p className="text-on-surface-variant text-[11px] uppercase tracking-widest mb-1.5 font-bold opacity-60">Active Patients</p>
+              <h3 className="text-3xl font-black font-headline text-on-surface">{patientStats?.active || 0}</h3>
+              <p className="text-on-surface-variant/40 text-xs mt-3 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                Of {patientStats?.total || 0} total
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* Outstanding Dues */}
+        <div className="bg-surface-container-lowest p-7 rounded-xl shadow-sm border border-outline-variant/10 animate-pulse" style={{ animationPlayState: isLoading ? 'running' : 'paused' }}>
+          {!isLoading && (
+            <>
+              <div className="flex items-start justify-between mb-5">
+                <div className="p-3.5 rounded-xl bg-error-container/20">
+                  <CreditCard className="text-error" size={32} />
+                </div>
+                {(feeSummary?.totalDues || 0) > 50000 && (
+                  <div className="bg-error/10 text-error px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-tighter">
+                    CRITICAL
+                  </div>
+                )}
+              </div>
+              <p className="text-on-surface-variant text-[11px] uppercase tracking-widest mb-1.5 font-bold opacity-60">Outstanding Dues</p>
+              <h3 className="text-3xl font-black font-headline text-on-surface">{formatCurrency(feeSummary?.totalDues)}</h3>
+              <p className="text-on-surface-variant/40 text-xs mt-3 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-error"></span>
+                Pending collection
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* Staff on Duty */}
+        <div className="bg-surface-container-lowest p-7 rounded-xl shadow-sm border border-outline-variant/10 animate-pulse" style={{ animationPlayState: isLoading ? 'running' : 'paused' }}>
+          {!isLoading && (
+            <>
+              <div className="flex items-start justify-between mb-5">
+                <div className="p-3.5 rounded-xl bg-surface-container-low">
+                  <BadgeCheck className="text-on-surface" size={32} />
+                </div>
+              </div>
+              <p className="text-on-surface-variant text-[11px] uppercase tracking-widest mb-1.5 font-bold opacity-60">Staff on Duty</p>
+              <h3 className="text-3xl font-black font-headline text-on-surface">{staffPercentage}</h3>
+              <p className="text-on-surface-variant/40 text-xs mt-3 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-on-surface"></span>
+                Present today
+              </p>
+            </>
+          )}
+        </div>
       </motion.div>
 
       {/* Row 1: Chart & Activity */}
@@ -348,7 +542,7 @@ export const DashboardView = () => {
           transition={{ delay: 0.5 }}
           className="lg:col-span-2"
         >
-          <RecentLeads />
+          <RecentLeads leads={recentLeads} isLoading={isLoading} />
         </motion.div>
       </div>
     </div>
