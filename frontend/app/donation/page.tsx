@@ -19,23 +19,13 @@ import {
   Phone, 
   MapPin, 
   Quote,
-  ChevronDown,
-  Menu,
-  X
+  ChevronDown
 } from "lucide-react";
-import { useState, useEffect } from "react";
-import Link from "next/link";
-
+import { useState } from "react";
+import Navbar from "../components/Navbar";
+import Footer from "../components/Footer";
 export default function DonationPage() {
   const [activeTab, setActiveTab] = useState("One-time");
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   const fadeIn = {
     initial: { opacity: 0, y: 20 },
@@ -54,63 +44,7 @@ export default function DonationPage() {
   return (
     <div className="min-h-screen bg-surface selection:bg-secondary/20">
       {/* Navigation */}
-      <nav className={`fixed top-0 w-full z-50 transition-all duration-500 ${isScrolled ? 'glass py-4 ambient-shadow' : 'bg-transparent py-6'}`}>
-        <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-20 h-20 bg-transparent rounded-xl flex items-center justify-center shrink-0 overflow-hidden"><img src="/logo.jpeg" alt="" className="w-full h-full object-contain scale-110" /></div>
-            <div className="flex flex-col justify-center">
-              <span className="text-2xl font-extrabold font-display text-on-surface tracking-tighter leading-none">Rehablito</span>
-              <span className="text-[10px] font-bold text-[#7dce82] leading-none">Physio & Autism Center</span>
-              <span className="text-[9px] font-bold text-on-surface leading-none">Everyone Deserves Trusted Hands...</span>
-            </div>
-          </Link>
-          
-          <div className="hidden md:flex items-center gap-10">
-            {["Impact", "Our Mission", "Patient Stories", "Ways to Give"].map((item) => (
-              <a key={item} href={`#${item.toLowerCase().replace(/ /g, '-')}`} className="text-sm font-bold text-on-surface-variant hover:text-brand-sage transition-colors relative group">
-                {item}
-                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-brand-sage transition-all group-hover:w-full" />
-              </a>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-4">
-            <button className="hidden sm:block bg-brand-sage text-white px-8 py-3 rounded-full font-display font-bold text-sm hover:bg-brand-sage/90 transition-all ambient-shadow active:scale-95">
-              Donate Now
-            </button>
-            
-            <button 
-              className="md:hidden p-2 text-brand-sage"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              <Menu size={28} />
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile Menu Drawer */}
-        <motion.div 
-          initial={false}
-          animate={{ height: isMenuOpen ? 'auto' : 0, opacity: isMenuOpen ? 1 : 0 }}
-          className="md:hidden overflow-hidden bg-white border-t border-outline-variant/10"
-        >
-          <div className="px-6 py-8 flex flex-col gap-6">
-            {["Impact", "Our Mission", "Patient Stories", "Ways to Give"].map((item) => (
-              <a 
-                key={item} 
-                href={`#${item.toLowerCase().replace(/ /g, '-')}`} 
-                className="text-lg font-bold text-on-surface-variant"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                {item}
-              </a>
-            ))}
-            <button className="w-full bg-brand-sage text-white py-4 rounded-2xl font-display font-bold text-md text-center" onClick={() => setIsMenuOpen(false)}>
-              Donate Now
-            </button>
-          </div>
-        </motion.div>
-      </nav>
+      <Navbar />
 
       {/* Hero Section */}
       <header className="relative pt-32 pb-20 overflow-hidden">
@@ -494,63 +428,7 @@ export default function DonationPage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-white py-12 px-6 border-t border-outline-variant/10">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
-          <div className="space-y-6">
-            <div className="flex items-center gap-3">
-              <div className="w-20 h-20 bg-transparent rounded-xl flex items-center justify-center shrink-0 overflow-hidden"><img src="/logo.jpeg" alt="" className="w-full h-full object-contain scale-110" /></div>
-              <div className="flex flex-col justify-center">
-                <span className="text-2xl font-extrabold font-display text-on-surface tracking-tighter leading-none">Rehablito</span>
-                <span className="text-[10px] font-bold text-[#7dce82] leading-none">Physio & Autism Center</span>
-                <span className="text-[9px] font-bold text-on-surface leading-none">Everyone Deserves Trusted Hands...</span>
-              </div>
-            </div>
-            <p className="text-sm text-on-surface-variant leading-relaxed">
-              A Rehablito RMS initiative dedicated to providing equitable medical care for all through community-powered clinical excellence.
-            </p>
-            <div className="flex gap-4">
-              <motion.a href="#" whileHover={{ y: -2 }} className="text-on-surface-variant hover:text-secondary"><Heart className="w-5 h-5" /></motion.a>
-              <motion.a href="#" whileHover={{ y: -2 }} className="text-on-surface-variant hover:text-secondary"><ShieldCheck className="w-5 h-5" /></motion.a>
-            </div>
-          </div>
-          
-          <div className="space-y-4">
-            <h4 className="font-bold text-secondary">Quick Links</h4>
-            <ul className="space-y-2 text-sm text-on-surface-variant">
-              {["Privacy Policy", "Terms of Service", "Annual Reports", "Transparency Center"].map((link) => (
-                <li key={link}><a href="#" className="hover:text-secondary transition-colors">{link}</a></li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="space-y-4">
-            <h4 className="font-bold text-secondary">Contact Us</h4>
-            <ul className="space-y-3 text-sm text-on-surface-variant">
-              <li className="flex items-center gap-2"><Mail className="w-4 h-4" /> rehablito@gmail.com</li>
-              <li className="flex items-center gap-2"><Phone className="w-4 h-4" /> 9204786220 / 9304120054</li>
-              <li className="flex items-center gap-2"><MapPin className="w-4 h-4" />Rajendra Nagar, Road No. 6C, Patna – 16</li>
-            </ul>
-          </div>
-
-          <div className="space-y-4">
-            <h4 className="font-bold text-secondary">Certifications</h4>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="h-12 bg-surface-container-low rounded flex items-center justify-center p-2 text-[10px] font-bold text-center leading-tight">
-                ISO 9001:2015 CERTIFIED
-              </div>
-              <div className="h-12 bg-surface-container-low rounded flex items-center justify-center p-2 text-[10px] font-bold text-center leading-tight">
-                SEC. 80G COMPLIANT
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div className="max-w-7xl mx-auto mt-12 pt-8 border-t border-outline-variant/10 text-center">
-          <p className="text-[0.6875rem] text-on-surface-variant uppercase tracking-widest">
-            © 2026 Rehablito. All rights reserved. Registered Charity #12345678.
-          </p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

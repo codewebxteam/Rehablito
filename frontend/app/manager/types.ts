@@ -47,4 +47,4 @@ export interface InvoiceItem {
   price: number;
 }
 
-export type ViewType = 'dashboard' | 'onboarding' | 'leads' | 'staff' | 'billing';
+export type ViewType = 'dashboard' | 'onboarding' | 'patients' | 'leads' | 'staff' | 'billing';

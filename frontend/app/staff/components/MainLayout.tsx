@@ -91,11 +91,17 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
         <div className="flex-1 overflow-y-auto">
           <div className="p-6 lg:p-8">
             <div className="flex items-center justify-between mb-10">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 gradient-bg rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/20">
-                  <TimerIcon className="w-6 h-6" />
+              <div className="flex items-center gap-3.5">
+                <div className="flex items-center">
+                  <div className="w-14 h-14 flex-shrink-0 rounded-md">
+                    <img src="/logo.jpeg" alt="" className="w-full h-full object-contain" />
+                  </div>
+                  <div className="flex flex-col justify-center">
+                    <span className="text-xl font-extrabold font-display text-on-surface tracking-tighter leading-none">Rehablito</span>
+                    <span className="text-[10px] font-bold text-[#7dce82] tracking-wide leading-none mt-1">Physio & Autism Center</span>
+                    <span className="text-[9px] font-bold text-on-surface leading-none mt-1">Everyone Deserves Trusted Hands...</span>
+                  </div>
                 </div>
-                <span className="font-headline text-xl font-black tracking-tight text-on-surface">Rehablito</span>
               </div>
               <button 
                 className="p-2 lg:hidden text-on-surface-variant hover:bg-surface-container-high rounded-xl"
@@ -145,7 +151,7 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
                 "w-full py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 active:scale-[0.95] disabled:opacity-50",
                 activeRecord 
                   ? "bg-surface-container-high text-on-surface-variant" 
-                  : "gradient-bg text-white shadow-md hover:shadow-lg"
+                  : "primary-gradient text-white shadow-md hover:shadow-lg"
               )}
             >
               {activeRecord ? <Clock className="w-4 h-4" /> : <LogIn className="w-4 h-4" />}
@@ -205,7 +211,7 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
               </div>
 
               <div className="flex flex-col items-center text-center space-y-6">
-                <div className="w-16 h-16 bg-error/10 rounded-2xl flex items-center justify-center text-error">
+                <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center text-red-500">
                   <AlertTriangle className="w-8 h-8" />
                 </div>
                 
@@ -229,7 +235,7 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
                       logout();
                       router.push('/');
                     }}
-                    className="px-6 py-3 bg-error text-white font-bold rounded-xl shadow-lg shadow-error/20 hover:bg-error/90 transition-all active:scale-[0.98]"
+                    className="px-6 py-3 bg-red-500 text-white font-bold rounded-xl shadow-lg shadow-red-500/20 hover:bg-red-600 transition-all active:scale-[0.98]"
                   >
                     Logout
                   </button>

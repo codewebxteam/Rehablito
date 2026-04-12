@@ -5,15 +5,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { 
-  Menu, 
-  Star, 
-  ShieldCheck, 
-  Zap, 
-  Lock, 
-  Heart, 
-  Camera, 
-  MessageCircle, 
+import {
+  Star,
+  ShieldCheck,
+  Zap,
+  Lock,
+  Heart,
   Mail,
   Share2,
   ChevronRight,
@@ -22,104 +19,18 @@ import {
   Users
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import { useState } from 'react';
+import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 
-const Navbar = () => {
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  useEffect(() => {
-    const handleScroll = () => setIsScrolled(window.scrollY > 20);
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  return (
-    <nav className={`fixed top-0 w-full z-50 transition-all duration-500 ${isScrolled ? 'glass py-4 ambient-shadow' : 'bg-transparent py-6'}`}>
-      <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <div className="w-20 h-20 bg-transparent rounded-xl flex items-center justify-center shrink-0 overflow-hidden"><img src="/logo.jpeg" alt="" className="w-full h-full object-contain scale-110" /></div>
-          <div className="flex flex-col justify-center">
-            <span className="text-2xl font-extrabold font-display text-on-surface tracking-tighter leading-none">Rehablito</span>
-            <span className="text-[10px] font-bold text-[#7dce82] leading-none">Physio & Autism Center</span>
-            <span className="text-[9px] font-bold text-on-surface leading-none">Everyone Deserves Trusted Hands...</span>
-          </div>
-        </div>
-        
-        <div className="hidden md:flex items-center gap-10">
-          {['Our Story', 'Care Modules', 'The Experience', 'Locations' , 'Donation'].map((item) => 
-            item === 'Donation' ? (
-              <Link key={item} href="/donation" className="text-sm font-bold text-on-surface-variant hover:text-brand-sage transition-colors relative group">
-                {item}
-                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-brand-sage transition-all group-hover:w-full" />
-              </Link>
-            ) : (
-              <a key={item} href={`#${item.toLowerCase().replace(' ', '-')}`} className="text-sm font-bold text-on-surface-variant hover:text-brand-sage transition-colors relative group">
-                {item}
-                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-brand-sage transition-all group-hover:w-full" />
-              </a>
-            )
-          )}
-        </div>
-
-        <div className="flex items-center gap-4">
-          <Link href="/login" className="hidden sm:block bg-brand-sage text-white px-8 py-3 rounded-full font-display font-bold text-sm hover:bg-brand-sage/90 transition-all ambient-shadow active:scale-95">
-            Begin Your Journey
-          </Link>
-          
-          <button 
-            className="md:hidden p-2 text-brand-sage"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-          >
-            <Menu size={28} />
-          </button>
-        </div>
-      </div>
-
-      {/* Mobile Menu */}
-      <motion.div 
-        initial={false}
-        animate={{ height: isMobileMenuOpen ? 'auto' : 0, opacity: isMobileMenuOpen ? 1 : 0 }}
-        className="md:hidden overflow-hidden bg-white border-t border-outline-variant/10"
-      >
-        <div className="px-6 py-8 flex flex-col gap-6">
-          {['Our Story', 'Care Modules', 'The Experience', 'Locations', 'Donation'].map((item) => 
-            item === 'Donation' ? (
-              <Link
-                key={item} 
-                href="/donation"
-                className="text-lg font-bold text-on-surface-variant"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                {item}
-              </Link>
-            ) : (
-              <a 
-                key={item} 
-                href={`#${item.toLowerCase().replace(' ', '-')}`} 
-                className="text-lg font-bold text-on-surface-variant"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                {item}
-              </a>
-            )
-          )}
-          <Link href="/login" className="w-full bg-brand-sage text-white py-4 rounded-2xl font-display font-bold text-md text-center" onClick={() => setIsMobileMenuOpen(false)}>
-            Begin Your Journey
-          </Link>
-        </div>
-      </motion.div>
-    </nav>
-  );
-};
 
 const Hero = () => {
   return (
     <section className="hero-gradient pt-32 pb-20 overflow-hidden">
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
@@ -129,7 +40,7 @@ const Hero = () => {
               <span className="w-2 h-2 rounded-full bg-brand-sage animate-pulse" />
               Boutique Rehabilitation
             </div>
-            
+
             <h1 className="text-5xl md:text-7xl font-extrabold leading-[1.1] text-on-surface">
               Healing is a <span className="italic font-light text-brand-sage">Personal</span> Narrative.
             </h1>
@@ -146,22 +57,22 @@ const Hero = () => {
             </button>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 1, delay: 0.2 }}
             className="lg:col-span-7 relative"
           >
             <div className="relative z-10 rounded-3xl overflow-hidden border-12 border-white ambient-shadow">
-              <img 
-                src="/Landing_Page_Image.png" 
-                alt="Therapy session" 
+              <img
+                src="/Landing_Page_Image.png"
+                alt="Therapy session"
                 className="w-full aspect-4/5 object-cover"
                 referrerPolicy="no-referrer"
               />
             </div>
-            
-            <motion.div 
+
+            <motion.div
               initial={{ x: -50, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               transition={{ delay: 0.6, duration: 0.8 }}
@@ -213,7 +124,7 @@ const Testimonials = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {testimonials.map((t, i) => (
-            <motion.div 
+            <motion.div
               key={i}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -248,7 +159,7 @@ const OperationalFriction = () => {
           <div className="space-y-10">
             <h2 className="text-5xl font-extrabold leading-tight">Eliminate Operational Friction.</h2>
             <p className="text-xl text-on-surface-variant">Behind our human connection lies a state-of-the-art system ensuring your safety and care continuity at every touchpoint.</p>
-            
+
             <div className="space-y-8">
               <div className="flex gap-6">
                 <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-brand-sage ambient-shadow">
@@ -259,7 +170,7 @@ const OperationalFriction = () => {
                   <p className="text-on-surface-variant">Your health data is protected by hospital-grade encryption and privacy protocols.</p>
                 </div>
               </div>
-              
+
               <div className="flex gap-6">
                 <div className="w-14 h-14 rounded-2xl bg-white flex items-center justify-center text-brand-sage ambient-shadow">
                   <Zap size={28} />
@@ -273,7 +184,7 @@ const OperationalFriction = () => {
           </div>
 
           <div className="relative">
-            <motion.div 
+            <motion.div
               initial={{ rotate: 2 }}
               whileInView={{ rotate: 0 }}
               className="bg-white p-3 sm:p-4 rounded-3xl sm:rounded-[3rem] ambient-shadow"
@@ -312,10 +223,10 @@ const RoleBasedIntelligence = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center">
           <div className="relative h-65 sm:h-90 lg:h-125 flex items-center justify-center overflow-hidden">
             {/* Mock Dashboard Stack */}
-            <motion.div 
-              animate={{ 
-                x: activeRole === 0 ? 0 : -20, 
-                y: activeRole === 0 ? 0 : 20, 
+            <motion.div
+              animate={{
+                x: activeRole === 0 ? 0 : -20,
+                y: activeRole === 0 ? 0 : 20,
                 rotate: activeRole === 0 ? 0 : -5,
                 scale: activeRole === 0 ? 1.05 : 0.9,
                 zIndex: activeRole === 0 ? 40 : 10
@@ -340,10 +251,10 @@ const RoleBasedIntelligence = () => {
               </div>
             </motion.div>
 
-            <motion.div 
-              animate={{ 
-                x: activeRole === 1 ? 0 : 40, 
-                y: activeRole === 1 ? 0 : 40, 
+            <motion.div
+              animate={{
+                x: activeRole === 1 ? 0 : 40,
+                y: activeRole === 1 ? 0 : 40,
                 rotate: activeRole === 1 ? 0 : 5,
                 scale: activeRole === 1 ? 1.05 : 0.9,
                 zIndex: activeRole === 1 ? 40 : 20
@@ -366,10 +277,10 @@ const RoleBasedIntelligence = () => {
               </div>
             </motion.div>
 
-            <motion.div 
-              animate={{ 
-                x: activeRole === 2 ? 0 : 80, 
-                y: activeRole === 2 ? 0 : 80, 
+            <motion.div
+              animate={{
+                x: activeRole === 2 ? 0 : 80,
+                y: activeRole === 2 ? 0 : 80,
                 rotate: activeRole === 2 ? 0 : 10,
                 scale: activeRole === 2 ? 1.05 : 0.9,
                 zIndex: activeRole === 2 ? 40 : 30
@@ -393,11 +304,11 @@ const RoleBasedIntelligence = () => {
           <div className="space-y-8 sm:space-y-10">
             <h2 className="text-4xl sm:text-5xl font-extrabold leading-tight text-brand-sage">Role-Based Intelligence</h2>
             <p className="text-lg sm:text-xl text-on-surface-variant">Software that adapts to you. Whether you're managing a clinic, providing care, or supporting a loved one, the interface shifts to prioritize what matters most.</p>
-            
+
             <div className="space-y-6">
               {roles.map((item, i) => (
-                <div 
-                  key={i} 
+                <div
+                  key={i}
                   onMouseEnter={() => setActiveRole(i)}
                   className={`p-6 rounded-2xl transition-all cursor-pointer group ${activeRole === i ? 'bg-surface-container-low ring-1 ring-brand-sage/20' : 'hover:bg-surface-container-low/50'}`}
                 >
@@ -456,7 +367,7 @@ const Services = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {services.map((s, i) => (
-            <motion.div 
+            <motion.div
               key={i}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -510,12 +421,12 @@ const Locations = () => {
               ))}
             </div>
           </div>
-          
+
           <div className="lg:col-span-7 relative">
             <div className="aspect-video bg-white rounded-[3rem] ambient-shadow overflow-hidden border-12 border-white relative">
-              <img 
-                src="https://picsum.photos/seed/clinic-interior/1200/800" 
-                alt="Clinic Interior" 
+              <img
+                src="https://picsum.photos/seed/clinic-interior/1200/800"
+                alt="Clinic Interior"
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"
               />
@@ -525,7 +436,7 @@ const Locations = () => {
                 <h4 className="text-3xl font-bold">Beverly Hills Flagship</h4>
               </div>
             </div>
-            
+
             {/* Decorative Elements */}
             <div className="absolute -top-6 -right-6 w-32 h-32 bg-brand-rose rounded-full -z-10 blur-2xl opacity-60" />
             <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-mint-green rounded-full -z-10 blur-3xl opacity-40" />
@@ -538,15 +449,15 @@ const Locations = () => {
 const FeatureImageSection = ({ title, desc, image, reverse = false, bgColor = "bg-white" }: { title: string, desc: string, image: string, reverse?: boolean, bgColor?: string }) => {
   return (
     <section className="relative min-h-130 sm:h-175 flex items-center overflow-hidden py-16 sm:py-0">
-      <img 
-        src={image} 
-        alt={title} 
+      <img
+        src={image}
+        alt={title}
         className="absolute inset-0 w-full h-full object-cover"
         referrerPolicy="no-referrer"
       />
       <div className="absolute inset-0 bg-black/20" />
       <div className={`max-w-7xl mx-auto px-6 relative z-10 w-full flex ${reverse ? 'justify-end' : 'justify-start'}`}>
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, x: reverse ? 50 : -50 }}
           whileInView={{ opacity: 1, x: 0 }}
           className={`w-full max-w-xl ${bgColor === 'bg-white' ? 'bg-white/90' : 'bg-mint-green/95'} backdrop-blur-xl p-7 sm:p-12 rounded-3xl sm:rounded-[3rem] ambient-shadow`}
@@ -565,17 +476,17 @@ const FeatureImageSection = ({ title, desc, image, reverse = false, bgColor = "b
 const CTA = () => {
   return (
     <section className="py-16 sm:py-24 px-5 sm:px-6">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         whileInView={{ opacity: 1, scale: 1 }}
         className="max-w-5xl mx-auto bg-brand-sage rounded-3xl sm:rounded-4xl p-8 sm:p-12 md:p-24 text-center text-white relative overflow-hidden shadow-2xl"
       >
         <div className="absolute top-0 right-0 w-96 h-96 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-brand-rose/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl" />
-        
+
         <h2 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-6 sm:mb-8 relative z-10 leading-tight">Start Your Wellness Journey Today</h2>
         <p className="text-lg sm:text-xl md:text-2xl opacity-90 mb-10 sm:mb-12 max-w-2xl mx-auto relative z-10">We invite you to experience a new standard of personalized, boutique clinical care.</p>
-        
+
         <div className="flex flex-col sm:flex-row justify-center gap-4 sm:gap-6 relative z-10">
           <button className="w-full sm:w-auto bg-white text-brand-sage px-8 sm:px-12 py-4 sm:py-5 rounded-full font-bold text-xl sm:text-lg hover:bg-soft-peach transition-all shadow-xl">
             Book an Initial Visit
@@ -589,63 +500,7 @@ const CTA = () => {
   );
 };
 
-const Footer = () => {
-  return (
-    <footer className="bg-surface border-t border-outline-variant/20 pt-24 pb-12">
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-16 mb-24">
-          <div className="space-y-6">
-            <div className="flex flex-col justify-center">
-              <div className="text-4xl font-extrabold text-black font-display tracking-tighter leading-none">Rehablito</div>
-              <span className="text-[14px] font-bold text-[#7dce82] leading-none">Physio & Autism Center</span>
-              <span className="text-[12px] font-bold text-black leading-none">Everyone Deserves Trusted Hands...</span>
-            </div>
-            <div className="flex gap-4 mt-8">
-              {[Share2, Mail, Camera, MessageCircle].map((Icon, i) => (
-                <div key={i} className="w-10 h-10 rounded-full bg-soft-peach flex items-center justify-center text-brand-sage cursor-pointer hover:bg-brand-rose transition-colors">
-                  <Icon size={18} />
-                </div>
-              ))}
-            </div>
-          </div>
 
-          <div>
-            <h6 className="font-bold text-sm uppercase tracking-widest text-brand-sage mb-8">Our Programs</h6>
-            <ul className="space-y-4 font-semibold text-on-surface-variant">
-              {['Physiotherapy', 'Autism Support', 'Post-Op Recovery', 'Family Wellness'].map(item => (
-                <li key={item}><a href="#" className="hover:text-brand-sage transition-colors">{item}</a></li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h6 className="font-bold text-sm uppercase tracking-widest text-brand-sage mb-8">Resources</h6>
-            <ul className="space-y-4 font-semibold text-on-surface-variant">
-              {['Patient Portal', 'Insurance Guide', 'Our Philosophy', 'Careers'].map(item => (
-                <li key={item}><a href="#" className="hover:text-brand-sage transition-colors">{item}</a></li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h6 className="font-bold text-sm uppercase tracking-widest text-brand-sage mb-8">Contact</h6>
-            <p className="text-on-surface-variant mb-4">120 Clinical Way, Suite 400<br/>Boutique District, CA 90210</p>
-            <p className="font-bold text-brand-sage text-xl">(888) REHAB-CARE</p>
-          </div>
-        </div>
-
-        <div className="flex flex-col md:flex-row justify-between items-center border-t border-outline-variant/10 pt-8 gap-4">
-          <p className="text-sm text-on-surface-variant/60 italic">(c) 2026 Rehablito Boutique Clinics. All rights reserved.</p>
-          <div className="flex gap-8 font-bold text-xs uppercase tracking-widest text-on-surface-variant/60">
-            <a href="#" className="hover:text-brand-sage transition-colors">Privacy</a>
-            <a href="#" className="hover:text-brand-sage transition-colors">Terms</a>
-            <a href="#" className="hover:text-brand-sage transition-colors">Accessibility</a>
-          </div>
-        </div>
-      </div>
-    </footer>
-  );
-};
 
 export default function App() {
   return (
@@ -657,12 +512,12 @@ export default function App() {
         <Testimonials />
         <OperationalFriction />
         <RoleBasedIntelligence />
-        <FeatureImageSection 
+        <FeatureImageSection
           title="Precision Physiotherapy"
           desc="Combining clinical data with hands-on expertise to restore your movement and confidence."
           image="https://picsum.photos/seed/physio/1920/1080"
         />
-        <FeatureImageSection 
+        <FeatureImageSection
           title="Compassionate ABA"
           desc="Nurturing behavioral growth through data-informed paths that celebrate every child's unique journey."
           image="https://picsum.photos/seed/aba/1920/1080"

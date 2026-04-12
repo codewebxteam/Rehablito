@@ -14,6 +14,7 @@ import {
   Search,
   Bell,
   Calendar,
+  ClipboardList,
   Menu,
   X,
   ChevronLeft,
@@ -39,6 +40,7 @@ import PatientOnboardingView from './views/PatientOnboardingView';
 import LeadManagementView from './views/LeadManagementView';
 import StaffManagementView from './views/StaffManagementView';
 import BillingManagementView from './views/BillingManagementView';
+import PatientsListView from './views/PatientsListView';
 
 // Mock Data
 const INITIAL_LEADS: Lead[] = [
@@ -85,10 +87,11 @@ export default function ManagerDashboardApp() {
   // Responsive Sidebar States
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const resolveViewFromPath = (path: string): ViewType => {
     const segment = path.split('/')[2];
-    const validViews: ViewType[] = ['dashboard', 'onboarding', 'leads', 'staff', 'billing'];
+    const validViews: ViewType[] = ['dashboard', 'onboarding', 'patients', 'leads', 'staff', 'billing'];
     return validViews.includes(segment as ViewType) ? (segment as ViewType) : 'dashboard';
   };
 
@@ -180,6 +183,7 @@ export default function ManagerDashboardApp() {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'onboarding', label: 'Patient Onboarding', icon: UserPlus },
+    { id: 'patients', label: 'Patients', icon: ClipboardList },
     { id: 'leads', label: 'Leads', icon: Users },
     { id: 'staff', label: 'Staff', icon: UserCheck },
     { id: 'billing', label: 'Billing', icon: CreditCard },
@@ -238,7 +242,7 @@ export default function ManagerDashboardApp() {
           </button>
         </div>
 
-        <nav className="flex-1 space-y-1 px-4">
+        <nav className="flex-1 space-y-1 px-4 overflow-y-auto">
           {menuItems.map((item) => (
             <button
               key={item.id}
@@ -293,7 +297,7 @@ export default function ManagerDashboardApp() {
           </button>
 
           <button 
-            onClick={logout}
+            onClick={() => setShowLogoutConfirm(true)}
             className={cn(
             "w-full flex items-center gap-3 px-4 py-2 text-on-surface-variant font-semibold text-sm hover:text-error transition-colors",
             isSidebarCollapsed && "lg:justify-center lg:px-0"
@@ -395,8 +399,11 @@ export default function ManagerDashboardApp() {
                   onNavigate={navigateToView}
                 />
               )}
-              {currentView === 'onboarding' && (
+              { currentView === 'onboarding' && (
                 <PatientOnboardingView onOnboard={addPatient} />
+              )}
+              { currentView === 'patients' && (
+                <PatientsListView patients={patients} billing={billing} />
               )}
               {currentView === 'leads' && (
                 <LeadManagementView
@@ -447,6 +454,67 @@ export default function ManagerDashboardApp() {
             ))}
           </AnimatePresence>
         </div>
+
+        {/* Logout Confirmation Modal */}
+        <AnimatePresence>
+          {showLogoutConfirm && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowLogoutConfirm(false)}
+                className="absolute inset-0 bg-on-surface/40 backdrop-blur-sm"
+              />
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                animate={{ scale: 1, opacity: 1, y: 0 }}
+                exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                className="relative bg-surface-container-lowest w-full max-w-md rounded-3xl shadow-2xl p-8 overflow-hidden z-10"
+              >
+                <div className="absolute top-0 right-0 p-4">
+                  <button 
+                    onClick={() => setShowLogoutConfirm(false)}
+                    className="p-2 hover:bg-surface-container-low rounded-full transition-colors"
+                  >
+                    <X className="w-5 h-5 text-outline" />
+                  </button>
+                </div>
+
+                <div className="flex flex-col items-center text-center space-y-6">
+                  <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center text-red-500">
+                    <AlertCircle className="w-8 h-8" />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h3 className="text-2xl font-headline font-bold text-on-surface">Confirm Logout</h3>
+                    <p className="text-on-surface-variant">
+                      Are you sure you want to log out? Any unsaved changes might be lost.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 w-full pt-4">
+                    <button 
+                      onClick={() => setShowLogoutConfirm(false)}
+                      className="px-6 py-3 bg-surface-container-low text-on-surface font-bold rounded-xl hover:bg-surface-container-high transition-all active:scale-[0.98]"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      onClick={() => {
+                        logout();
+                        router.push('/');
+                      }}
+                      className="px-6 py-3 bg-red-500 text-white font-bold rounded-xl shadow-lg shadow-red-500/20 hover:bg-red-600 transition-all active:scale-[0.98]"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </main>
     </div>
   );

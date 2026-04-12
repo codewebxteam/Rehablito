@@ -34,19 +34,19 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-12 gap-6">
         {stats.map((stat, i) => (
-          <div key={i} className="col-span-12 md:col-span-4 bg-surface-container-lowest p-5 md:p-6 rounded-2xl border border-outline-variant/10 shadow-sm flex flex-col justify-center min-h-[140px]">
+          <div key={i} className="col-span-12 md:col-span-4 bg-surface-container-lowest p-4 md:p-5 rounded-2xl border border-outline-variant/10 shadow-sm flex flex-col justify-center min-h-[110px]">
             <div className="flex items-center justify-between mb-2 md:mb-4">
               <div className={cn("p-2 rounded-lg bg-surface-container-low", stat.color)}>
                 <stat.icon className="w-5 h-5" />
               </div>
               <TrendingUp className="w-4 h-4 text-secondary" />
             </div>
-            <p className="text-3xl md:text-4xl font-headline font-extrabold text-on-surface">{stat.value}</p>
+            <p className="text-2xl md:text-3xl font-headline font-extrabold text-on-surface">{stat.value}</p>
             <p className="text-on-surface-variant text-sm font-medium mt-1">{stat.label}</p>
           </div>
         ))}
 
-        <div className="col-span-12 lg:col-span-8 bg-primary text-white p-6 md:p-8 rounded-3xl flex flex-col md:flex-row items-start md:items-center justify-between relative group overflow-hidden gap-6 md:gap-0">
+        <div className="col-span-12 lg:col-span-8 bg-primary text-white p-5 md:p-6 rounded-3xl flex flex-col md:flex-row items-start md:items-center justify-between relative group overflow-hidden gap-5 md:gap-0">
           <div className="absolute inset-0 bg-white/5 opacity-10"></div>
           <div className="relative z-10 space-y-4">
             <div>
@@ -59,7 +59,7 @@ export default function DashboardPage() {
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
-          <div className="relative z-10 w-48 h-48 hidden md:block">
+          <div className="relative z-10 w-36 h-36 hidden md:block">
             <img 
               src="https://picsum.photos/seed/dashboard/200/200" 
               alt="Dashboard" 
@@ -69,7 +69,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="col-span-12 lg:col-span-4 bg-surface-container-lowest rounded-3xl p-6 md:p-8 border border-outline-variant/10 shadow-sm flex flex-col justify-center">
+        <div className="col-span-12 lg:col-span-4 bg-surface-container-lowest rounded-3xl p-5 md:p-6 border border-outline-variant/10 shadow-sm flex flex-col justify-center">
           <h4 className="text-lg font-headline font-bold mb-4">Current Status</h4>
           <div className="space-y-4">
             <div className={cn(
