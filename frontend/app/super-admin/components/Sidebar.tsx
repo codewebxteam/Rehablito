@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import api from '@/lib/api';
 import { 
   LayoutDashboard, 
   Users, 
@@ -23,13 +24,32 @@ interface SidebarProps {
   onChange: (tab: SuperAdminTab) => void;
 }
 
+interface BranchOption {
+  _id: string;
+  name: string;
+}
+
 export const Sidebar = ({ active, onChange }: SidebarProps) => {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+  const initials = (user?.name || 'SA').split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase();
   const [selectedBranch, setSelectedBranch] = useState('All Branches');
   const [isBranchMenuOpen, setIsBranchMenuOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [branches, setBranches] = useState<BranchOption[]>([]);
 
-  const branchOptions = ['All Branches', 'Mumbai', 'Delhi', 'Patna', 'Bengaluru'];
+  useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        const { data } = await api.get('/admin/branches');
+        if (data.success) setBranches(data.data as BranchOption[]);
+      } catch (err) {
+        console.error('Failed to load branches:', err);
+      }
+    };
+    fetchBranches();
+  }, []);
+
+  const branchOptions = ['All Branches', ...branches.map(b => b.name)];
 
   const navGroups = [
     {
@@ -190,13 +210,13 @@ export const Sidebar = ({ active, onChange }: SidebarProps) => {
         <div className="bg-surface-container-lowest rounded-2xl p-4 flex items-center gap-3.5 shadow-sm border border-outline-variant/10">
           <div className="relative">
             <div className="w-11 h-11 rounded-xl bg-primary text-white flex items-center justify-center font-bold text-sm shadow-lg shadow-primary/30">
-              SA
+              {initials}
             </div>
             <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></span>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-on-surface truncate">Super Admin</p>
-            <p className="text-[10px] text-primary font-bold uppercase tracking-wider">Global Access</p>
+            <p className="text-sm font-bold text-on-surface truncate">{user?.name || 'Super Admin'}</p>
+            <p className="text-[10px] text-primary font-bold uppercase tracking-wider">{user?.role === 'super_admin' ? 'Global Access' : user?.role || 'Global Access'}</p>
           </div>
           <button 
             onClick={() => setShowLogoutConfirm(true)}

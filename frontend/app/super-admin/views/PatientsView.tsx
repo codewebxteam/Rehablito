@@ -24,7 +24,7 @@ interface ApiPatient {
   name: string;
   age: number;
   condition: string;
-  branchId?: { _id: string; name: string };
+  branchId?: { _id: string; name: string } | null;
   status: 'active' | 'discharged' | 'on_hold';
   admissionDate: string;
 }
@@ -81,7 +81,10 @@ export const PatientsView = () => {
           api.get('/admin/patients'),
           api.get('/admin/branches')
         ]);
-        
+
+        const branchList: Branch[] = branchRes.data.success && branchRes.data.data ? branchRes.data.data : [];
+        if (branchList.length) setBranches(branchList);
+
         if (patientRes.data.success) {
           const transformed = patientRes.data.data.map((p: ApiPatient) => ({
             _id: p._id,
@@ -89,15 +92,11 @@ export const PatientsView = () => {
             name: p.name,
             age: p.age,
             condition: p.condition,
-            branch: typeof p.branchId === 'string' ? p.branchId : (p.branchId?.name || 'Unknown'),
+            branch: p.branchId?._id || '',
             status: p.status === 'active' ? 'Active' : p.status === 'discharged' ? 'Discharged' : 'Critical',
             lastVisit: p.admissionDate ? new Date(p.admissionDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'
           }));
           setPatients(transformed);
-        }
-        
-        if (branchRes.data.success && branchRes.data.data) {
-          setBranches(branchRes.data.data);
         }
       } catch (err: unknown) {
         console.error('Failed to fetch patients:', err);
@@ -129,6 +128,7 @@ export const PatientsView = () => {
         toast.success('Patient added successfully');
         setPatients(prev => [{
           ...newPatient,
+          branch: data.data.branchId?._id || data.data.branchId || newPatient.branch,
           _id: data.data._id,
           id: data.data._id
         }, ...prev]);
@@ -314,7 +314,7 @@ export const PatientsView = () => {
                   </td>
                   <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{patient.age} yrs</td>
                   <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{patient.condition}</td>
-                  <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{patient.branch}</td>
+                  <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{branches.find(b => b._id === patient.branch)?.name || 'Unknown'}</td>
                   <td className="px-6 py-4 text-sm text-on-surface-variant opacity-80">{patient.lastVisit}</td>
                   <td className="px-6 py-4">
                     <span className={cn(

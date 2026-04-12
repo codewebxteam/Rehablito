@@ -1,104 +1,252 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Search, Plus, Filter, UserCog, Edit, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AnimatePresence, motion } from 'motion/react';
+import api from '@/lib/api';
+import { toast } from 'sonner';
+
+type StaffRole = 'staff' | 'branch_manager';
 
 interface Staff {
+  _id: string;
   id: string;
   name: string;
-  role: string;
-  department: string;
+  email: string;
+  role: StaffRole;
+  staffId?: string;
+  mobileNumber?: string;
   branch: string;
   status: 'Active' | 'On Leave' | 'Inactive';
 }
 
 type StaffStatusFilter = 'All' | Staff['status'];
 
-const INITIAL_STAFF: Staff[] = [
-  { id: 'EMP-001', name: 'Dr. Sameer Khan', role: 'Senior Therapist', department: 'Physiotherapy', branch: 'Mumbai', status: 'Active' },
-  { id: 'EMP-002', name: 'Alia Bhattacharya', role: 'Behavioral Expert', department: 'Autism Center', branch: 'Delhi', status: 'Active' },
-  { id: 'EMP-003', name: 'Rohan Mehta', role: 'Junior Therapist', department: 'Physiotherapy', branch: 'Mumbai', status: 'On Leave' },
-  { id: 'EMP-004', name: 'Kritika Singh', role: 'Receptionist', department: 'Admin', branch: 'Patna', status: 'Active' },
-  { id: 'EMP-005', name: 'Dr. Anita Desai', role: 'Consultant', department: 'Autism Center', branch: 'Patna', status: 'Inactive' },
-];
+interface Branch {
+  _id: string;
+  name: string;
+}
+
+interface ApiStaff {
+  _id: string;
+  name: string;
+  email: string;
+  role: StaffRole;
+  staffId?: string;
+  mobileNumber?: string;
+  branchId?: { _id: string; name: string } | null;
+}
+
+interface NewStaffForm {
+  name: string;
+  email: string;
+  password: string;
+  role: StaffRole;
+  branch: string;
+  staffId: string;
+  mobileNumber: string;
+}
+
+const INITIAL_FORM: NewStaffForm = {
+  name: '',
+  email: '',
+  password: '',
+  role: 'staff',
+  branch: '',
+  staffId: '',
+  mobileNumber: '',
+};
+
+const roleLabel = (role: StaffRole) => (role === 'branch_manager' ? 'Branch Manager' : 'Staff');
 
 export const StaffView = () => {
-  const [staffList, setStaffList] = useState<Staff[]>(INITIAL_STAFF);
+  const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<StaffStatusFilter>('All');
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [form, setForm] = useState<NewStaffForm>(INITIAL_FORM);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
+  const [editForm, setEditForm] = useState<NewStaffForm>(INITIAL_FORM);
   const [deletingStaff, setDeletingStaff] = useState<Staff | null>(null);
-  const [editedRole, setEditedRole] = useState('');
-  const [newStaff, setNewStaff] = useState<Omit<Staff, 'id'>>({
-    name: '',
-    role: '',
-    department: '',
-    branch: '',
-    status: 'Active'
-  });
 
-  const resetNewStaffForm = () => {
-    setNewStaff({
-      name: '',
-      role: '',
-      department: '',
-      branch: '',
-      status: 'Active'
+  const resetForm = () => setForm(INITIAL_FORM);
+  const closeModal = () => {
+    setIsAddModalOpen(false);
+    resetForm();
+  };
+
+  const openEdit = (s: Staff) => {
+    setEditingStaff(s);
+    setEditForm({
+      name: s.name,
+      email: s.email,
+      password: '',
+      role: s.role,
+      branch: s.branch,
+      staffId: s.staffId || '',
+      mobileNumber: s.mobileNumber || '',
     });
   };
 
-  const handleAddStaff = () => {
-    if (!newStaff.name.trim() || !newStaff.role.trim() || !newStaff.department.trim() || !newStaff.branch.trim()) {
+  const closeEdit = () => {
+    setEditingStaff(null);
+    setEditForm(INITIAL_FORM);
+  };
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        const [staffRes, branchRes] = await Promise.all([
+          api.get('/admin/staff'),
+          api.get('/admin/branches'),
+        ]);
+
+        if (branchRes.data.success && branchRes.data.data) {
+          setBranches(branchRes.data.data);
+        }
+
+        if (staffRes.data.success) {
+          const transformed: Staff[] = staffRes.data.data.map((s: ApiStaff) => ({
+            _id: s._id,
+            id: s._id,
+            name: s.name,
+            email: s.email,
+            role: s.role,
+            staffId: s.staffId,
+            mobileNumber: s.mobileNumber,
+            branch: s.branchId?._id || '',
+            status: 'Active',
+          }));
+          setStaffList(transformed);
+        }
+      } catch (err) {
+        console.error('Failed to fetch staff:', err);
+        toast.error('Failed to load staff');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const handleAddStaff = async () => {
+    if (!form.name.trim() || !form.email.trim() || !form.password.trim() || !form.branch) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    if (form.password.length < 6) {
+      toast.error('Password must be at least 6 characters');
       return;
     }
 
-    const highestId = staffList.reduce((max, member) => {
-      const numericPart = Number(member.id.replace('EMP-', ''));
-      return Number.isNaN(numericPart) ? max : Math.max(max, numericPart);
-    }, 0);
+    try {
+      setIsSubmitting(true);
+      const payload: Record<string, unknown> = {
+        name: form.name.trim(),
+        email: form.email.trim(),
+        password: form.password,
+        role: form.role,
+        branchId: form.branch,
+      };
+      if (form.staffId.trim()) payload.staffId = form.staffId.trim();
+      if (form.mobileNumber.trim()) payload.mobileNumber = form.mobileNumber.trim();
 
-    const id = `EMP-${String(highestId + 1).padStart(3, '0')}`;
-
-    setStaffList(prev => [{ id, ...newStaff }, ...prev]);
-    setIsAddModalOpen(false);
-    resetNewStaffForm();
+      const { data } = await api.post('/admin/staff', payload);
+      if (data.success) {
+        toast.success('Staff added successfully');
+        const s: ApiStaff = data.data;
+        setStaffList(prev => [{
+          _id: s._id,
+          id: s._id,
+          name: s.name,
+          email: s.email,
+          role: s.role,
+          staffId: s.staffId,
+          mobileNumber: s.mobileNumber,
+          branch: s.branchId?._id || form.branch,
+          status: 'Active',
+        }, ...prev]);
+        closeModal();
+      }
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { message?: string } } };
+      toast.error(axiosError?.response?.data?.message || 'Failed to add staff');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const openDeleteModal = (id: string) => {
-    const member = staffList.find(s => s.id === id);
-    if (!member) return;
-    setDeletingStaff(member);
+  const handleEditStaff = async () => {
+    if (!editingStaff) return;
+    if (!editForm.name.trim() || !editForm.email.trim() || !editForm.branch) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    if (editForm.password && editForm.password.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const payload: Record<string, unknown> = {
+        name: editForm.name.trim(),
+        email: editForm.email.trim(),
+        role: editForm.role,
+        branchId: editForm.branch,
+        staffId: editForm.staffId.trim() || undefined,
+        mobileNumber: editForm.mobileNumber.trim() || undefined,
+      };
+      if (editForm.password) payload.password = editForm.password;
+
+      const { data } = await api.put(`/admin/staff/${editingStaff._id}`, payload);
+      if (data.success) {
+        toast.success('Staff updated');
+        const s: ApiStaff = data.data;
+        setStaffList(prev => prev.map(row => row._id === editingStaff._id ? {
+          ...row,
+          name: s.name,
+          email: s.email,
+          role: s.role,
+          staffId: s.staffId,
+          mobileNumber: s.mobileNumber,
+          branch: s.branchId?._id || editForm.branch,
+        } : row));
+        closeEdit();
+      }
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { message?: string } } };
+      toast.error(axiosError?.response?.data?.message || 'Failed to update staff');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const openEditModal = (id: string) => {
-    const member = staffList.find(s => s.id === id);
-    if (!member) return;
-    setEditedRole(member.role);
-    setEditingStaff(member);
-  };
-
-  const handleDeleteStaff = () => {
+  const handleDeleteStaff = async () => {
     if (!deletingStaff) return;
-    setStaffList(prev => prev.filter(member => member.id !== deletingStaff.id));
-    setDeletingStaff(null);
-  };
-
-  const handleEditStaff = () => {
-    if (!editingStaff || !editedRole.trim()) return;
-    setStaffList(prev =>
-      prev.map(s => (s.id === editingStaff.id ? { ...s, role: editedRole.trim() } : s))
-    );
-    setEditingStaff(null);
-    setEditedRole('');
+    try {
+      const { data } = await api.delete(`/admin/staff/${deletingStaff._id}`);
+      if (data.success) {
+        toast.success('Staff deleted');
+        setStaffList(prev => prev.filter(s => s._id !== deletingStaff._id));
+        setDeletingStaff(null);
+      }
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { message?: string } } };
+      toast.error(axiosError?.response?.data?.message || 'Failed to delete staff');
+    }
   };
 
   const filteredStaff = staffList.filter(s => {
+    const q = searchTerm.toLowerCase();
     const matchesSearch =
-      s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.department.toLowerCase().includes(searchTerm.toLowerCase());
+      s.name.toLowerCase().includes(q) ||
+      s.email.toLowerCase().includes(q) ||
+      (s.staffId?.toLowerCase().includes(q) ?? false);
     const matchesStatus = statusFilter === 'All' || s.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -116,13 +264,13 @@ export const StaffView = () => {
             <p className="text-xs text-on-surface-variant font-medium opacity-60">Manage employee records and roles</p>
           </div>
         </div>
-        
+
         <div className="flex w-full sm:w-auto items-center gap-3">
           <div className="relative flex-1 sm:flex-none">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/50" size={18} />
-            <input 
-              type="text" 
-              placeholder="Search staff, roles..."
+            <input
+              type="text"
+              placeholder="Search staff, email, ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full sm:w-64 bg-surface-container-low/50 border border-outline-variant/20 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all text-on-surface"
@@ -179,83 +327,91 @@ export const StaffView = () => {
 
       {/* Table */}
       <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-surface-container-low/30 border-b border-outline-variant/10">
-                <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Employee</th>
-                <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Role</th>
-                <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Department</th>
-                <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Branch</th>
-                <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Status</th>
-                <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-surface-container-low/50">
-              {filteredStaff.map((staff) => (
-                <motion.tr 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  key={staff.id} 
-                  className="hover:bg-surface-container-low/20 transition-colors group"
-                >
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center font-bold text-on-surface-variant/70 text-sm">
-                        {staff.name.split(' ').map(n => n[0]).join('')}
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">{staff.name}</span>
-                        <span className="text-[10px] text-on-surface-variant uppercase tracking-wider mt-0.5 opacity-60 font-bold">{staff.id}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{staff.role}</td>
-                  <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">
-                    <span className="px-3 py-1 bg-surface-container-low rounded-lg text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
-                      {staff.department}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{staff.branch}</td>
-                  <td className="px-6 py-4">
-                    <span className={cn(
-                      "px-3 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-wider",
-                      staff.status === 'Active' && "bg-green-50 text-green-700",
-                      staff.status === 'On Leave' && "bg-amber-50 text-amber-700",
-                      staff.status === 'Inactive' && "bg-surface-container-low text-on-surface-variant"
-                    )}>
-                      {staff.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-2 opacity-100">
-                      <button
-                        onClick={() => openEditModal(staff.id)}
-                        aria-label={`Edit ${staff.name}`}
-                        className="p-2 hover:bg-surface-container-low rounded-lg text-primary transition-colors"
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        onClick={() => openDeleteModal(staff.id)}
-                        aria-label={`Delete ${staff.name}`}
-                        className="p-2 hover:bg-error/10 rounded-lg text-error transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </motion.tr>
-              ))}
-            </tbody>
-          </table>
-          
-          {filteredStaff.length === 0 && (
-            <div className="p-10 text-center text-on-surface-variant opacity-60">
-              No staff found.
+        {isLoading ? (
+          <div className="h-80 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin mx-auto mb-4"></div>
+              <p className="text-on-surface-variant">Loading staff...</p>
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-surface-container-low/30 border-b border-outline-variant/10">
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Employee</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Role</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Email</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Branch</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Status</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-container-low/50">
+                {filteredStaff.map((staff) => (
+                  <motion.tr
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    key={staff.id}
+                    className="hover:bg-surface-container-low/20 transition-colors group"
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center font-bold text-on-surface-variant/70 text-sm">
+                          {staff.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">{staff.name}</span>
+                          <span className="text-[10px] text-on-surface-variant uppercase tracking-wider mt-0.5 opacity-60 font-bold">{staff.staffId || staff._id.slice(-8)}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{roleLabel(staff.role)}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{staff.email}</td>
+                    <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">
+                      {branches.find(b => b._id === staff.branch)?.name || 'Unknown'}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={cn(
+                        "px-3 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-wider",
+                        staff.status === 'Active' && "bg-green-50 text-green-700",
+                        staff.status === 'On Leave' && "bg-amber-50 text-amber-700",
+                        staff.status === 'Inactive' && "bg-surface-container-low text-on-surface-variant"
+                      )}>
+                        {staff.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2 opacity-100">
+                        <button
+                          onClick={() => openEdit(staff)}
+                          aria-label={`Edit ${staff.name}`}
+                          className="p-2 hover:bg-surface-container-low rounded-lg text-primary transition-colors"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={() => setDeletingStaff(staff)}
+                          aria-label={`Delete ${staff.name}`}
+                          className="p-2 hover:bg-error/10 rounded-lg text-error transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </motion.tr>
+                ))}
+                {filteredStaff.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="p-10 text-center text-on-surface-variant opacity-60">
+                      No staff found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <AnimatePresence>
@@ -265,17 +421,14 @@ export const StaffView = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={() => {
-              setIsAddModalOpen(false);
-              resetNewStaffForm();
-            }}
+            onClick={closeModal}
           >
             <motion.div
               initial={{ opacity: 0, y: 8, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 8, scale: 0.98 }}
               transition={{ duration: 0.16 }}
-              className="w-full max-w-lg rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-2xl p-6"
+              className="w-full max-w-lg rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-2xl p-6 max-h-[90vh] overflow-y-auto"
               role="dialog"
               aria-modal="true"
               aria-label="Add staff member"
@@ -284,13 +437,10 @@ export const StaffView = () => {
               <div className="flex items-start justify-between gap-4 mb-5">
                 <div>
                   <h4 className="text-lg font-extrabold text-on-surface">Add Staff Member</h4>
-                  <p className="text-sm text-on-surface-variant mt-1">Create a new employee record.</p>
+                  <p className="text-sm text-on-surface-variant mt-1">Create a new employee account.</p>
                 </div>
                 <button
-                  onClick={() => {
-                    setIsAddModalOpen(false);
-                    resetNewStaffForm();
-                  }}
+                  onClick={closeModal}
                   className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low"
                   aria-label="Close add staff modal"
                 >
@@ -301,59 +451,72 @@ export const StaffView = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <input
                   type="text"
-                  value={newStaff.name}
-                  onChange={(e) => setNewStaff(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Full name"
+                  value={form.name}
+                  onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
+                  className="sm:col-span-2 w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                  placeholder="Full name *"
                 />
                 <input
-                  type="text"
-                  value={newStaff.role}
-                  onChange={(e) => setNewStaff(prev => ({ ...prev, role: e.target.value }))}
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
                   className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Role"
+                  placeholder="Email *"
                 />
                 <input
-                  type="text"
-                  value={newStaff.department}
-                  onChange={(e) => setNewStaff(prev => ({ ...prev, department: e.target.value }))}
+                  type="password"
+                  value={form.password}
+                  onChange={(e) => setForm(prev => ({ ...prev, password: e.target.value }))}
                   className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Department"
-                />
-                <input
-                  type="text"
-                  value={newStaff.branch}
-                  onChange={(e) => setNewStaff(prev => ({ ...prev, branch: e.target.value }))}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Branch"
+                  placeholder="Password * (min 6 chars)"
                 />
                 <select
-                  value={newStaff.status}
-                  onChange={(e) => setNewStaff(prev => ({ ...prev, status: e.target.value as Staff['status'] }))}
-                  className="sm:col-span-2 w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                  value={form.role}
+                  onChange={(e) => setForm(prev => ({ ...prev, role: e.target.value as StaffRole }))}
+                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
                 >
-                  <option value="Active">Active</option>
-                  <option value="On Leave">On Leave</option>
-                  <option value="Inactive">Inactive</option>
+                  <option value="staff">Staff</option>
+                  <option value="branch_manager">Branch Manager</option>
                 </select>
+                <select
+                  value={form.branch}
+                  onChange={(e) => setForm(prev => ({ ...prev, branch: e.target.value }))}
+                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                >
+                  <option value="">Select branch *</option>
+                  {branches.map(b => (
+                    <option key={b._id} value={b._id}>{b.name}</option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  value={form.staffId}
+                  onChange={(e) => setForm(prev => ({ ...prev, staffId: e.target.value }))}
+                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                  placeholder="Staff ID"
+                />
+                <input
+                  type="tel"
+                  value={form.mobileNumber}
+                  onChange={(e) => setForm(prev => ({ ...prev, mobileNumber: e.target.value }))}
+                  className="sm:col-span-2 w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                  placeholder="Mobile number"
+                />
               </div>
 
               <div className="mt-6 flex justify-end gap-3">
                 <button
-                  onClick={() => {
-                    setIsAddModalOpen(false);
-                    resetNewStaffForm();
-                  }}
+                  onClick={closeModal}
                   className="px-4 py-2 rounded-xl text-sm font-semibold text-on-surface-variant border border-outline-variant/30 hover:text-on-surface hover:bg-surface-container-low transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleAddStaff}
-                  disabled={!newStaff.name.trim() || !newStaff.role.trim() || !newStaff.department.trim() || !newStaff.branch.trim()}
+                  disabled={isSubmitting || !form.name.trim() || !form.email.trim() || !form.password.trim() || !form.branch}
                   className="px-4 py-2 rounded-xl text-sm font-bold bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  Add Staff
+                  {isSubmitting ? 'Adding...' : 'Add Staff'}
                 </button>
               </div>
             </motion.div>
@@ -368,17 +531,14 @@ export const StaffView = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={() => {
-              setEditingStaff(null);
-              setEditedRole('');
-            }}
+            onClick={closeEdit}
           >
             <motion.div
               initial={{ opacity: 0, y: 8, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 8, scale: 0.98 }}
               transition={{ duration: 0.16 }}
-              className="w-full max-w-md rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-2xl p-6"
+              className="w-full max-w-lg rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-2xl p-6 max-h-[90vh] overflow-y-auto"
               role="dialog"
               aria-modal="true"
               aria-label="Edit staff member"
@@ -386,48 +546,87 @@ export const StaffView = () => {
             >
               <div className="flex items-start justify-between gap-4 mb-5">
                 <div>
-                  <h4 className="text-lg font-extrabold text-on-surface">Edit Staff Role</h4>
-                  <p className="text-sm text-on-surface-variant mt-1">Update role for {editingStaff.name}.</p>
+                  <h4 className="text-lg font-extrabold text-on-surface">Edit Staff Member</h4>
+                  <p className="text-sm text-on-surface-variant mt-1">Update this employee&apos;s details.</p>
                 </div>
                 <button
-                  onClick={() => {
-                    setEditingStaff(null);
-                    setEditedRole('');
-                  }}
+                  onClick={closeEdit}
                   className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low"
-                  aria-label="Close edit modal"
+                  aria-label="Close edit staff modal"
                 >
                   <X size={16} />
                 </button>
               </div>
 
-              <label className="block text-xs font-bold uppercase tracking-wider text-on-surface-variant mb-2">
-                Role
-              </label>
-              <input
-                type="text"
-                value={editedRole}
-                onChange={(e) => setEditedRole(e.target.value)}
-                className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40"
-                placeholder="Enter staff role"
-              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                  className="sm:col-span-2 w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                  placeholder="Full name *"
+                />
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                  placeholder="Email *"
+                />
+                <input
+                  type="password"
+                  value={editForm.password}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, password: e.target.value }))}
+                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                  placeholder="New password (leave blank to keep)"
+                />
+                <select
+                  value={editForm.role}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, role: e.target.value as StaffRole }))}
+                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                >
+                  <option value="staff">Staff</option>
+                  <option value="branch_manager">Branch Manager</option>
+                </select>
+                <select
+                  value={editForm.branch}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, branch: e.target.value }))}
+                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                >
+                  <option value="">Select branch *</option>
+                  {branches.map(b => (
+                    <option key={b._id} value={b._id}>{b.name}</option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  value={editForm.staffId}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, staffId: e.target.value }))}
+                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                  placeholder="Staff ID"
+                />
+                <input
+                  type="tel"
+                  value={editForm.mobileNumber}
+                  onChange={(e) => setEditForm(prev => ({ ...prev, mobileNumber: e.target.value }))}
+                  className="sm:col-span-2 w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                  placeholder="Mobile number"
+                />
+              </div>
 
               <div className="mt-6 flex justify-end gap-3">
                 <button
-                  onClick={() => {
-                    setEditingStaff(null);
-                    setEditedRole('');
-                  }}
+                  onClick={closeEdit}
                   className="px-4 py-2 rounded-xl text-sm font-semibold text-on-surface-variant border border-outline-variant/30 hover:text-on-surface hover:bg-surface-container-low transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleEditStaff}
-                  disabled={!editedRole.trim()}
-                  className="px-4 py-2 rounded-xl text-sm font-bold border border-primary/40 text-primary hover:bg-primary/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  disabled={isSubmitting || !editForm.name.trim() || !editForm.email.trim() || !editForm.branch}
+                  className="px-4 py-2 rounded-xl text-sm font-bold bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  Save Changes
+                  {isSubmitting ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </motion.div>
@@ -457,13 +656,13 @@ export const StaffView = () => {
             >
               <div className="flex items-start justify-between gap-4 mb-4">
                 <div>
-                  <h4 className="text-lg font-extrabold text-on-surface">Delete Staff Member</h4>
+                  <h4 className="text-lg font-extrabold text-on-surface">Delete Staff</h4>
                   <p className="text-sm text-on-surface-variant mt-1">This action cannot be undone.</p>
                 </div>
                 <button
                   onClick={() => setDeletingStaff(null)}
                   className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low"
-                  aria-label="Close delete modal"
+                  aria-label="Close delete staff modal"
                 >
                   <X size={16} />
                 </button>

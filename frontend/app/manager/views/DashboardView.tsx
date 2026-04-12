@@ -1,14 +1,13 @@
 "use client";
 
-import { useMemo, useState } from 'react';
-import { 
-  TrendingUp, 
-  UserPlus, 
-  BarChart3, 
-  AlertCircle, 
-  MoreVertical, 
-  CheckCircle2, 
-  History, 
+import { useEffect, useMemo, useState } from 'react';
+import {
+  TrendingUp,
+  UserPlus,
+  BarChart3,
+  AlertCircle,
+  MoreVertical,
+  History,
   XCircle,
   CreditCard,
   Eye,
@@ -18,13 +17,13 @@ import {
   ChevronUp,
   Download
 } from 'lucide-react';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   PieChart,
   Pie,
@@ -33,6 +32,7 @@ import {
 import { Lead, Staff, BillingRecord, Patient, ViewType } from '../types';
 import { cn } from '../lib/utils';
 import { Button } from '../components/ui/Button';
+import api from '@/lib/api';
 
 interface DashboardProps {
   leads: Lead[];
@@ -42,46 +42,134 @@ interface DashboardProps {
   onNavigate: (view: ViewType) => void;
 }
 
-const REVENUE_DATA = [
-  { name: 'JAN', value: 40 },
-  { name: 'FEB', value: 60 },
-  { name: 'MAR', value: 55 },
-  { name: 'APR', value: 85 },
-  { name: 'MAY', value: 70 },
-  { name: 'JUN', value: 95 },
-];
+interface BillingSummary {
+  overall: { totalRevenue: number; totalDues: number; totalTransactions: number };
+  currentMonth: { month: string; revenue: number; dues: number; transactions: number };
+  monthlyTrend: Array<{ _id: { year: number; month: number }; revenue: number; dues: number; count: number }>;
+  outstandingDues: Array<{ _id: string; patientName: string; totalDue: number; lastPayment: string }>;
+}
+
+interface PatientStats {
+  total: number;
+  active: number;
+  discharged: number;
+  onHold: number;
+  recentAdmissions: number;
+}
+
+interface LeadStats {
+  total: number;
+  new: number;
+  contacted: number;
+  converted: number;
+  closed: number;
+  conversionRate: string;
+  recentLeads: number;
+}
+
+interface RecentPayment {
+  _id: string;
+  amount: number;
+  paymentDate: string;
+  status: string;
+  patientId?: { name?: string; parentName?: string } | null;
+}
 
 const COLORS = ['#004ac6', '#e0e3e5'];
 
-export default function DashboardView({ leads, staff, billing, patients, onNavigate }: DashboardProps) {
+const MONTH_LABELS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+export default function DashboardView({ leads, onNavigate }: DashboardProps) {
   const [isActivityExpanded, setIsActivityExpanded] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
 
+  const [billingSummary, setBillingSummary] = useState<BillingSummary | null>(null);
+  const [patientStats, setPatientStats] = useState<PatientStats | null>(null);
+  const [leadStats, setLeadStats] = useState<LeadStats | null>(null);
+  const [recentPayments, setRecentPayments] = useState<RecentPayment[]>([]);
+
+  useEffect(() => {
+    const fetchAll = async () => {
+      try {
+        const [billingRes, patientRes, leadRes, paymentsRes] = await Promise.all([
+          api.get('/manager/billing/summary'),
+          api.get('/manager/patients/stats'),
+          api.get('/manager/leads/stats'),
+          api.get('/manager/billing?limit=5'),
+        ]);
+        if (billingRes.data?.success) setBillingSummary(billingRes.data.data);
+        if (patientRes.data?.success) setPatientStats(patientRes.data.data);
+        if (leadRes.data?.success) setLeadStats(leadRes.data.data);
+        if (paymentsRes.data?.success) setRecentPayments(paymentsRes.data.data || []);
+      } catch (err) {
+        console.error('Failed to load dashboard data:', err);
+      }
+    };
+    fetchAll();
+  }, []);
+
+  const formatCurrency = (v: number) => {
+    if (v >= 100000) return `₹${(v / 100000).toFixed(1)}L`;
+    if (v >= 1000) return `₹${(v / 1000).toFixed(1)}K`;
+    return `₹${v.toLocaleString('en-IN')}`;
+  };
+
   const stats = useMemo(() => {
-    const totalRevenue = billing.reduce((acc, curr) => acc + curr.amountPaid, 0);
-    const outstandingDues = billing.reduce((acc, curr) => acc + curr.dueAmount, 0);
-    const activeStaff = staff.filter(s => s.status === 'Active').length;
-    const totalPatients = patients.length + 24; // Base mock count
+    const totalRevenue = billingSummary?.overall.totalRevenue ?? 0;
+    const outstandingDues = billingSummary?.overall.totalDues ?? 0;
+    const totalPatients = patientStats?.total ?? 0;
+    const recentAdmissions = patientStats?.recentAdmissions ?? 0;
+    const openLeads = leadStats ? leadStats.new + leadStats.contacted : leads.length;
 
     return [
-      { label: 'Total Revenue', value: `₹${(totalRevenue / 1000).toFixed(1)}L`, icon: CreditCard, trend: '+12%', color: 'text-primary', bg: 'bg-primary/5' },
-      { label: 'New Patients', value: totalPatients, icon: UserPlus, trend: '+4', color: 'text-secondary', bg: 'bg-secondary/5' },
-      { label: 'Open Leads', value: leads.length, icon: BarChart3, trend: 'Active', color: 'text-tertiary', bg: 'bg-orange-50' },
-      { label: 'Outstanding Dues', value: `₹${outstandingDues.toLocaleString()}`, icon: AlertCircle, trend: 'Urgent', color: 'text-error', bg: 'bg-error/5' },
+      { label: 'Total Revenue', value: formatCurrency(totalRevenue), icon: CreditCard, trend: billingSummary ? formatCurrency(billingSummary.currentMonth.revenue) : '—', color: 'text-primary', bg: 'bg-primary/5' },
+      { label: 'New Patients', value: totalPatients, icon: UserPlus, trend: `+${recentAdmissions}`, color: 'text-secondary', bg: 'bg-secondary/5' },
+      { label: 'Open Leads', value: openLeads, icon: BarChart3, trend: leadStats?.conversionRate ?? 'Active', color: 'text-tertiary', bg: 'bg-orange-50' },
+      { label: 'Outstanding Dues', value: formatCurrency(outstandingDues), icon: AlertCircle, trend: outstandingDues > 0 ? 'Urgent' : 'Clear', color: 'text-error', bg: 'bg-error/5' },
     ];
-  }, [billing, staff, patients, leads]);
+  }, [billingSummary, patientStats, leadStats, leads]);
+
+  const revenueData = useMemo(() => {
+    if (!billingSummary?.monthlyTrend?.length) return [];
+    return billingSummary.monthlyTrend.map(m => ({
+      name: MONTH_LABELS[(m._id.month - 1) % 12],
+      value: Math.round(m.revenue / 1000),
+    }));
+  }, [billingSummary]);
 
   const pieData = useMemo((): [{name: string, value: number}, {name: string, value: number}, {percentage: number}] => {
-    const paid = billing.reduce((acc, curr) => acc + curr.amountPaid, 0);
-    const pending = billing.reduce((acc, curr) => acc + curr.dueAmount, 0);
+    const paid = billingSummary?.overall.totalRevenue ?? 0;
+    const pending = billingSummary?.overall.totalDues ?? 0;
     const total = paid + pending;
     return [
       { name: 'Paid Amount', value: paid },
       { name: 'Pending Dues', value: pending },
-      { percentage: Math.round((paid / total) * 100) }
+      { percentage: total > 0 ? Math.round((paid / total) * 100) : 0 }
     ];
-  }, [billing]);
+  }, [billingSummary]);
+
+  const activityItems = useMemo(() => {
+    return recentPayments.map(p => ({
+      id: p._id,
+      name: p.patientId?.name || p.patientId?.parentName || 'Patient',
+      amount: p.amount,
+      date: p.paymentDate,
+      status: p.status,
+    }));
+  }, [recentPayments]);
+
+  const formatRelative = (iso: string) => {
+    const d = new Date(iso);
+    const diffMs = Date.now() - d.getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins} min${mins === 1 ? '' : 's'} ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs} hour${hrs === 1 ? '' : 's'} ago`;
+    const days = Math.floor(hrs / 24);
+    return `${days} day${days === 1 ? '' : 's'} ago`;
+  };
 
   return (
     <div className="space-y-8">
@@ -138,28 +226,35 @@ export default function DashboardView({ leads, staff, billing, patients, onNavig
               </select>
             </div>
             <div className="h-64 w-full">
-              <ResponsiveContainer width="99%" height="100%" minWidth={1} minHeight={1}>
-                <BarChart data={REVENUE_DATA}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                  <XAxis 
-                    dataKey="name" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fontSize: 10, fontWeight: 700, fill: '#434655' }}
-                  />
-                  <YAxis hide />
-                  <Tooltip 
-                    cursor={{ fill: '#f2f4f6' }}
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                  />
-                  <Bar 
-                    dataKey="value" 
-                    fill="#004ac6" 
-                    radius={[6, 6, 0, 0]} 
-                    barSize={40}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+              {revenueData.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-sm text-on-surface-variant">
+                  No revenue data yet.
+                </div>
+              ) : (
+                <ResponsiveContainer width="99%" height="100%" minWidth={1} minHeight={1}>
+                  <BarChart data={revenueData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                    <XAxis
+                      dataKey="name"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fontSize: 10, fontWeight: 700, fill: '#434655' }}
+                    />
+                    <YAxis hide />
+                    <Tooltip
+                      cursor={{ fill: '#f2f4f6' }}
+                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                      formatter={(value) => [`₹${value}K`, 'Revenue']}
+                    />
+                    <Bar
+                      dataKey="value"
+                      fill="#004ac6"
+                      radius={[6, 6, 0, 0]}
+                      barSize={40}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </div>
 
@@ -362,60 +457,32 @@ export default function DashboardView({ leads, staff, billing, patients, onNavig
               </button>
             </div>
             <div className="relative space-y-8 before:absolute before:left-[15px] before:top-2 before:bottom-2 before:w-[2px] before:bg-outline-variant/20">
-              <div className="relative pl-10">
-                <div className="absolute left-0 w-8 h-8 rounded-full bg-secondary-container/40 flex items-center justify-center text-secondary z-10 border-4 border-surface-container-lowest">
-                  <CheckCircle2 size={14} />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-on-surface">Vikram Singh <span className="font-normal text-on-surface-variant">checked in for</span> Physiotherapy</p>
-                  <p className="text-xs text-on-surface-variant/60 mt-1">12 minutes ago</p>
-                </div>
-              </div>
-              <div className="relative pl-10">
-                <div className="absolute left-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary z-10 border-4 border-surface-container-lowest">
-                  <CreditCard size={14} />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-on-surface">Payment Received <span className="font-normal text-on-surface-variant">from Priya Das</span></p>
-                  <p className="text-xs font-bold text-secondary mt-1">₹4,500 collected</p>
-                  <p className="text-xs text-on-surface-variant/60 mt-1">45 minutes ago</p>
-                </div>
-              </div>
-              
-              {isActivityExpanded && (
-                <>
-                  <div className="relative pl-10">
-                    <div className="absolute left-0 w-8 h-8 rounded-full bg-error/10 flex items-center justify-center text-error z-10 border-4 border-surface-container-lowest">
-                      <XCircle size={14} />
+              {activityItems.length === 0 && (
+                <p className="text-sm text-on-surface-variant text-center py-4">No recent activity.</p>
+              )}
+              {(isActivityExpanded ? activityItems : activityItems.slice(0, 3)).map(item => {
+                const isPaid = item.status === 'paid' || item.status === 'partial';
+                return (
+                  <div key={item.id} className="relative pl-10">
+                    <div className={cn(
+                      "absolute left-0 w-8 h-8 rounded-full flex items-center justify-center z-10 border-4 border-surface-container-lowest",
+                      isPaid ? "bg-secondary-container/40 text-secondary" : "bg-error/10 text-error"
+                    )}>
+                      {isPaid ? <CreditCard size={14} /> : <XCircle size={14} />}
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-on-surface">Appointment Cancelled <span className="font-normal text-on-surface-variant">by Amit Roy</span></p>
-                      <p className="text-xs text-on-surface-variant/60 mt-1">3 hours ago</p>
+                      <p className="text-sm font-bold text-on-surface">
+                        {isPaid ? 'Payment Received' : 'Payment Pending'}{' '}
+                        <span className="font-normal text-on-surface-variant">from {item.name}</span>
+                      </p>
+                      <p className={cn("text-xs font-bold mt-1", isPaid ? "text-secondary" : "text-error")}>
+                        ₹{item.amount.toLocaleString('en-IN')} {isPaid ? 'collected' : 'outstanding'}
+                      </p>
+                      <p className="text-xs text-on-surface-variant/60 mt-1">{formatRelative(item.date)}</p>
                     </div>
                   </div>
-                  <div className="relative pl-10">
-                    <div className="absolute left-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary z-10 border-4 border-surface-container-lowest">
-                      <UserPlus size={14} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-on-surface">New Lead <span className="font-normal text-on-surface-variant">from Website</span></p>
-                      <p className="text-xs text-on-surface-variant/60 mt-1">5 hours ago</p>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {!isActivityExpanded && (
-                <div className="relative pl-10">
-                  <div className="absolute left-0 w-8 h-8 rounded-full bg-error/10 flex items-center justify-center text-error z-10 border-4 border-surface-container-lowest">
-                    <XCircle size={14} />
-                  </div>
-                  <div>
-                    <p className="text-sm font-bold text-on-surface">Appointment Cancelled <span className="font-normal text-on-surface-variant">by Amit Roy</span></p>
-                    <p className="text-xs text-on-surface-variant/60 mt-1">3 hours ago</p>
-                  </div>
-                </div>
-              )}
+                );
+              })}
             </div>
             <Button 
               variant="outline"
@@ -445,8 +512,8 @@ export default function DashboardView({ leads, staff, billing, patients, onNavig
               referrerPolicy="no-referrer"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-6 flex flex-col justify-end">
-              <h4 className="text-white font-bold text-lg leading-tight">Patient Satisfaction: 98%</h4>
-              <p className="text-white/70 text-xs">Your branch is performing 12% above national average this month.</p>
+              <h4 className="text-white font-bold text-lg leading-tight">Your branch</h4>
+              <p className="text-white/70 text-xs">Keep up the great work — your team is caring for our community every day.</p>
             </div>
           </div>
         </div>

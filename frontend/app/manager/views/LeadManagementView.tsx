@@ -1,5 +1,6 @@
 ﻿"use client";
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import api from '@/lib/api';
 import { 
   Search, 
   Filter, 
@@ -32,6 +33,24 @@ interface LeadManagementProps {
 }
 
 export default function LeadManagementView({ leads, onUpdateStatus, onAddLead, onDeleteLead, onUpdateLead }: LeadManagementProps) {
+  const [conversionRate, setConversionRate] = useState<string>('—');
+  const [recentLeads, setRecentLeads] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const { data } = await api.get('/manager/leads/stats');
+        if (data.success) {
+          setConversionRate(data.data.conversionRate || '0%');
+          setRecentLeads(data.data.recentLeads ?? null);
+        }
+      } catch (err) {
+        console.error('Failed to load lead stats:', err);
+      }
+    };
+    fetchStats();
+  }, []);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All Statuses');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -397,8 +416,10 @@ export default function LeadManagementView({ leads, onUpdateStatus, onAddLead, o
             <TrendingUp size={32} />
             <span className="bg-white/20 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">Conversion</span>
           </div>
-          <h3 className="text-2xl font-bold mb-1">24.8%</h3>
-          <p className="text-white/80 text-xs font-medium">Monthly referral growth</p>
+          <h3 className="text-2xl font-bold mb-1">{conversionRate}</h3>
+          <p className="text-white/80 text-xs font-medium">
+            {recentLeads !== null ? `${recentLeads} new leads in last 7 days` : 'Current conversion rate'}
+          </p>
         </div>
         <div className="bg-surface-container-lowest p-6 rounded-2xl relative overflow-hidden shadow-sm border border-outline-variant/10">
           <div className="relative z-10">

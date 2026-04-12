@@ -39,7 +39,7 @@ const getPayments = async (req, res) => {
 
         const [payments, total] = await Promise.all([
             FeePayment.find(filter)
-                .populate('patientId', 'childName parentName parentPhone')
+                .populate('patientId', 'name parentName parentPhone')
                 .populate('branchId', 'name')
                 .populate('collectedBy', 'name')
                 .sort({ paymentDate: -1 })
@@ -70,7 +70,7 @@ const getPayment = async (req, res) => {
         const branchId = getManagerBranchId(req);
 
         const payment = await FeePayment.findOne({ _id: req.params.id, branchId })
-            .populate('patientId', 'childName parentName parentPhone parentEmail therapyType')
+            .populate('patientId', 'name parentName parentPhone parentEmail therapyType')
             .populate('branchId', 'name address city phone email')
             .populate('collectedBy', 'name');
 
@@ -112,7 +112,7 @@ const createPayment = async (req, res) => {
         const payment = await FeePayment.create(paymentData);
 
         const populated = await FeePayment.findById(payment._id)
-            .populate('patientId', 'childName parentName')
+            .populate('patientId', 'name parentName')
             .populate('branchId', 'name')
             .populate('collectedBy', 'name');
 
@@ -139,7 +139,7 @@ const updatePayment = async (req, res) => {
             req.body,
             { new: true, runValidators: true }
         )
-            .populate('patientId', 'childName parentName')
+            .populate('patientId', 'name parentName')
             .populate('branchId', 'name')
             .populate('collectedBy', 'name');
 
@@ -162,7 +162,7 @@ const downloadInvoice = async (req, res) => {
         const branchId = getManagerBranchId(req);
 
         const payment = await FeePayment.findOne({ _id: req.params.id, branchId })
-            .populate('patientId', 'childName parentName parentPhone parentEmail therapyType')
+            .populate('patientId', 'name parentName parentPhone parentEmail therapyType')
             .populate('collectedBy', 'name');
 
         if (!payment) {
@@ -283,7 +283,7 @@ const getBillingSummary = async (req, res) => {
             { $unwind: '$patient' },
             {
                 $project: {
-                    patientName: '$patient.childName',
+                    patientName: '$patient.name',
                     parentName: '$patient.parentName',
                     totalDue: 1,
                     lastPayment: 1,
@@ -374,7 +374,7 @@ const getPatientPayments = async (req, res) => {
             data: {
                 patient: {
                     id: patient._id,
-                    childName: patient.childName,
+                    name: patient.name,
                     parentName: patient.parentName,
                 },
                 totalPaid,

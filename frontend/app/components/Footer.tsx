@@ -1,6 +1,13 @@
 import { Share2, Mail, Camera, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 
+const SOCIAL_LINKS: { icon: React.ElementType; href: string; label: string; external?: boolean }[] = [
+  { icon: Share2, href: '#', label: 'Share' },
+  { icon: Mail, href: 'mailto:rehablito@gmail.com', label: 'Email' },
+  { icon: Camera, href: 'https://www.instagram.com/rehablito.patna', label: 'Instagram', external: true },
+  { icon: MessageCircle, href: 'https://wa.me/917870066129', label: 'WhatsApp', external: true },
+];
+
 const Footer = () => {
   return (
     <footer className="bg-surface border-t border-outline-variant/20 pt-24 pb-12">
@@ -15,10 +22,16 @@ const Footer = () => {
               </Link>
             </div>
             <div className="flex gap-4 mt-8">
-              {[Share2, Mail, Camera, MessageCircle].map((Icon, i) => (
-                <div key={i} className="w-10 h-10 rounded-full bg-soft-peach flex items-center justify-center text-brand-sage cursor-pointer hover:bg-brand-rose transition-colors">
+              {SOCIAL_LINKS.map(({ icon: Icon, href, label, external }) => (
+                <a
+                  key={label}
+                  href={href}
+                  aria-label={label}
+                  {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                  className="w-10 h-10 rounded-full bg-soft-peach flex items-center justify-center text-brand-sage cursor-pointer hover:bg-brand-rose transition-colors"
+                >
                   <Icon size={18} />
-                </div>
+                </a>
               ))}
             </div>
           </div>
@@ -43,8 +56,12 @@ const Footer = () => {
 
           <div>
             <h6 className="font-bold text-sm uppercase tracking-widest text-brand-sage mb-8">Contact</h6>
-            <p className="text-on-surface-variant mb-4">120 Clinical Way, Suite 400<br/>Boutique District, CA 90210</p>
-            <p className="font-bold text-brand-sage text-xl">(888) REHAB-CARE</p>
+            <p className="text-on-surface-variant mb-4">Anisabad - Jagdeo Path Rd, Federal Colony,<br/>Haroon Colony Sector-II, Phulwari Sharif,<br/>Patna, Bihar 800002</p>
+            <div className="space-y-1 mb-3">
+              <a href="tel:+917870066129" className="block font-bold text-brand-sage text-xl hover:underline">+91 78700 66129</a>
+              <a href="tel:+919204786220" className="block font-bold text-brand-sage text-xl hover:underline">+91 92047 86220</a>
+            </div>
+            <a href="mailto:rehablito@gmail.com" className="text-on-surface-variant hover:text-brand-sage transition-colors font-semibold">rehablito@gmail.com</a>
           </div>
         </div>
 

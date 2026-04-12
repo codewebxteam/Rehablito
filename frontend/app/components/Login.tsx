@@ -99,7 +99,7 @@ export default function Login() {
           <input
             className="block w-full pl-12 pr-4 py-4 bg-surface-container-low border border-outline-variant/30 rounded-xl focus:ring-4 focus:ring-brand-sage/10 focus:border-brand-sage transition-all outline-none text-on-background placeholder:text-outline/50"
             type="email"
-            placeholder="admin@rehablito.com"
+            placeholder="rehablito@gmail.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required

@@ -393,9 +393,11 @@ const Services = () => {
 
 const Locations = () => {
   const locations = [
-    { city: "Beverly Hills", address: "120 Clinical Way, Suite 400", phone: "(888) 123-4567" },
-    { city: "Palo Alto", address: "450 Innovation Dr, Level 2", phone: "(888) 765-4321" },
-    { city: "Newport Beach", address: "88 Ocean View Terrace", phone: "(888) 999-0000" }
+    {
+      city: "Patna",
+      address: "Anisabad - Jagdeo Path Rd, Federal Colony, Haroon Colony Sector-II, Phulwari Sharif, Patna, Bihar 800002",
+      phone: "+91 78700 66129"
+    }
   ];
 
   return (
@@ -433,7 +435,7 @@ const Locations = () => {
               <div className="absolute inset-0 bg-linear-to-t from-black/40 to-transparent" />
               <div className="absolute bottom-10 left-10 text-white">
                 <p className="text-xs font-bold uppercase tracking-widest mb-2">Featured Sanctuary</p>
-                <h4 className="text-3xl font-bold">Beverly Hills Flagship</h4>
+                <h4 className="text-3xl font-bold">Rehablito Patna</h4>
               </div>
             </div>
 

@@ -24,7 +24,7 @@ const getPatients = async (req, res) => {
         if (req.query.status) filter.status = req.query.status;
         if (req.query.search) {
             filter.$or = [
-                { childName: { $regex: req.query.search, $options: 'i' } },
+                { name: { $regex: req.query.search, $options: 'i' } },
                 { parentName: { $regex: req.query.search, $options: 'i' } },
             ];
         }
@@ -160,7 +160,7 @@ const downloadPatientPDF = async (req, res) => {
         const branch = await Branch.findById(branchId);
         const pdfBuffer = await generatePatientRegistrationPDF(patient, branch);
 
-        const fileName = `Registration_${patient.childName.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+        const fileName = `Registration_${patient.name.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
 
         res.set({
             'Content-Type': 'application/pdf',

@@ -1,5 +1,6 @@
 ﻿"use client";
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import api from '@/lib/api';
 import { 
   History, 
   CheckCircle2, 
@@ -30,12 +31,62 @@ interface StaffManagementProps {
   onUpdateStaff: (staff: Staff) => void;
 }
 
+interface AttendanceStats {
+  today: {
+    date: string;
+    present: number;
+    absent: number;
+    leave: number;
+    halfDay: number;
+    notMarked: number;
+    totalStaff: number;
+  };
+  monthly: {
+    month: string;
+    present: number;
+    absent: number;
+    leave: number;
+    halfDay: number;
+  };
+}
+
+const getInitials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(part => part[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+
 export default function StaffManagementView({ staff, onToggleStatus, onDeleteStaff, onUpdateStaff }: StaffManagementProps) {
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [attendanceStats, setAttendanceStats] = useState<AttendanceStats | null>(null);
+  const [attendanceLoading, setAttendanceLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setAttendanceLoading(true);
+        const { data } = await api.get('/manager/attendance/stats');
+        if (data.success) setAttendanceStats(data.data as AttendanceStats);
+      } catch (err) {
+        console.error('Failed to load attendance stats:', err);
+      } finally {
+        setAttendanceLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
+
+  const monthlyHours = attendanceStats ? attendanceStats.monthly.present * 8 : 0;
+  const capacityPercent = attendanceStats && attendanceStats.today.totalStaff > 0
+    ? Math.round((attendanceStats.today.present / attendanceStats.today.totalStaff) * 100)
+    : 0;
 
   return (
     <div className="space-y-8">
@@ -100,12 +151,12 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
                     <tr key={member.id} className="group hover:bg-surface-container-low transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <img 
-                            src={`https://picsum.photos/seed/${member.id}/100/100`} 
-                            alt={member.name} 
-                            className="w-10 h-10 rounded-xl object-cover"
-                            referrerPolicy="no-referrer"
-                          />
+                          <div
+                            aria-hidden="true"
+                            className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-xs"
+                          >
+                            {getInitials(member.name)}
+                          </div>
                           <div>
                             <p className="font-bold text-sm text-on-surface">{member.name}</p>
                             <p className="text-xs text-on-surface-variant">{member.email}</p>
@@ -201,12 +252,12 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
                 <div key={member.id} className="p-4 sm:p-6 space-y-4">
                   <div className="flex justify-between items-start">
                     <div className="flex items-center gap-3">
-                      <img 
-                        src={`https://picsum.photos/seed/${member.id}/100/100`} 
-                        alt={member.name} 
-                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl object-cover shrink-0"
-                        referrerPolicy="no-referrer"
-                      />
+                      <div
+                        aria-hidden="true"
+                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0"
+                      >
+                        {getInitials(member.name)}
+                      </div>
                       <div className="min-w-0">
                         <p className="font-bold text-on-surface truncate">{member.name}</p>
                         <p className="text-xs text-on-surface-variant truncate">{member.email}</p>
@@ -316,50 +367,61 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
               <h3 className="font-bold text-lg">Attendance Hub</h3>
               <Activity className="text-on-surface-variant/60" size={20} />
             </div>
-            <div className="space-y-6">
-              <div className="p-4 bg-primary/5 rounded-xl">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs font-bold text-primary tracking-widest uppercase">Weekly Total</span>
-                  <span className="text-2xl font-black text-primary">1,248h</span>
-                </div>
-                <div className="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden">
-                  <div className="bg-primary h-full rounded-full" style={{ width: '82%' }}></div>
-                </div>
-                <p className="text-[10px] text-on-surface-variant mt-2">82% of scheduled clinical capacity utilized</p>
+            {attendanceLoading ? (
+              <div className="py-10 text-center">
+                <div className="w-10 h-10 rounded-full border-4 border-primary/20 border-t-primary animate-spin mx-auto mb-3"></div>
+                <p className="text-xs text-on-surface-variant">Loading attendance...</p>
               </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="p-4 bg-primary/5 rounded-xl">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-bold text-primary tracking-widest uppercase">{attendanceStats?.monthly.month || 'This Month'}</span>
+                    <span className="text-2xl font-black text-primary">{monthlyHours.toLocaleString()}h</span>
+                  </div>
+                  <div className="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden">
+                    <div className="bg-primary h-full rounded-full" style={{ width: `${Math.min(capacityPercent, 100)}%` }}></div>
+                  </div>
+                  <p className="text-[10px] text-on-surface-variant mt-2">
+                    {capacityPercent}% of clinical capacity present today ({attendanceStats?.today.present || 0}/{attendanceStats?.today.totalStaff || 0})
+                  </p>
+                </div>
 
-              <div className="space-y-3">
-                <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Daily Check-in Status</p>
                 <div className="space-y-3">
-                  {[
-                    { label: 'On-Time Check-ins', value: 12, color: 'bg-secondary' },
-                    { label: 'Late Arrivals', value: 2, color: 'bg-orange-400' },
-                    { label: 'Unexcused Absences', value: 0, color: 'bg-error' },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 border border-surface-container-low rounded-xl">
-                      <div className="flex items-center gap-3">
-                        <div className={cn("w-2 h-2 rounded-full", item.color)}></div>
-                        <span className="text-sm font-semibold">{item.label}</span>
+                  <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Today&apos;s Check-in Status</p>
+                  <div className="space-y-3">
+                    {[
+                      { label: 'Present', value: attendanceStats?.today.present ?? 0, color: 'bg-secondary' },
+                      { label: 'Half Day', value: attendanceStats?.today.halfDay ?? 0, color: 'bg-orange-400' },
+                      { label: 'On Leave', value: attendanceStats?.today.leave ?? 0, color: 'bg-amber-400' },
+                      { label: 'Absent', value: attendanceStats?.today.absent ?? 0, color: 'bg-error' },
+                      { label: 'Not Marked', value: attendanceStats?.today.notMarked ?? 0, color: 'bg-surface-container-high' },
+                    ].map((item, i) => (
+                      <div key={i} className="flex items-center justify-between p-3 border border-surface-container-low rounded-xl">
+                        <div className="flex items-center gap-3">
+                          <div className={cn("w-2 h-2 rounded-full", item.color)}></div>
+                          <span className="text-sm font-semibold">{item.label}</span>
+                        </div>
+                        <span className="font-bold">{item.value}</span>
                       </div>
-                      <span className="font-bold">{item.value}</span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              <Button 
-                variant="surface"
-                size="sm"
-                onClick={() => {
-                  setIsProcessing(true);
-                  setTimeout(() => setIsProcessing(false), 1000);
-                }}
-                isLoading={isProcessing}
-                className="w-full border-dashed"
-              >
-                <Download size={14} /> Export Attendance Log
-              </Button>
-            </div>
+                <Button
+                  variant="surface"
+                  size="sm"
+                  onClick={() => {
+                    setIsProcessing(true);
+                    setTimeout(() => setIsProcessing(false), 1000);
+                  }}
+                  isLoading={isProcessing}
+                  className="w-full border-dashed"
+                >
+                  <Download size={14} /> Export Attendance Log
+                </Button>
+              </div>
+            )}
           </div>
 
           <div className="relative bg-on-surface text-white rounded-xl p-6 overflow-hidden min-h-[300px] flex flex-col">
@@ -432,15 +494,15 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
           >
             <div className="flex justify-between items-start mb-8">
               <div className="flex items-center gap-4">
-                <img 
-                  src={`https://picsum.photos/seed/${selectedStaff.id}/100/100`} 
-                  alt={selectedStaff.name} 
-                  className="w-16 h-16 rounded-2xl object-cover"
-                  referrerPolicy="no-referrer"
-                />
+                <div
+                  aria-hidden="true"
+                  className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-bold text-lg"
+                >
+                  {getInitials(selectedStaff.name)}
+                </div>
                 <div>
                   <h3 className="text-2xl font-bold">{selectedStaff.name}</h3>
-                  <p className="text-on-surface-variant font-medium">{selectedStaff.role} â€¢ {selectedStaff.email}</p>
+                  <p className="text-on-surface-variant font-medium">{selectedStaff.role} • {selectedStaff.email}</p>
                 </div>
               </div>
               <button 

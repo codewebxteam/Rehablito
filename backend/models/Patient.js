@@ -1,9 +1,9 @@
 const mongoose = require('mongoose');
 
 const patientSchema = new mongoose.Schema({
-    childName: { type: String, required: [true, 'Child name is required'], trim: true },
-    parentName: { type: String, required: true },
-    parentPhone: { type: String, required: true },
+    name: { type: String, required: [true, 'Name is required'], trim: true },
+    parentName: { type: String },
+    parentPhone: { type: String },
     parentEmail: { type: String },
     dob: { type: Date },
     age: { type: Number },

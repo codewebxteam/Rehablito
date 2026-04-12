@@ -512,6 +512,44 @@ const getDashboard = async (req, res) => {
     }
 };
 
+// GET /api/staff/branch-staff - List teammates in the same branch
+const getBranchStaff = async (req, res) => {
+    try {
+        if (!req.user.branchId) {
+            return res.status(400).json({ success: false, message: 'No branch assigned to this user' });
+        }
+
+        const today = getToday();
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const staff = await User.find({
+            branchId: req.user.branchId,
+            role: { $in: ['staff', 'branch_manager'] },
+        })
+            .select('-password -otp -otpExpires')
+            .populate('branchId', 'name')
+            .sort({ name: 1 });
+
+        // Attach today's attendance status for each teammate
+        const results = await Promise.all(
+            staff.map(async (member) => {
+                const attendance = await Attendance.findOne({
+                    userId: member._id,
+                    date: { $gte: today, $lt: tomorrow },
+                });
+                const obj = member.toObject();
+                obj.todayStatus = attendance ? attendance.status : 'not_marked';
+                return obj;
+            })
+        );
+
+        res.json({ success: true, count: results.length, data: results });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
 module.exports = {
     getProfile,
     getGeofence,
@@ -521,4 +559,5 @@ module.exports = {
     getAttendanceHistory,
     getAttendanceCalendar,
     getDashboard,
+    getBranchStaff,
 };

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
+import api from '@/lib/api';
 import {
   LayoutDashboard,
   UserPlus,
@@ -31,6 +32,7 @@ import {
   Lead,
   Staff,
   BillingRecord,
+  NewPaymentInput,
   ViewType
 } from './types';
 
@@ -42,52 +44,141 @@ import StaffManagementView from './views/StaffManagementView';
 import BillingManagementView from './views/BillingManagementView';
 import PatientsListView from './views/PatientsListView';
 
-// Mock Data
-const INITIAL_LEADS: Lead[] = [
-  { id: '1', name: 'Ananya Sharma', phone: '9876541234', source: 'Facebook Ads', status: 'Hot', dateReceived: '2023-10-24' },
-  { id: '2', name: 'Rahul Verma', phone: '8765435678', source: 'Google Maps', status: 'In Discussion', dateReceived: '2023-10-23' },
-  { id: '3', name: 'Meera Kapoor', phone: '7654329012', source: 'Direct Walk-in', status: 'Hot', dateReceived: '2023-10-22' },
-  { id: '4', name: 'Sanjay Mishra', phone: '6543213456', source: 'Website Referral', status: 'Cold', dateReceived: '2023-10-21' },
-];
+// ── Lead API types & mappers ──
+type ApiLeadStatus = 'new' | 'contacted' | 'converted' | 'closed';
 
-const INITIAL_STAFF: Staff[] = [
-  { id: '1', name: 'Dr. Sarah Jenkins', role: 'Physio', status: 'Active', email: 'sarah.j@rehablito.com', attendance: [] },
-  { id: '2', name: 'Marcus Wright', role: 'Admin', status: 'Inactive', email: 'm.wright@rehablito.com', attendance: [] },
-  { id: '3', name: 'Elena Rodriguez', role: 'Support', status: 'Active', email: 'elena.r@rehablito.com', attendance: [] },
-  { id: '4', name: 'Dr. Thomas Chen', role: 'Physio', status: 'Active', email: 't.chen@rehablito.com', attendance: [] },
-];
+interface ApiLead {
+  _id: string;
+  childName: string;
+  parentName?: string;
+  parentPhone?: string;
+  parentEmail?: string;
+  referredBy?: string;
+  status: ApiLeadStatus;
+  createdAt: string;
+}
 
-const INITIAL_BILLING: BillingRecord[] = [
-  {
-    id: 'INV-2023-9042',
-    patientName: 'Elena Rodriguez',
-    amountPaid: 1200,
-    dueAmount: 0,
-    date: '2023-10-24',
-    items: [
-      { description: 'Post-Op Lower Limb Rehab', sessions: 8, price: 800 },
-      { description: 'Personal Mobility Assessment', sessions: 1, price: 250 },
-      { description: 'Wellness Equipment Rental', sessions: '—', price: 150 },
-    ]
-  },
-  { id: 'INV-2023-9043', patientName: 'James Miller', amountPaid: 450, dueAmount: 850, date: '2023-10-22', items: [] },
-  { id: 'INV-2023-9044', patientName: 'Sarah Chen', amountPaid: 2800, dueAmount: 0, date: '2023-10-20', items: [] },
-];
+const apiToUiStatus = (s: ApiLeadStatus): Lead['status'] => {
+  if (s === 'new') return 'New';
+  if (s === 'contacted') return 'Contacted';
+  if (s === 'converted') return 'Converted';
+  return 'Cold';
+};
+
+const uiToApiStatus = (s: Lead['status']): ApiLeadStatus => {
+  if (s === 'New') return 'new';
+  if (s === 'Contacted' || s === 'In Discussion' || s === 'Hot') return 'contacted';
+  if (s === 'Converted') return 'converted';
+  return 'closed';
+};
+
+const apiLeadToUi = (l: ApiLead): Lead => ({
+  id: l._id,
+  name: l.childName || l.parentName || 'Unknown',
+  phone: l.parentPhone || '',
+  source: l.referredBy || 'Direct',
+  status: apiToUiStatus(l.status),
+  dateReceived: new Date(l.createdAt).toISOString().split('T')[0],
+});
+
+// ── Staff API types & mappers ──
+interface ApiStaff {
+  _id: string;
+  name: string;
+  email: string;
+  role: 'staff' | 'branch_manager';
+  staffId?: string;
+  mobileNumber?: string;
+  branchId?: { _id: string; name: string } | string | null;
+  todayStatus?: 'present' | 'absent' | 'leave' | 'half_day' | 'on_duty' | 'not_marked';
+}
+
+const apiStaffToUi = (s: ApiStaff): Staff => ({
+  id: s._id,
+  name: s.name,
+  email: s.email,
+  role: s.role === 'branch_manager' ? 'Admin' : 'Physio',
+  status: s.todayStatus && s.todayStatus !== 'not_marked' && s.todayStatus !== 'absent' ? 'Active' : 'Inactive',
+  attendance: [],
+});
+
+// ── Patient API types & mappers ──
+interface ApiPatient {
+  _id: string;
+  name: string;
+  age?: number;
+  gender?: 'male' | 'female' | 'other';
+  diagnosis?: string;
+  parentPhone?: string;
+  admissionDate?: string;
+  createdAt?: string;
+}
+
+const capitalize = (s?: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
+
+const apiPatientToUi = (p: ApiPatient): Patient => ({
+  id: p._id,
+  name: p.name,
+  age: p.age ?? 0,
+  gender: capitalize(p.gender),
+  condition: p.diagnosis || '',
+  phone: p.parentPhone || '',
+  onboardedAt: p.admissionDate || p.createdAt || new Date().toISOString(),
+});
+
+// ── Billing API types & mappers ──
+interface ApiFeePayment {
+  _id: string;
+  patientId?: { _id: string; name: string; parentName?: string } | string | null;
+  amount: number;
+  dueAmount?: number;
+  paymentDate?: string;
+  method?: 'cash' | 'upi' | 'bank_transfer' | 'card';
+  status?: 'paid' | 'partial' | 'overdue' | 'pending';
+  receiptNumber?: string;
+  description?: string;
+  createdAt?: string;
+}
+
+const apiFeeToUi = (f: ApiFeePayment): BillingRecord => {
+  const patient = typeof f.patientId === 'object' && f.patientId ? f.patientId : null;
+  const date = f.paymentDate || f.createdAt || new Date().toISOString();
+  return {
+    id: f._id,
+    patientId: patient?._id || (typeof f.patientId === 'string' ? f.patientId : undefined),
+    patientName: patient?.name || 'Unknown',
+    amountPaid: f.amount || 0,
+    dueAmount: f.dueAmount || 0,
+    date: date.split('T')[0],
+    method: f.method,
+    status: f.status,
+    receiptNumber: f.receiptNumber,
+    description: f.description,
+    items: f.description
+      ? [{ description: f.description, sessions: 1, price: f.amount || 0 }]
+      : [],
+  };
+};
 
 export default function ManagerDashboardApp() {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
+  const [branchName, setBranchName] = useState<string>('');
   const router = useRouter();
   const pathname = usePathname();
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [leads, setLeads] = useState<Lead[]>(INITIAL_LEADS);
-  const [staff, setStaff] = useState<Staff[]>(INITIAL_STAFF);
-  const [billing, setBilling] = useState<BillingRecord[]>(INITIAL_BILLING);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [staff, setStaff] = useState<Staff[]>([]);
+  const [billing, setBilling] = useState<BillingRecord[]>([]);
   const [notifications, setNotifications] = useState<{ id: string; message: string; type: 'success' | 'error' }[]>([]);
 
   // Responsive Sidebar States
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  // Check-in / duty status
+  const [isOnDuty, setIsOnDuty] = useState(false);
+  const [checkinLoading, setCheckinLoading] = useState(false);
 
   const resolveViewFromPath = (path: string): ViewType => {
     const segment = path.split('/')[2];
@@ -124,29 +215,169 @@ export default function ManagerDashboardApp() {
     addNotification(`Patient ${patient.name} onboarded successfully!`);
   };
 
-  const updateLeadStatus = (id: string, status: Lead['status']) => {
-    setLeads(prev => prev.map(l => l.id === id ? { ...l, status } : l));
-    addNotification(`Lead status updated to ${status}`);
+  useEffect(() => {
+    const fetchLeads = async () => {
+      try {
+        const { data } = await api.get('/manager/leads');
+        if (data.success) {
+          setLeads((data.data as ApiLead[]).map(apiLeadToUi));
+        }
+      } catch (err) {
+        console.error('Failed to fetch leads:', err);
+        addNotification('Failed to load leads', 'error');
+      }
+    };
+    const fetchStaff = async () => {
+      try {
+        const { data } = await api.get('/manager/staff');
+        if (data.success) {
+          const list = data.data as ApiStaff[];
+          setStaff(list.map(apiStaffToUi));
+          const populated = list.find(s => s.branchId && typeof s.branchId === 'object');
+          if (populated && typeof populated.branchId === 'object' && populated.branchId) {
+            setBranchName(populated.branchId.name);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch staff:', err);
+        addNotification('Failed to load staff', 'error');
+      }
+    };
+    const fetchDutyStatus = async () => {
+      try {
+        const { data } = await api.get('/staff/duty-status');
+        if (data.success) {
+          setIsOnDuty(!!data.data.isOnDuty);
+        }
+      } catch (err) {
+        console.error('Failed to fetch duty status:', err);
+      }
+    };
+    const fetchPatients = async () => {
+      try {
+        const { data } = await api.get('/manager/patients');
+        if (data.success) {
+          setPatients((data.data as ApiPatient[]).map(apiPatientToUi));
+        }
+      } catch (err) {
+        console.error('Failed to fetch patients:', err);
+        addNotification('Failed to load patients', 'error');
+      }
+    };
+    const fetchPayments = async () => {
+      try {
+        const { data } = await api.get('/manager/billing');
+        if (data.success) {
+          setBilling((data.data as ApiFeePayment[]).map(apiFeeToUi));
+        }
+      } catch (err) {
+        console.error('Failed to fetch billing:', err);
+        addNotification('Failed to load billing', 'error');
+      }
+    };
+    fetchLeads();
+    fetchStaff();
+    fetchPatients();
+    fetchPayments();
+    fetchDutyStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const getCurrentPosition = (): Promise<GeolocationPosition> => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation not supported by this browser'));
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+      });
+    });
   };
 
-  const addLead = (lead: Omit<Lead, 'id' | 'dateReceived'>) => {
-    const newLead: Lead = {
-      ...lead,
-      id: Date.now().toString(),
-      dateReceived: new Date().toISOString().split('T')[0]
-    };
-    setLeads(prev => [newLead, ...prev]);
-    addNotification(`New lead ${lead.name} added`);
+  const handleCheckInOut = async () => {
+    if (checkinLoading) return;
+    setCheckinLoading(true);
+    try {
+      const pos = await getCurrentPosition();
+      const payload = {
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+      };
+      const endpoint = isOnDuty ? '/staff/check-out' : '/staff/check-in';
+      const { data } = await api.post(endpoint, payload);
+      if (data.success) {
+        setIsOnDuty(!isOnDuty);
+        addNotification(data.message || (isOnDuty ? 'Checked out' : 'Checked in'));
+      } else {
+        addNotification(data.message || 'Action failed', 'error');
+      }
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } }; message?: string };
+      const msg = axiosErr?.response?.data?.message || axiosErr?.message || 'Check-in failed';
+      addNotification(msg, 'error');
+    } finally {
+      setCheckinLoading(false);
+    }
+  };
+
+  const updateLeadStatus = async (id: string, status: Lead['status']) => {
+    try {
+      const { data } = await api.put(`/manager/leads/${id}`, { status: uiToApiStatus(status) });
+      if (data.success) {
+        setLeads(prev => prev.map(l => l.id === id ? apiLeadToUi(data.data as ApiLead) : l));
+        addNotification(`Lead status updated to ${status}`);
+      }
+    } catch (err) {
+      console.error('Failed to update lead status:', err);
+      addNotification('Failed to update lead status', 'error');
+    }
+  };
+
+  const addLead = async (lead: Omit<Lead, 'id' | 'dateReceived'>) => {
+    try {
+      const payload = {
+        childName: lead.name,
+        parentName: lead.name,
+        parentPhone: lead.phone,
+        referredBy: lead.source || undefined,
+        status: uiToApiStatus(lead.status),
+      };
+      const { data } = await api.post('/manager/leads', payload);
+      if (data.success) {
+        setLeads(prev => [apiLeadToUi(data.data as ApiLead), ...prev]);
+        addNotification(`New lead ${lead.name} added`);
+      }
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { message?: string } } };
+      addNotification(axiosError?.response?.data?.message || 'Failed to add lead', 'error');
+    }
   };
 
   const deleteLead = (id: string) => {
     setLeads(prev => prev.filter(l => l.id !== id));
-    addNotification(`Lead deleted`, 'error');
+    addNotification('Lead removed from view', 'error');
   };
 
-  const updateLead = (updatedLead: Lead) => {
-    setLeads(prev => prev.map(l => l.id === updatedLead.id ? updatedLead : l));
-    addNotification(`Lead ${updatedLead.name} updated`);
+  const updateLead = async (updatedLead: Lead) => {
+    try {
+      const payload = {
+        childName: updatedLead.name,
+        parentName: updatedLead.name,
+        parentPhone: updatedLead.phone,
+        referredBy: updatedLead.source || undefined,
+        status: uiToApiStatus(updatedLead.status),
+      };
+      const { data } = await api.put(`/manager/leads/${updatedLead.id}`, payload);
+      if (data.success) {
+        setLeads(prev => prev.map(l => l.id === updatedLead.id ? apiLeadToUi(data.data as ApiLead) : l));
+        addNotification(`Lead ${updatedLead.name} updated`);
+      }
+    } catch (err) {
+      console.error('Failed to update lead:', err);
+      addNotification('Failed to update lead', 'error');
+    }
   };
 
   const toggleStaffStatus = (id: string) => {
@@ -165,19 +396,57 @@ export default function ManagerDashboardApp() {
     addNotification(`Staff member ${updatedStaff.name} updated`);
   };
 
-  const addBilling = (record: BillingRecord) => {
-    setBilling(prev => [record, ...prev]);
-    addNotification(`New payment recorded for ${record.patientName}`);
+  const addBilling = async (input: NewPaymentInput): Promise<BillingRecord | null> => {
+    try {
+      const payload = {
+        patientId: input.patientId,
+        amount: input.amount,
+        dueAmount: input.dueAmount || 0,
+        description: input.description || undefined,
+        method: input.method || 'cash',
+        status: (input.dueAmount || 0) > 0 ? 'partial' : 'paid',
+      };
+      const { data } = await api.post('/manager/billing', payload);
+      if (data.success) {
+        const record = apiFeeToUi(data.data as ApiFeePayment);
+        setBilling(prev => [record, ...prev]);
+        addNotification(`New payment recorded for ${record.patientName}`);
+        return record;
+      }
+      return null;
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      addNotification(axiosErr?.response?.data?.message || 'Failed to record payment', 'error');
+      return null;
+    }
   };
 
   const deleteBilling = (id: string) => {
     setBilling(prev => prev.filter(b => b.id !== id));
-    addNotification(`Invoice deleted`, 'error');
+    addNotification('Invoice removed from view', 'error');
   };
 
-  const updateBilling = (updatedRecord: BillingRecord) => {
-    setBilling(prev => prev.map(b => b.id === updatedRecord.id ? updatedRecord : b));
-    addNotification(`Billing record for ${updatedRecord.patientName} updated`);
+  const updateBilling = async (updatedRecord: BillingRecord) => {
+    try {
+      const payload: Record<string, unknown> = {
+        amount: updatedRecord.amountPaid,
+        dueAmount: updatedRecord.dueAmount,
+        description: updatedRecord.description,
+        method: updatedRecord.method,
+      };
+      if (updatedRecord.dueAmount > 0) payload.status = 'partial';
+      else payload.status = 'paid';
+
+      const { data } = await api.put(`/manager/billing/${updatedRecord.id}`, payload);
+      if (data.success) {
+        const record = apiFeeToUi(data.data as ApiFeePayment);
+        setBilling(prev => prev.map(b => b.id === record.id ? record : b));
+        addNotification(`Billing record for ${record.patientName} updated`);
+      }
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      addNotification(axiosErr?.response?.data?.message || 'Failed to update billing', 'error');
+    }
   };
 
   const menuItems = [
@@ -360,13 +629,20 @@ export default function ManagerDashboardApp() {
               </button>
             </div>
             <div className="hidden sm:block h-8 w-px bg-outline-variant/30 mx-2"></div>
-            <button className="hidden md:block bg-primary text-white px-5 py-2 rounded-full text-sm font-semibold hover:opacity-90 active:scale-95 transition-all">
-              Check-in
+            <button
+              onClick={handleCheckInOut}
+              disabled={checkinLoading}
+              className={cn(
+                "hidden md:block text-white px-5 py-2 rounded-full text-sm font-semibold hover:opacity-90 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed",
+                isOnDuty ? "bg-error" : "bg-primary"
+              )}
+            >
+              {checkinLoading ? 'Please wait...' : isOnDuty ? 'Check-out' : 'Check-in'}
             </button>
             <div className="flex items-center gap-2 md:gap-3 ml-2">
               <div className="hidden lg:block text-right">
-                <p className="text-xs font-bold text-on-surface">Admin Manager</p>
-                <p className="text-[10px] text-on-surface-variant">Center Lead</p>
+                <p className="text-xs font-bold text-on-surface">{user?.name || 'Manager'}</p>
+                <p className="text-[10px] text-on-surface-variant">{branchName || (user?.role === 'branch_manager' ? 'Branch Manager' : 'Manager')}</p>
               </div>
               <Image
                 src="https://picsum.photos/seed/manager/100/100"
@@ -425,6 +701,7 @@ export default function ManagerDashboardApp() {
               {currentView === 'billing' && (
                 <BillingManagementView
                   billing={billing}
+                  patients={patients}
                   onAddPayment={addBilling}
                   onDeleteBilling={deleteBilling}
                   onUpdateBilling={updateBilling}

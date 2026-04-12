@@ -12,6 +12,7 @@ const {
     getAttendanceHistory,
     getAttendanceCalendar,
     getDashboard,
+    getBranchStaff,
 } = require('../controllers/staff.app.controller');
 
 // All routes require authentication and staff role
@@ -34,5 +35,8 @@ router.get('/duty-status', getDutyStatus);
 // Attendance data
 router.get('/attendance/history', getAttendanceHistory);
 router.get('/attendance/calendar', getAttendanceCalendar);
+
+// Branch teammates directory
+router.get('/branch-staff', getBranchStaff);
 
 module.exports = router;

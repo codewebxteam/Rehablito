@@ -20,10 +20,11 @@ type LeadStatusFilter = 'All' | Lead['status'];
 
 interface ApiLead {
   _id: string;
-  name: string;
-  phone: string;
-  source: string;
-  service?: string;
+  childName: string;
+  parentName?: string;
+  parentPhone?: string;
+  referredBy?: string;
+  diagnosis?: string;
   status: 'new' | 'contacted' | 'converted' | 'closed';
   createdAt: string;
 }
@@ -88,10 +89,10 @@ export const LeadsView = () => {
           const transformed = leadsRes.data.data.map((l: ApiLead) => ({
             _id: l._id,
             id: l._id,
-            name: l.name,
-            phone: l.phone,
-            source: l.source,
-            service: l.service || 'Service',
+            name: l.childName || '',
+            phone: l.parentPhone || '',
+            source: l.referredBy || 'Direct',
+            service: l.diagnosis || 'Service',
             status: l.status === 'new' ? 'New' : l.status === 'contacted' ? 'Contacted' : l.status === 'converted' ? 'Converted' : 'Lost',
             date: new Date(l.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })
           }));
@@ -139,10 +140,10 @@ export const LeadsView = () => {
           const transformed = leadsRes.data.data.map((l: ApiLead) => ({
             _id: l._id,
             id: l._id,
-            name: l.name,
-            phone: l.phone,
-            source: l.source,
-            service: l.service || 'Service',
+            name: l.childName || '',
+            phone: l.parentPhone || '',
+            source: l.referredBy || 'Direct',
+            service: l.diagnosis || 'Service',
             status: l.status === 'new' ? 'New' : l.status === 'contacted' ? 'Contacted' : l.status === 'converted' ? 'Converted' : 'Lost',
             date: new Date(l.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })
           }));
@@ -159,8 +160,8 @@ export const LeadsView = () => {
 
   const filteredLeads = leads.filter((l) => {
     const matchesSearch =
-      l.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      l.phone.includes(searchTerm);
+      (l.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (l.phone || '').includes(searchTerm);
     const matchesStatus = statusFilter === 'All' || l.status === statusFilter;
     return matchesSearch && matchesStatus;
   });

@@ -8,7 +8,7 @@ const { getBranches, getBranch, createBranch, updateBranch, deleteBranch } = req
 const { getLeads, createLead, updateLead, getLeadStats } = require('../controllers/lead.controller');
 const { getPatients, createPatient, updatePatient, getPatientStats } = require('../controllers/patient.controller');
 const { getFees, createFee, getFeeSummary } = require('../controllers/fee.controller');
-const { getStaff, transferStaff, getAttendance, markAttendance, getAttendanceStats } = require('../controllers/staff.controller');
+const { getStaff, createStaff, updateStaff, deleteStaff, transferStaff, getAttendance, markAttendance, getAttendanceStats } = require('../controllers/staff.controller');
 
 // All routes require super_admin
 router.use(protect, authorize('super_admin'));
@@ -32,7 +32,8 @@ router.get('/fees/summary', getFeeSummary);
 router.route('/fees').get(getFees).post(createFee);
 
 // ── Staff & Attendance ──
-router.get('/staff', getStaff);
+router.route('/staff').get(getStaff).post(createStaff);
+router.route('/staff/:id').put(updateStaff).delete(deleteStaff);
 router.put('/staff/:id/transfer', transferStaff);
 router.get('/attendance/stats', getAttendanceStats);
 router.route('/attendance').get(getAttendance).post(markAttendance);

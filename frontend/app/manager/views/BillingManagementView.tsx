@@ -12,7 +12,8 @@ import {
   Filter
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
-import { BillingRecord } from '../types';
+import { BillingRecord, NewPaymentInput, Patient } from '../types';
+import api from '@/lib/api';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import React from 'react';
@@ -21,31 +22,40 @@ import { Button } from '../components/ui/Button';
 
 interface BillingManagementProps {
   billing: BillingRecord[];
-  onAddPayment: (record: BillingRecord) => void;
+  patients: Patient[];
+  onAddPayment: (input: NewPaymentInput) => Promise<BillingRecord | null>;
   onDeleteBilling: (id: string) => void;
   onUpdateBilling: (record: BillingRecord) => void;
 }
 
-export default function BillingManagementView({ billing, onAddPayment, onDeleteBilling, onUpdateBilling }: BillingManagementProps) {
+export default function BillingManagementView({ billing, patients, onAddPayment, onDeleteBilling, onUpdateBilling }: BillingManagementProps) {
   const [selectedInvoice, setSelectedInvoice] = useState<BillingRecord | null>(billing[0] || null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [editingRecord, setEditingRecord] = useState<BillingRecord | null>(null);
   const [newPayment, setNewPayment] = useState({
-    patientName: '',
+    patientId: '',
     amount: '',
-    description: 'General Consultation'
+    dueAmount: '',
+    description: 'General Consultation',
+    method: 'cash' as NonNullable<BillingRecord['method']>,
   });
   const formatINR = (amount: number | string) => `\u20B9${amount}`;
 
   const stats = useMemo(() => {
     const total = billing.reduce((acc, curr) => acc + curr.amountPaid, 0);
     const pending = billing.reduce((acc, curr) => acc + curr.dueAmount, 0);
+    const overdueCount = billing.filter(b => (b.dueAmount ?? 0) > 0).length;
+    const activePlans = new Set(
+      billing.map(b => b.patientId).filter((id): id is string => Boolean(id))
+    ).size;
     return {
       total: total.toLocaleString(),
       pending: pending.toLocaleString(),
-      activePlans: 86
+      transactions: billing.length,
+      overdueCount,
+      activePlans,
     };
   }, [billing]);
 
@@ -59,9 +69,9 @@ export default function BillingManagementView({ billing, onAddPayment, onDeleteB
     
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text('782 Wellness Plaza, Suite 400', 20, 30);
-    doc.text('Chicago, IL 60601', 20, 35);
-    doc.text('contact@rehablito.com', 20, 40);
+    doc.text('Anisabad - Jagdeo Path Rd, Federal Colony,', 20, 30);
+    doc.text('Haroon Colony Sector-II, Phulwari Sharif, Patna, Bihar 800002', 20, 35);
+    doc.text('rehablito@gmail.com', 20, 40);
     
     doc.setFontSize(14);
     doc.setTextColor(0);
@@ -113,26 +123,30 @@ export default function BillingManagementView({ billing, onAddPayment, onDeleteB
     doc.save(`Invoice_${record.id}.pdf`);
   };
 
-  const handleAddPayment = (e: React.FormEvent) => {
+  const handleAddPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     const amount = parseFloat(newPayment.amount);
-    if (newPayment.patientName && !isNaN(amount)) {
-      setIsProcessing(true);
-      setTimeout(() => {
-        const record: BillingRecord = {
-          id: `INV-${Date.now()}`,
-          patientName: newPayment.patientName,
-          amountPaid: amount,
-          dueAmount: 0,
-          date: new Date().toISOString().split('T')[0],
-          items: [{ description: newPayment.description, sessions: 1, price: amount }]
-        };
-        onAddPayment(record);
+    const dueAmount = newPayment.dueAmount ? parseFloat(newPayment.dueAmount) : 0;
+    if (!newPayment.patientId || isNaN(amount)) return;
+
+    const patient = patients.find(p => p.id === newPayment.patientId);
+    setIsProcessing(true);
+    try {
+      const record = await onAddPayment({
+        patientId: newPayment.patientId,
+        patientName: patient?.name || '',
+        amount,
+        dueAmount,
+        description: newPayment.description || undefined,
+        method: newPayment.method,
+      });
+      if (record) {
         setIsModalOpen(false);
-        setNewPayment({ patientName: '', amount: '', description: 'General Consultation' });
+        setNewPayment({ patientId: '', amount: '', dueAmount: '', description: 'General Consultation', method: 'cash' });
         setSelectedInvoice(record);
-        setIsProcessing(false);
-      }, 800);
+      }
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -215,7 +229,7 @@ export default function BillingManagementView({ billing, onAddPayment, onDeleteB
               <h3 className="text-xl md:text-2xl font-extrabold text-on-surface">{formatINR(stats.total)}</h3>
               <div className="flex items-center gap-1 mt-2 text-secondary font-bold text-[10px]">
                 <TrendingUp size={12} />
-                +12% this month
+                {stats.transactions} transactions
               </div>
             </div>
             <div className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm">
@@ -223,14 +237,14 @@ export default function BillingManagementView({ billing, onAddPayment, onDeleteB
               <h3 className="text-xl md:text-2xl font-extrabold text-error">{formatINR(stats.pending)}</h3>
               <div className="flex items-center gap-1 mt-2 text-error font-bold text-[10px]">
                 <AlertCircle size={12} />
-                14 Overdue
+                {stats.overdueCount} with dues
               </div>
             </div>
             <div className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm">
               <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/60 mb-2">Active Plans</p>
               <h3 className="text-xl md:text-2xl font-extrabold text-primary">{stats.activePlans}</h3>
               <div className="flex items-center gap-1 mt-2 text-on-surface-variant font-bold text-[10px]">
-                Recurring billing
+                Unique patients billed
               </div>
             </div>
           </div>
@@ -378,9 +392,10 @@ export default function BillingManagementView({ billing, onAddPayment, onDeleteB
                       <span className="text-xl font-bold tracking-tighter text-primary">Rehablito RMS</span>
                     </div>
                     <p className="text-xs text-on-surface-variant max-w-[180px]">
-                      782 Wellness Plaza, Suite 400<br/>
-                      Chicago, IL 60601<br/>
-                      contact@rehablito.com
+                      Anisabad - Jagdeo Path Rd, Federal Colony,<br/>
+                      Haroon Colony Sector-II, Phulwari Sharif,<br/>
+                      Patna, Bihar 800002<br/>
+                      rehablito@gmail.com
                     </p>
                   </div>
                   <div className="text-left sm:text-right">
@@ -462,8 +477,27 @@ export default function BillingManagementView({ billing, onAddPayment, onDeleteB
               </div>
 
               <div className="flex flex-col sm:flex-row gap-4">
-                <Button 
-                  onClick={() => generateInvoicePDF(selectedInvoice)}
+                <Button
+                  onClick={async () => {
+                    setIsProcessing(true);
+                    try {
+                      const res = await api.get(`/manager/billing/${selectedInvoice.id}/invoice`, { responseType: 'blob' });
+                      const url = window.URL.createObjectURL(res.data);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = `Invoice_${selectedInvoice.receiptNumber || selectedInvoice.id}.pdf`;
+                      document.body.appendChild(link);
+                      link.click();
+                      link.remove();
+                      window.URL.revokeObjectURL(url);
+                    } catch (err) {
+                      console.error('Invoice download failed, falling back to local PDF:', err);
+                      generateInvoicePDF(selectedInvoice);
+                    } finally {
+                      setIsProcessing(false);
+                    }
+                  }}
+                  isLoading={isProcessing}
                   className="flex-1 bg-on-surface text-white"
                 >
                   <Download size={20} />
@@ -502,31 +536,61 @@ export default function BillingManagementView({ billing, onAddPayment, onDeleteB
               <h3 className="text-xl font-bold mb-6">Record New Payment</h3>
               <form onSubmit={handleAddPayment} className="space-y-4">
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Patient Name</label>
-                  <input 
-                    type="text" 
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Patient</label>
+                  <select
                     required
-                    value={newPayment.patientName}
-                    onChange={e => setNewPayment(prev => ({ ...prev, patientName: e.target.value }))}
+                    value={newPayment.patientId}
+                    onChange={e => setNewPayment(prev => ({ ...prev, patientId: e.target.value }))}
                     className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"
-                    placeholder="e.g. Elena Rodriguez"
-                  />
+                  >
+                    <option value="">Select a patient</option>
+                    {patients.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Amount (₹)</label>
+                    <input
+                      type="number"
+                      required
+                      min={0}
+                      value={newPayment.amount}
+                      onChange={e => setNewPayment(prev => ({ ...prev, amount: e.target.value }))}
+                      className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"
+                      placeholder="1200"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Due (₹)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={newPayment.dueAmount}
+                      onChange={e => setNewPayment(prev => ({ ...prev, dueAmount: e.target.value }))}
+                      className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"
+                      placeholder="0"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Amount (₹)</label>
-                  <input 
-                    type="number" 
-                    required
-                    value={newPayment.amount}
-                    onChange={e => setNewPayment(prev => ({ ...prev, amount: e.target.value }))}
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Method</label>
+                  <select
+                    value={newPayment.method}
+                    onChange={e => setNewPayment(prev => ({ ...prev, method: e.target.value as NonNullable<BillingRecord['method']> }))}
                     className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"
-                    placeholder="1200"
-                  />
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="upi">UPI</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                    <option value="card">Card</option>
+                  </select>
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Description</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     value={newPayment.description}
                     onChange={e => setNewPayment(prev => ({ ...prev, description: e.target.value }))}
                     className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"

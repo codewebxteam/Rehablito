@@ -15,16 +15,19 @@ import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 export default function AttendancePage() {
-  const { 
-    activeRecord, 
-    checkIn, 
-    checkOut, 
-    isInsideOffice, 
-    locationError, 
-    elapsedTime 
+  const {
+    activeRecord,
+    checkIn,
+    checkOut,
+    isInsideOffice,
+    locationError,
+    elapsedTime,
+    branchName,
+    geofence,
+    isProcessing,
   } = useAttendance();
 
-  const [ward, setWard] = useState('Surgery Ward B');
+  const [ward, setWard] = useState('');
 
   const formatTime = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600);
@@ -34,13 +37,11 @@ export default function AttendancePage() {
   };
 
   const handleCheckIn = () => {
-    console.log("Clock In button clicked");
-    checkIn(ward);
+    void checkIn(ward || branchName || undefined);
   };
 
   const handleCheckOut = () => {
-    console.log("Clock Out button clicked");
-    checkOut();
+    void checkOut();
   };
 
   return (
@@ -66,12 +67,12 @@ export default function AttendancePage() {
                   {activeRecord ? "Shift in Progress" : "Ready to start shift"}
                 </span>
                 <h4 className="text-xl font-bold mt-3 text-on-surface">
-                  {activeRecord ? `Active in ${activeRecord.ward}` : "Welcome back, Doctor"}
+                  {activeRecord ? `Active at ${activeRecord.ward}` : "Welcome back"}
                 </h4>
                 <p className="text-on-surface-variant text-sm mt-1">
-                  {activeRecord 
-                    ? "Your hours are being logged automatically. Stay safe." 
-                    : "Please check-in to begin logging your hours for the Surgery Ward."}
+                  {activeRecord
+                    ? "Your hours are being logged automatically. Stay safe."
+                    : `Check-in to begin logging your hours${branchName ? ` at ${branchName}` : ''}.`}
                 </p>
               </div>
 
@@ -87,41 +88,43 @@ export default function AttendancePage() {
                 </div>
                 <div className="hidden sm:block w-[1px] h-10 bg-outline-variant/30"></div>
                 <div className="space-y-1">
-                  <p className="text-[10px] font-label uppercase text-outline tracking-wider">Required</p>
-                  <p className="font-bold text-on-surface">08:00 AM</p>
+                  <p className="text-[10px] font-label uppercase text-outline tracking-wider">Shift</p>
+                  <p className="font-bold text-on-surface">
+                    {geofence?.shiftStart && geofence?.shiftEnd
+                      ? `${geofence.shiftStart} – ${geofence.shiftEnd}`
+                      : '—'}
+                  </p>
                 </div>
               </div>
 
               {activeRecord ? (
-                <button 
+                <button
                   onClick={handleCheckOut}
-                  className="w-full md:w-auto px-10 py-4 bg-error text-white rounded-2xl font-bold text-lg shadow-xl shadow-error/20 hover:bg-error/90 transition-all flex items-center justify-center gap-3"
+                  disabled={isProcessing}
+                  className="w-full md:w-auto px-10 py-4 bg-error text-white rounded-2xl font-bold text-lg shadow-xl shadow-error/20 hover:bg-error/90 transition-all flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <LogOut className="w-6 h-6" />
-                  Check-Out Now
+                  {isProcessing ? 'Checking out...' : 'Check-Out Now'}
                 </button>
               ) : (
                 <div className="space-y-4">
                   <div className="flex flex-col gap-2">
-                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Select Ward</label>
-                    <select 
+                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Label (optional)</label>
+                    <input
+                      type="text"
                       value={ward}
                       onChange={(e) => setWard(e.target.value)}
+                      placeholder={branchName || 'Ward / Assignment'}
                       className="bg-surface-container-low border-none rounded-xl py-3 px-4 text-sm focus:ring-2 focus:ring-primary/20"
-                    >
-                      <option>Surgery Ward B</option>
-                      <option>Emergency Unit</option>
-                      <option>General Ward</option>
-                      <option>ICU</option>
-                    </select>
+                    />
                   </div>
-                  <button 
+                  <button
                     onClick={handleCheckIn}
-                    disabled={!isInsideOffice}
+                    disabled={!isInsideOffice || isProcessing}
                     className="w-full md:w-auto px-10 py-4 bg-secondary text-white rounded-2xl font-bold text-lg shadow-xl shadow-secondary/20 hover:bg-secondary/90 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:grayscale"
                   >
                     <LogIn className="w-6 h-6" />
-                    Check-In Now
+                    {isProcessing ? 'Checking in...' : 'Check-In Now'}
                   </button>
                 </div>
               )}
@@ -176,11 +179,13 @@ export default function AttendancePage() {
           <div className="p-6 flex-1 flex flex-col justify-between">
             <div>
               <p className="text-[10px] font-label uppercase text-outline tracking-wider mb-1">Geofence Status</p>
-              <h5 className="font-bold text-on-surface">Central Medical Plaza</h5>
+              <h5 className="font-bold text-on-surface">{branchName || 'Branch location'}</h5>
               <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">
-                {isInsideOffice 
-                  ? "Your location is verified. You are authorized to clock in for your scheduled ward."
-                  : "Please move within 100m of the office to enable check-in."}
+                {isInsideOffice
+                  ? 'Your location is verified. You are authorized to check in.'
+                  : geofence
+                    ? `Please move within ${geofence.radiusMeters}m of the branch to enable check-in.`
+                    : 'Loading branch geofence...'}
               </p>
               {locationError && (
                 <p className="text-xs text-error mt-2 font-medium flex items-center gap-1">

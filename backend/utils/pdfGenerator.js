@@ -13,7 +13,7 @@ const generatePatientRegistrationPDF = (patient, branch) => {
                 size: 'A4',
                 margin: 50,
                 info: {
-                    Title: `Patient Registration - ${patient.childName}`,
+                    Title: `Patient Registration - ${patient.name}`,
                     Author: 'Rehablito Clinic',
                     Subject: 'Patient Registration Form',
                 }
@@ -60,7 +60,7 @@ const generatePatientRegistrationPDF = (patient, branch) => {
             drawSectionHeader(doc, 'Patient Information');
 
             const patientDetails = [
-                ['Child Name', patient.childName],
+                ['Name', patient.name],
                 ['Date of Birth', patient.dob ? new Date(patient.dob).toLocaleDateString('en-IN') : 'N/A'],
                 ['Age', patient.age ? `${patient.age} years` : 'N/A'],
                 ['Gender', patient.gender ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1) : 'N/A'],
@@ -75,8 +75,8 @@ const generatePatientRegistrationPDF = (patient, branch) => {
             drawSectionHeader(doc, 'Parent / Guardian Information');
 
             const parentDetails = [
-                ['Parent Name', patient.parentName],
-                ['Phone Number', patient.parentPhone],
+                ['Parent Name', patient.parentName || 'N/A'],
+                ['Phone Number', patient.parentPhone || 'N/A'],
                 ['Email', patient.parentEmail || 'N/A'],
             ];
             drawTable(doc, parentDetails);
@@ -183,7 +183,7 @@ const generateInvoicePDF = (payment, patient, branch) => {
             // ── Patient Info ──
             drawSectionHeader(doc, 'Patient Details');
             const patientInfo = [
-                ['Patient Name', patient?.childName || 'N/A'],
+                ['Patient Name', patient?.name || 'N/A'],
                 ['Parent Name', patient?.parentName || 'N/A'],
                 ['Contact', patient?.parentPhone || 'N/A'],
             ];

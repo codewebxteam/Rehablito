@@ -1,11 +1,11 @@
 ﻿"use client";
 import { useState } from 'react';
-import { 
-  UserPlus, 
-  AlertCircle, 
-  CheckCircle2, 
-  Download, 
-  Printer, 
+import {
+  UserPlus,
+  AlertCircle,
+  CheckCircle2,
+  Download,
+  Printer,
   FileText,
   ShieldCheck
 } from 'lucide-react';
@@ -13,6 +13,7 @@ import { jsPDF } from 'jspdf';
 import { Patient } from '../types';
 import { cn } from '../lib/utils';
 import React from 'react';
+import api from '@/lib/api';
 
 interface PatientOnboardingProps {
   onOnboard: (patient: Patient) => void;
@@ -87,33 +88,48 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
     return doc;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
 
     setIsSubmitting(true);
-    
-    // Simulate API delay
-    setTimeout(() => {
-      const newPatient: Patient = {
-        id: `P-${Math.floor(Math.random() * 100000)}`,
+
+    try {
+      const payload = {
         name: formData.name,
         age: parseInt(formData.age),
-        gender: formData.gender,
-        condition: formData.condition,
-        phone: `+91${formData.phone}`,
-        onboardedAt: new Date().toISOString()
+        gender: formData.gender.toLowerCase(),
+        diagnosis: formData.condition,
+        parentPhone: `+91${formData.phone}`,
       };
-      
+      const { data } = await api.post('/manager/patients', payload);
+      if (!data.success) {
+        setErrors({ form: data.message || 'Failed to onboard patient' });
+        return;
+      }
+
+      const newPatient: Patient = {
+        id: data.data._id,
+        name: data.data.name,
+        age: data.data.age ?? parseInt(formData.age),
+        gender: formData.gender,
+        condition: data.data.diagnosis ?? formData.condition,
+        phone: data.data.parentPhone ?? `+91${formData.phone}`,
+        onboardedAt: data.data.admissionDate || data.data.createdAt || new Date().toISOString(),
+      };
+
       onOnboard(newPatient);
       setLastOnboarded(newPatient);
-      setIsSubmitting(false);
       setFormData({ name: '', age: '', gender: '', condition: '', phone: '' });
-      
-      // Auto-download PDF as requested
+
       const doc = generatePDF(newPatient);
       doc.save(`Onboarding_${newPatient.name.replace(/\s/g, '_')}.pdf`);
-    }, 1000);
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      setErrors({ form: axiosErr?.response?.data?.message || 'Failed to onboard patient' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleDownload = () => {
@@ -259,14 +275,20 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
               )}
             </div>
 
-            <div className="pt-4">
-              <button 
+            <div className="pt-4 space-y-3">
+              {errors.form && (
+                <p className="text-xs text-error font-semibold flex items-center gap-2">
+                  <AlertCircle size={14} />
+                  {errors.form}
+                </p>
+              )}
+              <button
                 type="submit"
                 disabled={isSubmitting}
                 className="w-full bg-gradient-to-r from-secondary to-secondary-container text-white font-bold py-5 rounded-2xl text-lg flex items-center justify-center gap-3 hover:shadow-xl hover:shadow-secondary/20 active:scale-[0.98] transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <FileText className="group-hover:translate-x-1 transition-transform" size={24} />
-                {isSubmitting ? 'Processing...' : 'Onboard Patient & Generate PDF'}
+                {isSubmitting ? 'Saving...' : 'Onboard Patient & Generate PDF'}
               </button>
             </div>
           </form>

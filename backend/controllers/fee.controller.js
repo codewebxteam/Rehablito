@@ -9,7 +9,7 @@ const getFees = async (req, res) => {
         if (req.query.status) filter.status = req.query.status;
 
         const fees = await FeePayment.find(filter)
-            .populate('patientId', 'childName parentName')
+            .populate('patientId', 'name parentName')
             .populate('branchId', 'name')
             .populate('collectedBy', 'name')
             .sort({ paymentDate: -1 });
@@ -91,6 +91,41 @@ const getFeeSummary = async (req, res) => {
             }
         ]);
 
+        // Monthly trend (last 6 months) with per-branch split
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
+        sixMonthsAgo.setDate(1);
+        sixMonthsAgo.setHours(0, 0, 0, 0);
+
+        const monthlyTrend = await FeePayment.aggregate([
+            {
+                $match: {
+                    ...matchStage,
+                    paymentDate: { $gte: sixMonthsAgo },
+                },
+            },
+            {
+                $lookup: {
+                    from: 'branches',
+                    localField: 'branchId',
+                    foreignField: '_id',
+                    as: 'branch',
+                },
+            },
+            { $unwind: { path: '$branch', preserveNullAndEmptyArrays: true } },
+            {
+                $group: {
+                    _id: {
+                        year: { $year: '$paymentDate' },
+                        month: { $month: '$paymentDate' },
+                        branchName: '$branch.name',
+                    },
+                    revenue: { $sum: '$amount' },
+                },
+            },
+            { $sort: { '_id.year': 1, '_id.month': 1 } },
+        ]);
+
         res.json({
             success: true,
             data: {
@@ -99,6 +134,7 @@ const getFeeSummary = async (req, res) => {
                 totalTransactions: totals?.totalTransactions || 0,
                 branchWise,
                 methodBreakdown,
+                monthlyTrend,
             }
         });
     } catch (err) {

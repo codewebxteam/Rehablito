@@ -286,7 +286,7 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
             <div className="flex items-center gap-3 pl-2">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-bold text-on-surface">{user?.name}</p>
-                <p className="text-[10px] font-bold text-outline uppercase tracking-widest">{user?.role}</p>
+                <p className="text-[10px] font-bold text-outline uppercase tracking-widest">{user?.staffId || user?.role}</p>
               </div>
               <div className="w-10 h-10 rounded-xl overflow-hidden border-2 border-primary/10 shadow-sm bg-surface-container-high">
                 {user?.photoUrl ? (

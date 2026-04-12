@@ -1,75 +1,115 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { AttendanceRecord, OFFICE_LOCATION } from '../types';
-import { differenceInSeconds, format, parseISO } from 'date-fns';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { AttendanceRecord } from '../types';
+import api from '@/lib/api';
+
+interface Geofence {
+  branchName: string;
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+  shiftStart?: string;
+  shiftEnd?: string;
+}
 
 interface AttendanceContextType {
   records: AttendanceRecord[];
   activeRecord: AttendanceRecord | null;
-  checkIn: (ward: string) => void;
-  checkOut: () => void;
+  branchName: string | null;
+  geofence: Geofence | null;
+  checkIn: (ward?: string) => Promise<void>;
+  checkOut: () => Promise<void>;
   isInsideOffice: boolean;
   locationError: string | null;
   currentLocation: { lat: number; lng: number } | null;
-  elapsedTime: number; // seconds
+  elapsedTime: number;
+  isProcessing: boolean;
 }
 
 const AttendanceContext = createContext<AttendanceContextType | undefined>(undefined);
 
-export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [records, setRecords] = useState<AttendanceRecord[]>([]);
-  const [activeRecord, setActiveRecord] = useState<AttendanceRecord | null>(null);
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371e3;
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
 
+const getCurrentPosition = (): Promise<GeolocationPosition> =>
+  new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('Geolocation is not supported by this browser'));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 10000 });
+  });
+
+export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [activeRecord, setActiveRecord] = useState<AttendanceRecord | null>(null);
+  const [geofence, setGeofence] = useState<Geofence | null>(null);
+  const [branchName, setBranchName] = useState<string | null>(null);
   const [isInsideOffice, setIsInsideOffice] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const wardRef = useRef<string>('');
 
-  // Load from local storage on first render (Client-size hydration safe)
+  // Initial load: geofence + duty status
   useEffect(() => {
-    const savedRecords = localStorage.getItem('attendance_records');
-    if (savedRecords) {
-      setRecords(JSON.parse(savedRecords));
-    }
-    const savedActive = localStorage.getItem('active_attendance_record');
-    if (savedActive && savedActive !== "undefined") {
+    const bootstrap = async () => {
       try {
-        setActiveRecord(JSON.parse(savedActive));
-      } catch (e) {
-        // ignore
+        const [geoRes, dutyRes] = await Promise.all([
+          api.get('/staff/geofence'),
+          api.get('/staff/duty-status'),
+        ]);
+        if (geoRes.data.success) {
+          const g = geoRes.data.data as Geofence;
+          setGeofence(g);
+          setBranchName(g.branchName);
+        }
+        if (dutyRes.data.success) {
+          const duty = dutyRes.data.data;
+          if (duty.isOnDuty && duty.checkInTime) {
+            setActiveRecord({
+              id: 'active',
+              userId: '',
+              date: duty.checkInTime,
+              checkIn: duty.checkInTime,
+              status: 'IN_PROGRESS',
+              ward: wardRef.current || branchName || 'Your branch',
+            });
+            setElapsedTime(duty.elapsedSeconds || 0);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to bootstrap attendance:', err);
       }
-    }
+    };
+    bootstrap();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Calculate distance using Haversine formula
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371e3; // metres
-    const φ1 = (lat1 * Math.PI) / 180;
-    const φ2 = (lat2 * Math.PI) / 180;
-    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-
-    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c; // in metres
-  };
 
   const updateLocation = useCallback(() => {
     if (!navigator.geolocation) {
-      setLocationError("Geolocation is not supported by your browser");
+      setLocationError('Geolocation is not supported by your browser');
       return;
     }
-
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
         setCurrentLocation({ lat: latitude, lng: longitude });
-        const dist = calculateDistance(latitude, longitude, OFFICE_LOCATION.lat, OFFICE_LOCATION.lng);
-        setIsInsideOffice(dist <= OFFICE_LOCATION.radius);
+        if (geofence) {
+          const dist = calculateDistance(latitude, longitude, geofence.latitude, geofence.longitude);
+          setIsInsideOffice(dist <= geofence.radiusMeters);
+        }
         setLocationError(null);
       },
       (error) => {
@@ -78,83 +118,97 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       },
       { enableHighAccuracy: true }
     );
-  }, []);
+  }, [geofence]);
 
   useEffect(() => {
     updateLocation();
-    const interval = setInterval(updateLocation, 10000); // Update every 10s
+    const interval = setInterval(updateLocation, 10000);
     return () => clearInterval(interval);
   }, [updateLocation]);
 
+  // Tick elapsed seconds while on duty
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (activeRecord) {
-      interval = setInterval(() => {
-        const seconds = differenceInSeconds(new Date(), parseISO(activeRecord.checkIn));
-        setElapsedTime(seconds);
-      }, 1000);
-    } else {
+    if (!activeRecord) {
       setElapsedTime(0);
+      return;
     }
+    const interval = setInterval(() => {
+      const start = new Date(activeRecord.checkIn).getTime();
+      setElapsedTime(Math.floor((Date.now() - start) / 1000));
+    }, 1000);
     return () => clearInterval(interval);
   }, [activeRecord]);
 
-  useEffect(() => {
-    localStorage.setItem('attendance_records', JSON.stringify(records));
-  }, [records]);
-
-  useEffect(() => {
-    localStorage.setItem('active_attendance_record', JSON.stringify(activeRecord));
-  }, [activeRecord]);
-
-  const checkIn = (ward: string) => {
-    // For preview/demo, we allow clock-in but log a warning if outside.
-    if (!isInsideOffice) {
-      console.warn("Clocking in outside geofence (Demo Mode enabled)");
+  const checkIn = async (ward?: string) => {
+    if (isProcessing) return;
+    if (ward) wardRef.current = ward;
+    setIsProcessing(true);
+    setLocationError(null);
+    try {
+      const pos = await getCurrentPosition();
+      const { data } = await api.post('/staff/check-in', {
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+      });
+      if (data.success) {
+        const checkInIso = data.data.checkInTime || new Date().toISOString();
+        setActiveRecord({
+          id: data.data._id,
+          userId: data.data.userId?._id || data.data.userId || '',
+          date: checkInIso,
+          checkIn: checkInIso,
+          status: 'IN_PROGRESS',
+          ward: ward || wardRef.current || branchName || 'Your branch',
+        });
+      } else {
+        setLocationError(data.message || 'Check-in failed');
+      }
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } }; message?: string };
+      setLocationError(axiosErr?.response?.data?.message || axiosErr?.message || 'Check-in failed');
+    } finally {
+      setIsProcessing(false);
     }
-    
-    const newRecord: AttendanceRecord = {
-      id: Math.random().toString(36).substr(2, 9),
-      userId: "1", // Mock user ID
-      date: new Date().toISOString(),
-      checkIn: new Date().toISOString(),
-      status: 'IN_PROGRESS',
-      ward
-    };
-    setActiveRecord(newRecord);
   };
 
-  const checkOut = () => {
-    if (!activeRecord) return;
-    const checkOutTime = new Date();
-    const totalSeconds = differenceInSeconds(checkOutTime, parseISO(activeRecord.checkIn));
-    const totalHours = totalSeconds / 3600;
-    
-    let status: AttendanceRecord['status'] = 'COMPLETED';
-    if (totalHours > 9) status = 'OVERTIME';
-    if (totalHours < 8) status = 'SHORT_SHIFT';
-
-    const completedRecord: AttendanceRecord = {
-      ...activeRecord,
-      checkOut: checkOutTime.toISOString(),
-      totalHours,
-      status
-    };
-
-    setRecords(prev => [completedRecord, ...prev]);
-    setActiveRecord(null);
+  const checkOut = async () => {
+    if (!activeRecord || isProcessing) return;
+    setIsProcessing(true);
+    try {
+      let payload: { latitude?: number; longitude?: number } = {};
+      try {
+        const pos = await getCurrentPosition();
+        payload = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+      } catch {
+        // location optional on check-out
+      }
+      const { data } = await api.post('/staff/check-out', payload);
+      if (data.success) {
+        setActiveRecord(null);
+      } else {
+        setLocationError(data.message || 'Check-out failed');
+      }
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } }; message?: string };
+      setLocationError(axiosErr?.response?.data?.message || axiosErr?.message || 'Check-out failed');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
     <AttendanceContext.Provider value={{
-      records,
+      records: [],
       activeRecord,
+      branchName,
+      geofence,
       checkIn,
       checkOut,
       isInsideOffice,
       locationError,
       currentLocation,
-      elapsedTime
+      elapsedTime,
+      isProcessing,
     }}>
       {children}
     </AttendanceContext.Provider>

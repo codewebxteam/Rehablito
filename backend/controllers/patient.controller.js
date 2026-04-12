@@ -20,7 +20,10 @@ const getPatients = async (req, res) => {
 // POST /api/admin/patients
 const createPatient = async (req, res) => {
     try {
-        const patient = await Patient.create(req.body);
+        const created = await Patient.create(req.body);
+        const patient = await Patient.findById(created._id)
+            .populate('branchId', 'name')
+            .populate('assignedTherapist', 'name');
         res.status(201).json({ success: true, data: patient });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
@@ -30,7 +33,9 @@ const createPatient = async (req, res) => {
 // PUT /api/admin/patients/:id
 const updatePatient = async (req, res) => {
     try {
-        const patient = await Patient.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+        const patient = await Patient.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
+            .populate('branchId', 'name')
+            .populate('assignedTherapist', 'name');
         if (!patient) return res.status(404).json({ success: false, message: 'Patient not found' });
         res.json({ success: true, data: patient });
     } catch (err) {
