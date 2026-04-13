@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   TrendingUp,
   UserPlus,
@@ -159,7 +159,7 @@ export default function DashboardView({ leads, onNavigate }: DashboardProps) {
     }));
   }, [recentPayments]);
 
-  const formatRelative = (iso: string) => {
+  const formatRelative = useCallback((iso: string) => {
     const d = new Date(iso);
     const diffMs = Date.now() - d.getTime();
     const mins = Math.floor(diffMs / 60000);
@@ -169,7 +169,7 @@ export default function DashboardView({ leads, onNavigate }: DashboardProps) {
     if (hrs < 24) return `${hrs} hour${hrs === 1 ? '' : 's'} ago`;
     const days = Math.floor(hrs / 24);
     return `${days} day${days === 1 ? '' : 's'} ago`;
-  };
+  }, []);
 
   return (
     <div className="space-y-8">
@@ -274,7 +274,7 @@ export default function DashboardView({ leads, onNavigate }: DashboardProps) {
             
             {/* Desktop/Tablet Table View (> 640px) */}
             <div className="hidden sm:block overflow-x-auto overflow-y-visible">
-              <table className="w-full text-left min-w-[600px]">
+              <table className="w-full text-left min-w-150">
                 <thead className="bg-surface-container-low">
                   <tr>
                     <th className="px-8 py-4 text-[10px] font-extrabold text-on-surface-variant uppercase tracking-widest">Name</th>
@@ -301,7 +301,7 @@ export default function DashboardView({ leads, onNavigate }: DashboardProps) {
                       <td className="px-8 py-4 text-sm text-on-surface-variant">{lead.source}</td>
                       <td className="px-8 py-4">
                         <span className={cn(
-                          "inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap min-w-[92px]",
+                          "inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap min-w-23",
                           lead.status === 'Hot' ? "bg-secondary-container/30 text-on-secondary-container" :
                           lead.status === 'Cold' ? "bg-error-container/30 text-on-error-container" :
                           "bg-surface-container-high text-on-surface-variant"
@@ -388,7 +388,7 @@ export default function DashboardView({ leads, onNavigate }: DashboardProps) {
                   </div>
                   <div className="flex justify-between items-center pt-2">
                     <span className={cn(
-                      "inline-flex items-center justify-center px-3 py-1 rounded-full text-[10px] font-bold whitespace-nowrap min-w-[92px]",
+                      "inline-flex items-center justify-center px-3 py-1 rounded-full text-[10px] font-bold whitespace-nowrap min-w-23",
                       lead.status === 'Hot' ? "bg-secondary-container/30 text-on-secondary-container" :
                       lead.status === 'Cold' ? "bg-error-container/30 text-on-error-container" :
                       "bg-surface-container-high text-on-surface-variant"
@@ -456,7 +456,7 @@ export default function DashboardView({ leads, onNavigate }: DashboardProps) {
                 <History size={18} />
               </button>
             </div>
-            <div className="relative space-y-8 before:absolute before:left-[15px] before:top-2 before:bottom-2 before:w-[2px] before:bg-outline-variant/20">
+            <div className="relative space-y-8 before:absolute before:left-3.75 before:top-2 before:bottom-2 before:w-0.5 before:bg-outline-variant/20">
               {activityItems.length === 0 && (
                 <p className="text-sm text-on-surface-variant text-center py-4">No recent activity.</p>
               )}
@@ -511,7 +511,7 @@ export default function DashboardView({ leads, onNavigate }: DashboardProps) {
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
               referrerPolicy="no-referrer"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent p-6 flex flex-col justify-end">
+            <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent p-6 flex flex-col justify-end">
               <h4 className="text-white font-bold text-lg leading-tight">Your branch</h4>
               <p className="text-white/70 text-xs">Keep up the great work — your team is caring for our community every day.</p>
             </div>
