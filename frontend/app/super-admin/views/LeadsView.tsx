@@ -39,10 +39,43 @@ const DEFAULT_LEADS: Lead[] = [
   { id: 'LD-002', name: 'Vikram Patnaik', phone: '+91 87654 32109', source: 'Google Ads', service: 'Autism Center', status: 'Contacted', date: 'Yesterday, 04:15 PM' },
 ];
 
-export const LeadsView = () => {
-  const [leads, setLeads] = useState<Lead[]>(DEFAULT_LEADS);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+const maskPhoneNumber = (phone: string) => {
+  if (!phone) return '';
+  const digits = phone.replace(/\D/g, '');
+  const digitCount = digits.length;
+  
+  // For standard 10-digit numbers with country codes (e.g., +91 98765 43210 has 12 digits)
+  // We want to skip masking the country code, mask the next 6 digits, and keep the last 4.
+  const countryCodeLen = Math.max(0, digitCount - 10);
+  const coreMaskLen = Math.max(0, digitCount - countryCodeLen - 4);
+  
+  let currentIdx = 0;
+  return phone.replace(/\d/g, (match) => {
+    currentIdx++;
+    if (currentIdx <= countryCodeLen) return match; // Keep country code
+    if (currentIdx <= countryCodeLen + coreMaskLen) return 'X'; // Mask middle
+    return match; // Keep last 4
+  });
+};
+
+export const LeadsView = ({ initialData }: { initialData?: any }) => {
+  const transformApiLeads = (data: ApiLead[]) => data.map((l: ApiLead) => ({
+    _id: l._id,
+    id: l._id,
+    name: l.childName || '',
+    phone: l.parentPhone || '',
+    source: l.referredBy || 'Direct',
+    service: l.diagnosis || 'Service',
+    status: l.status === 'new' ? 'New' : l.status === 'contacted' ? 'Contacted' : l.status === 'converted' ? 'Converted' : 'Lost' as Lead['status'],
+    date: new Date(l.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })
+  }));
+
+  const hasServerData = !!initialData;
+  const [leads, setLeads] = useState<Lead[]>(
+    hasServerData && Array.isArray(initialData?.leads) ? transformApiLeads(initialData.leads) : DEFAULT_LEADS
+  );
+  const [branches, setBranches] = useState<Branch[]>(initialData?.branches || []);
+  const [isLoading, setIsLoading] = useState(!hasServerData);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<LeadStatusFilter>('All');
@@ -76,6 +109,8 @@ export const LeadsView = () => {
   };
 
   useEffect(() => {
+    if (hasServerData) return; // Skip if server data was provided
+
     const fetchLeads = async () => {
       try {
         setIsLoading(true);
@@ -86,17 +121,7 @@ export const LeadsView = () => {
         ]);
         
         if (leadsRes.data.success) {
-          const transformed = leadsRes.data.data.map((l: ApiLead) => ({
-            _id: l._id,
-            id: l._id,
-            name: l.childName || '',
-            phone: l.parentPhone || '',
-            source: l.referredBy || 'Direct',
-            service: l.diagnosis || 'Service',
-            status: l.status === 'new' ? 'New' : l.status === 'contacted' ? 'Contacted' : l.status === 'converted' ? 'Converted' : 'Lost',
-            date: new Date(l.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })
-          }));
-          setLeads(transformed);
+          setLeads(transformApiLeads(leadsRes.data.data));
         }
         
         if (branchRes.data.success && branchRes.data.data) {
@@ -114,8 +139,8 @@ export const LeadsView = () => {
   }, []);
 
   const handleAddLead = async () => {
-    if (!newLead.childName.trim() || !newLead.parentName.trim() || !newLead.parentPhone.trim() || !newLead.branchId) {
-      toast.error('Please fill in all required fields');
+    if (!newLead.parentPhone.trim()) {
+      toast.error('Please provide a contact phone number');
       return;
     }
 
@@ -128,7 +153,7 @@ export const LeadsView = () => {
         age: newLead.age ? Number(newLead.age) : undefined,
         diagnosis: newLead.diagnosis || undefined,
         referredBy: newLead.referredBy || undefined,
-        branchId: newLead.branchId,
+        branchId: newLead.branchId || undefined,
         status: newLead.status
       };
       const { data } = await api.post('/admin/leads', payload);
@@ -188,9 +213,9 @@ export const LeadsView = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-10">
+    <div className="w-full space-y-4 sm:space-y-6 pb-6 lg:pb-10">
       {/* Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {[
           { title: 'Total Leads', value: stats.total, icon: <UserPlus size={20} />, color: 'bg-surface-container-low text-on-surface' },
           { title: 'New Queries', value: stats.new, icon: <Mail size={20} />, color: 'bg-blue-50 text-blue-600' },
@@ -301,7 +326,7 @@ export const LeadsView = () => {
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
                       <span className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">{lead.name}</span>
-                      <span className="text-xs text-on-surface-variant mt-0.5 opacity-80">{lead.phone}</span>
+                      <span className="text-xs text-on-surface-variant mt-0.5 opacity-80">{maskPhoneNumber(lead.phone)}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -418,14 +443,14 @@ export const LeadsView = () => {
                     value={newLead.childName}
                     onChange={(e) => setNewLead(prev => ({ ...prev, childName: e.target.value }))}
                     className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                    placeholder="Child name *"
+                    placeholder="Child name"
                   />
                   <input
                     type="text"
                     value={newLead.parentName}
                     onChange={(e) => setNewLead(prev => ({ ...prev, parentName: e.target.value }))}
                     className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                    placeholder="Parent name *"
+                    placeholder="Parent name"
                   />
                   <input
                     type="tel"
@@ -467,7 +492,7 @@ export const LeadsView = () => {
                     onChange={(e) => setNewLead(prev => ({ ...prev, branchId: e.target.value }))}
                     className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
                   >
-                    <option value="">Select Branch *</option>
+                    <option value="">Select Branch</option>
                     {branches.map(branch => (
                       <option key={branch._id} value={branch._id}>{branch.name}</option>
                     ))}
@@ -497,7 +522,7 @@ export const LeadsView = () => {
                 </button>
                 <button
                   onClick={handleAddLead}
-                  disabled={!newLead.childName.trim() || !newLead.parentName.trim() || !newLead.parentPhone.trim() || !newLead.branchId}
+                  disabled={!newLead.parentPhone.trim()}
                   className="px-4 py-2 rounded-xl text-sm font-bold bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   Add Lead

@@ -1,18 +1,36 @@
 const User = require('../models/User');
 const Attendance = require('../models/Attendance');
 
-// GET /api/admin/staff?branch=ID&role=staff
+// GET /api/admin/staff?branch=ID&role=staff&page=1&limit=20
 const getStaff = async (req, res) => {
     try {
         const filter = { role: { $in: ['staff', 'branch_manager'] } };
         if (req.query.branch) filter.branchId = req.query.branch;
         if (req.query.role) filter.role = req.query.role;
 
-        const staff = await User.find(filter)
+        const page = parseInt(req.query.page) || 0;
+        const limit = parseInt(req.query.limit) || 0;
+
+        let query = User.find(filter)
             .select('-password -otp -otpExpires')
             .populate('branchId', 'name')
             .sort({ name: 1 });
-        res.json({ success: true, count: staff.length, data: staff });
+
+        const total = await User.countDocuments(filter);
+
+        if (page > 0 && limit > 0) {
+            query = query.skip((page - 1) * limit).limit(limit);
+        }
+
+        const staff = await query;
+        res.json({
+            success: true,
+            count: staff.length,
+            total,
+            page: page || 1,
+            pages: limit > 0 ? Math.ceil(total / limit) : 1,
+            data: staff,
+        });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }

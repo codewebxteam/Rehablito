@@ -29,4 +29,9 @@ feePaymentSchema.pre('save', function () {
     }
 });
 
+feePaymentSchema.index({ branchId: 1 });
+feePaymentSchema.index({ patientId: 1 });
+feePaymentSchema.index({ paymentDate: -1 });
+feePaymentSchema.index({ status: 1 });
+
 module.exports = mongoose.model('FeePayment', feePaymentSchema);

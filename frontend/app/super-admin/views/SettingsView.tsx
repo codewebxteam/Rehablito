@@ -77,11 +77,11 @@ export const SettingsView = () => {
   };
 
   return (
-    <div className="max-w-3xl space-y-8">
+    <div className="w-full max-w-3xl space-y-6 lg:space-y-8">
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-8 shadow-sm"
+        className="rounded-2xl border border-outline-variant/20 bg-surface-container-lowest p-4 sm:p-6 lg:p-8 shadow-sm"
       >
         <div className="flex items-center gap-4 mb-6">
           <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">

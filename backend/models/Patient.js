@@ -24,4 +24,8 @@ const patientSchema = new mongoose.Schema({
     leadId: { type: mongoose.Schema.ObjectId, ref: 'Lead', default: null },
 }, { timestamps: true });
 
+patientSchema.index({ branchId: 1, status: 1 });
+patientSchema.index({ status: 1 });
+patientSchema.index({ createdAt: -1 });
+
 module.exports = mongoose.model('Patient', patientSchema);

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Plus, Filter, UserCog, Edit, Trash2, X } from 'lucide-react';
+import { Search, Plus, Filter, UserCog, Edit, Trash2, X, UsersRound, UserCheck, UserMinus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AnimatePresence, motion } from 'motion/react';
 import api from '@/lib/api';
@@ -58,12 +58,28 @@ const INITIAL_FORM: NewStaffForm = {
 
 const roleLabel = (role: StaffRole) => (role === 'branch_manager' ? 'Branch Manager' : 'Staff');
 
-export const StaffView = () => {
-  const [staffList, setStaffList] = useState<Staff[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export const StaffView = ({ initialData }: { initialData?: any }) => {
+  const transformApiStaff = (data: ApiStaff[]): Staff[] => data.map((s: ApiStaff) => ({
+    _id: s._id,
+    id: s._id,
+    name: s.name,
+    email: s.email,
+    role: s.role,
+    staffId: s.staffId,
+    mobileNumber: s.mobileNumber,
+    branch: s.branchId?._id || '',
+    status: 'Active' as const,
+  }));
+
+  const hasServerData = !!initialData;
+  const [staffList, setStaffList] = useState<Staff[]>(
+    hasServerData && Array.isArray(initialData?.staff) ? transformApiStaff(initialData.staff) : []
+  );
+  const [branches, setBranches] = useState<Branch[]>(initialData?.branches || []);
+  const [isLoading, setIsLoading] = useState(!hasServerData);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<StaffStatusFilter>('All');
+  const [roleFilter, setRoleFilter] = useState<StaffRole | 'All'>('All');
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -97,6 +113,8 @@ export const StaffView = () => {
   };
 
   useEffect(() => {
+    if (hasServerData) return;
+
     const fetchData = async () => {
       try {
         setIsLoading(true);
@@ -110,18 +128,7 @@ export const StaffView = () => {
         }
 
         if (staffRes.data.success) {
-          const transformed: Staff[] = staffRes.data.data.map((s: ApiStaff) => ({
-            _id: s._id,
-            id: s._id,
-            name: s.name,
-            email: s.email,
-            role: s.role,
-            staffId: s.staffId,
-            mobileNumber: s.mobileNumber,
-            branch: s.branchId?._id || '',
-            status: 'Active',
-          }));
-          setStaffList(transformed);
+          setStaffList(transformApiStaff(staffRes.data.data));
         }
       } catch (err) {
         console.error('Failed to fetch staff:', err);
@@ -248,11 +255,132 @@ export const StaffView = () => {
       s.email.toLowerCase().includes(q) ||
       (s.staffId?.toLowerCase().includes(q) ?? false);
     const matchesStatus = statusFilter === 'All' || s.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesRole = roleFilter === 'All' || s.role === roleFilter;
+    return matchesSearch && matchesStatus && matchesRole;
   });
 
+  const totalStaff = staffList.length;
+  const branchManagers = staffList.filter(s => s.role === 'branch_manager').length;
+  const activeStaff = staffList.filter(s => s.status === 'Active').length;
+  const inactiveStaff = staffList.filter(s => s.status === 'Inactive').length;
+
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-10">
+    <div className="w-full space-y-4 sm:space-y-6 lg:space-y-8 pb-6 lg:pb-10">
+      {/* KPI Cards Area */}
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+      >
+        {/* Total Staff */}
+        <div 
+          onClick={() => { setStatusFilter('All'); setRoleFilter('All'); }}
+          className={cn(
+             "bg-surface-container-lowest p-5 rounded-xl border hover:-translate-y-1 hover:shadow-md hover:border-primary/30 transition-all duration-200 cursor-pointer group relative",
+             statusFilter === 'All' && roleFilter === 'All' ? 'border-primary/40 shadow-sm' : 'border-outline-variant/10'
+          )}
+        >
+          {isLoading ? (
+             <div className="h-24 animate-pulse bg-surface-container-low rounded-lg" />
+          ) : (
+            <>
+              <div className="flex items-start justify-between mb-3">
+                <div className="p-2.5 rounded-lg bg-blue-50 group-hover:bg-blue-600 transition-colors duration-300">
+                  <UsersRound className="text-blue-600 group-hover:text-white transition-colors duration-300" size={20} />
+                </div>
+              </div>
+              <p className="text-on-surface-variant text-[10px] uppercase tracking-wider mb-1 font-bold">Total Staff</p>
+              <h3 className="text-2xl font-black font-headline text-on-surface">{totalStaff}</h3>
+              <p className="text-on-surface-variant/70 text-xs mt-2 flex items-center gap-1 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                Across {branches.length || 0} branches
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* Branch Managers */}
+        <div 
+          onClick={() => { setStatusFilter('All'); setRoleFilter('branch_manager'); }}
+          className={cn(
+             "bg-surface-container-lowest p-5 rounded-xl border hover:-translate-y-1 hover:shadow-md hover:border-primary/30 transition-all duration-200 cursor-pointer group relative",
+             roleFilter === 'branch_manager' ? 'border-indigo-400 shadow-sm' : 'border-outline-variant/10'
+          )}
+        >
+          {isLoading ? (
+             <div className="h-24 animate-pulse bg-surface-container-low rounded-lg" />
+          ) : (
+            <>
+              <div className="flex items-start justify-between mb-3">
+                <div className="p-2.5 rounded-lg bg-indigo-50 group-hover:bg-indigo-600 transition-colors duration-300">
+                  <UserCog className="text-indigo-600 group-hover:text-white transition-colors duration-300" size={20} />
+                </div>
+              </div>
+              <p className="text-on-surface-variant text-[10px] uppercase tracking-wider mb-1 font-bold">Branch Managers</p>
+              <h3 className="text-2xl font-black font-headline text-on-surface">{branchManagers}</h3>
+              <p className="text-on-surface-variant/70 text-xs mt-2 flex items-center gap-1 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                Leadership team
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* Active Staff */}
+        <div 
+          onClick={() => { setStatusFilter('Active'); setRoleFilter('All'); }}
+          className={cn(
+             "bg-surface-container-lowest p-5 rounded-xl border hover:-translate-y-1 hover:shadow-md hover:border-primary/30 transition-all duration-200 cursor-pointer group relative",
+             statusFilter === 'Active' ? 'border-emerald-400 shadow-sm' : 'border-outline-variant/10'
+          )}
+        >
+          {isLoading ? (
+             <div className="h-24 animate-pulse bg-surface-container-low rounded-lg" />
+          ) : (
+            <>
+              <div className="flex items-start justify-between mb-3">
+                <div className="p-2.5 rounded-lg bg-emerald-50 group-hover:bg-emerald-600 transition-colors duration-300">
+                  <UserCheck className="text-emerald-600 group-hover:text-white transition-colors duration-300" size={20} />
+                </div>
+              </div>
+              <p className="text-on-surface-variant text-[10px] uppercase tracking-wider mb-1 font-bold">Active Staff</p>
+              <h3 className="text-2xl font-black font-headline text-on-surface">{activeStaff}</h3>
+              <p className="text-on-surface-variant/70 text-xs mt-2 flex items-center gap-1 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                Currently active
+              </p>
+            </>
+          )}
+        </div>
+
+        {/* Inactive Staff */}
+        <div 
+          onClick={() => { setStatusFilter('Inactive'); setRoleFilter('All'); }}
+          className={cn(
+             "bg-surface-container-lowest p-5 rounded-xl border hover:-translate-y-1 hover:shadow-md hover:border-primary/30 transition-all duration-200 cursor-pointer group relative",
+             statusFilter === 'Inactive' ? 'border-rose-400 shadow-sm' : 'border-outline-variant/10'
+          )}
+        >
+          {isLoading ? (
+             <div className="h-24 animate-pulse bg-surface-container-low rounded-lg" />
+          ) : (
+            <>
+              <div className="flex items-start justify-between mb-3">
+                <div className="p-2.5 rounded-lg bg-rose-50 group-hover:bg-rose-600 transition-colors duration-300">
+                  <UserMinus className="text-rose-600 group-hover:text-white transition-colors duration-300" size={20} />
+                </div>
+              </div>
+              <p className="text-on-surface-variant text-[10px] uppercase tracking-wider mb-1 font-bold">Inactive Staff</p>
+              <h3 className="text-2xl font-black font-headline text-on-surface">{inactiveStaff}</h3>
+              <p className="text-on-surface-variant/70 text-xs mt-2 flex items-center gap-1 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                Needs attention
+              </p>
+            </>
+          )}
+        </div>
+      </motion.div>
+
       {/* Header Actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface-container-lowest p-6 rounded-2xl shadow-sm border border-outline-variant/10">
         <div className="flex items-center gap-3">

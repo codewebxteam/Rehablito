@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
 
 const leadSchema = new mongoose.Schema({
-    childName: { type: String, required: [true, 'Child name is required'], trim: true },
-    parentName: { type: String, required: true },
+    childName: { type: String, trim: true },
+    parentName: { type: String },
     parentPhone: { type: String, required: true },
     parentEmail: { type: String },
     age: { type: Number },
@@ -13,7 +13,7 @@ const leadSchema = new mongoose.Schema({
         enum: ['new', 'contacted', 'converted', 'closed'],
         default: 'new'
     },
-    branchId: { type: mongoose.Schema.ObjectId, ref: 'Branch', required: true },
+    branchId: { type: mongoose.Schema.ObjectId, ref: 'Branch' },
     assignedTo: { type: mongoose.Schema.ObjectId, ref: 'User', default: null },
     notes: [{
         text: String,
@@ -21,5 +21,9 @@ const leadSchema = new mongoose.Schema({
         addedAt: { type: Date, default: Date.now }
     }],
 }, { timestamps: true });
+
+leadSchema.index({ branchId: 1, status: 1 });
+leadSchema.index({ status: 1 });
+leadSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model('Lead', leadSchema);
