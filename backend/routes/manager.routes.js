@@ -3,6 +3,8 @@ const router = express.Router();
 const { protect } = require('../middleware/auth.middleware');
 const { authorize } = require('../middleware/role.middleware');
 
+const { getBranches } = require('../controllers/branch.controller');
+
 // ── Manager Controllers ──
 const {
     getPatients,
@@ -45,6 +47,9 @@ const {
 // ─── All routes require authentication + branch_manager or super_admin ───
 router.use(protect, authorize('super_admin', 'branch_manager'));
 
+// GET /api/manager/branches → for dropdowns
+router.get('/branches', getBranches);
+
 // ════════════════════════════════════════════════
 // ██  Patient Onboarding
 // ════════════════════════════════════════════════
@@ -58,7 +63,18 @@ router.route('/patients').get(getPatients).post(createPatient);
 
 // GET    /api/manager/patients/:id     → Get single patient
 // PUT    /api/manager/patients/:id     → Update patient
-router.route('/patients/:id').get(getPatient).put(updatePatient);
+// DELETE /api/manager/patients/:id     → Delete patient
+router.route('/patients/:id').get(getPatient).put(updatePatient).delete(async (req, res) => {
+    const Patient = require('../models/Patient');
+    try {
+        const branchId = req.user.role === 'super_admin' && req.query.branch ? req.query.branch : req.user.branchId;
+        const patient = await Patient.findOneAndDelete({ _id: req.params.id, branchId });
+        if (!patient) return res.status(404).json({ success: false, message: 'Patient not found' });
+        res.json({ success: true, message: 'Patient deleted' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
 
 // GET    /api/manager/patients/:id/pdf → Download registration PDF
 router.get('/patients/:id/pdf', downloadPatientPDF);

@@ -1,19 +1,112 @@
 ﻿"use client";
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
-  UserPlus,
   AlertCircle,
   CheckCircle2,
   Download,
   Printer,
   FileText,
-  ShieldCheck
+  ShieldCheck,
+  ChevronDown,
+  Check
 } from 'lucide-react';
-import { jsPDF } from 'jspdf';
 import { Patient } from '../types';
 import { cn } from '../lib/utils';
 import React from 'react';
 import api from '@/lib/api';
+import { generatePatientPDF } from '../lib/generatePatientPDF';
+
+const THERAPY_OPTIONS = [
+  { value: 'physiotherapy',        label: 'Physiotherapy' },
+  { value: 'speech_therapy',       label: 'Speech Therapy' },
+  { value: 'occupational_therapy', label: 'Occupational Therapy' },
+  { value: 'aba_therapy',          label: 'ABA Therapy' },
+  { value: 'autism_therapy',       label: 'Autism Therapy' },
+];
+
+const GENDER_OPTIONS = [
+  { value: 'male',   label: 'Male' },
+  { value: 'female', label: 'Female' },
+  { value: 'other',  label: 'Other' },
+];
+
+// ── Custom Dropdown ──
+interface SelectOption { value: string; label: string; icon?: string }
+function CustomSelect({
+  value, onChange, options, placeholder, error
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: SelectOption[];
+  placeholder: string;
+  error?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = options.find(o => o.value === value);
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(p => !p)}
+        className={cn(
+          'w-full flex items-center justify-between gap-3 px-5 py-4 rounded-2xl border bg-surface-container-lowest transition-all outline-none',
+          open ? 'border-primary ring-4 ring-primary/10' : error ? 'border-error' : 'border-outline-variant/30',
+          'hover:border-primary/50'
+        )}
+      >
+        <span className={cn('flex items-center gap-2.5 text-sm font-medium', selected ? 'text-on-surface' : 'text-on-surface-variant/50')}>
+          {selected ? (
+            <>
+              {selected.icon && <span className="text-base leading-none">{selected.icon}</span>}
+              {selected.label}
+            </>
+          ) : placeholder}
+        </span>
+        <ChevronDown size={16} className={cn('text-on-surface-variant transition-transform shrink-0', open && 'rotate-180')} />
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-outline-variant/15 z-50 overflow-hidden">
+          <div className="h-0.5 bg-gradient-to-r from-primary via-secondary to-primary/30" />
+          <div className="py-1.5">
+            {options.map((opt, i) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => { onChange(opt.value); setOpen(false); }}
+                className={cn(
+                  'w-full flex items-center justify-between gap-3 px-5 py-3 text-sm transition-all text-left group',
+                  value === opt.value
+                    ? 'bg-primary/8 text-primary font-semibold'
+                    : 'text-on-surface font-medium hover:bg-surface-container-low hover:pl-6'
+                )}
+              >
+                <span className="flex items-center gap-3">
+                  {opt.icon && (
+                    <span className={cn(
+                      'w-6 h-6 rounded-lg flex items-center justify-center text-xs font-bold shrink-0',
+                      value === opt.value ? 'bg-primary/15 text-primary' : 'bg-surface-container-low text-on-surface-variant'
+                    )}>{opt.icon}</span>
+                  )}
+                  {opt.label}
+                </span>
+                {value === opt.value && <Check size={14} className="text-primary shrink-0" />}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface PatientOnboardingProps {
   onOnboard: (patient: Patient) => void;
@@ -21,22 +114,41 @@ interface PatientOnboardingProps {
 
 export default function PatientOnboardingView({ onOnboard }: PatientOnboardingProps) {
   const [formData, setFormData] = useState({
+    patientId: '',
     name: '',
+    parentName: '',
     age: '',
     gender: '',
-    condition: '',
+    therapyType: '',
+    diagnosis: '',
+    address: '',
+    branchId: '',
     phone: ''
   });
+  const [branches, setBranches] = useState<{ _id: string; name: string }[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastOnboarded, setLastOnboarded] = useState<Patient | null>(null);
 
+  useEffect(() => {
+    api.get('/manager/branches').then(({ data }) => {
+      if (data.success) setBranches(data.data);
+    }).catch(() => {});
+
+    // Auto-generate patient ID
+    const id = `RX-${Date.now().toString().slice(-6)}`;
+    setFormData(prev => ({ ...prev, patientId: id }));
+  }, []);
+
   const validate = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.name) newErrors.name = 'Full legal name is required';
+    if (!formData.name) newErrors.name = 'Patient name is required';
+    if (!formData.parentName) newErrors.parentName = 'Parent name is required';
     if (!formData.age) newErrors.age = 'Age is required';
-    if (!formData.gender) newErrors.gender = 'Gender selection is required';
-    if (!formData.condition) newErrors.condition = 'Medical condition summary is required';
+    if (!formData.gender) newErrors.gender = 'Gender is required';
+    if (!formData.therapyType) newErrors.therapyType = 'Therapy type is required';
+    if (!formData.address) newErrors.address = 'Address is required';
+    if (!formData.branchId) newErrors.branchId = 'Branch is required';
     if (!formData.phone) {
       newErrors.phone = 'Contact number is required';
     } else if (!/^\d{10}$/.test(formData.phone)) {
@@ -46,83 +158,46 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
     return Object.keys(newErrors).length === 0;
   };
 
-  const generatePDF = (patient: Patient) => {
-    const doc = new jsPDF();
-    
-    // Header
-    doc.setFontSize(22);
-    doc.setTextColor(0, 74, 198); // Primary color
-    doc.text('REHABLITO CLINICAL OPS', 20, 20);
-    
-    doc.setFontSize(12);
-    doc.setTextColor(67, 70, 85); // On-surface variant
-    doc.text('Patient Onboarding Record', 20, 30);
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 35);
-    doc.text(`Session ID: #RX-${Math.floor(Math.random() * 10000)}-A`, 20, 40);
-    
-    // Divider
-    doc.setDrawColor(195, 198, 215); // Outline variant
-    doc.line(20, 45, 190, 45);
-    
-    // Patient Details
-    doc.setFontSize(14);
-    doc.setTextColor(25, 28, 30); // On-surface
-    doc.text('Patient Information', 20, 55);
-    
-    doc.setFontSize(11);
-    doc.text(`Name: ${patient.name}`, 20, 65);
-    doc.text(`Age: ${patient.age}`, 20, 72);
-    doc.text(`Gender: ${patient.gender}`, 20, 79);
-    doc.text(`Contact: ${patient.phone}`, 20, 86);
-    
-    doc.text('Medical Condition Summary:', 20, 96);
-    doc.setFontSize(10);
-    const splitCondition = doc.splitTextToSize(patient.condition, 160);
-    doc.text(splitCondition, 20, 103);
-    
-    // Footer
-    doc.setFontSize(9);
-    doc.setTextColor(115, 118, 134);
-    doc.text('St. Jude Medical Center - Central Management', 20, 280);
-    
-    return doc;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
-
     setIsSubmitting(true);
-
     try {
       const payload = {
+        patientId: formData.patientId,
         name: formData.name,
+        parentName: formData.parentName,
         age: parseInt(formData.age),
         gender: formData.gender.toLowerCase(),
-        diagnosis: formData.condition,
+        therapyType: [formData.therapyType],
+        diagnosis: formData.diagnosis,
+        address: formData.address,
+        branchId: formData.branchId,
         parentPhone: `+91${formData.phone}`,
       };
       const { data } = await api.post('/manager/patients', payload);
-      if (!data.success) {
-        setErrors({ form: data.message || 'Failed to onboard patient' });
-        return;
-      }
+      if (!data.success) { setErrors({ form: data.message || 'Failed to onboard patient' }); return; }
 
       const newPatient: Patient = {
         id: data.data._id,
+        patientId: data.data.patientId || formData.patientId,
         name: data.data.name,
+        parentName: data.data.parentName,
         age: data.data.age ?? parseInt(formData.age),
         gender: formData.gender,
-        condition: data.data.diagnosis ?? formData.condition,
+        therapyType: formData.therapyType,
+        condition: data.data.diagnosis ?? formData.diagnosis,
+        address: data.data.address ?? formData.address,
         phone: data.data.parentPhone ?? `+91${formData.phone}`,
         onboardedAt: data.data.admissionDate || data.data.createdAt || new Date().toISOString(),
       };
 
       onOnboard(newPatient);
       setLastOnboarded(newPatient);
-      setFormData({ name: '', age: '', gender: '', condition: '', phone: '' });
+      const newId = `RX-${Date.now().toString().slice(-6)}`;
+      setFormData({ patientId: newId, name: '', parentName: '', age: '', gender: '', therapyType: '', diagnosis: '', address: '', branchId: '', phone: '' });
 
-      const doc = generatePDF(newPatient);
+      const doc = await generatePatientPDF(newPatient, 'Patient Onboarding Record');
       doc.save(`Onboarding_${newPatient.name.replace(/\s/g, '_')}.pdf`);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
@@ -132,9 +207,9 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (lastOnboarded) {
-      const doc = generatePDF(lastOnboarded);
+      const doc = await generatePatientPDF(lastOnboarded, 'Patient Onboarding Record');
       doc.save(`Onboarding_${lastOnboarded.name.replace(/\s/g, '_')}.pdf`);
     }
   };
@@ -158,121 +233,150 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
           <div className="absolute top-0 right-0 w-32 h-32 bg-secondary/5 rounded-bl-full -mr-8 -mt-8 transition-transform group-hover:scale-110 duration-700"></div>
           
           <form onSubmit={handleSubmit} className="space-y-8 relative z-10">
+            {/* Patient ID - read only */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Patient ID</label>
+              <input
+                type="text"
+                value={formData.patientId}
+                readOnly
+                className="w-full bg-surface-container-low border border-outline-variant/30 rounded-2xl px-5 py-4 font-mono text-sm text-on-surface-variant cursor-not-allowed"
+              />
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Full Legal Name</label>
-                <input 
-                  type="text" 
+                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Patient Name</label>
+                <input
+                  type="text"
                   value={formData.name}
                   onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   className={cn(
                     "w-full bg-surface-container-lowest border rounded-2xl px-5 py-4 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all placeholder:text-on-surface-variant/40",
                     errors.name ? "border-error" : "border-outline-variant/30"
                   )}
-                  placeholder="e.g. Sarah J. Mitchell"
+                  placeholder="e.g. Aryan Sharma"
                 />
-                {errors.name && (
-                  <p className="text-[10px] text-error font-medium flex items-center gap-1 mt-1 px-1">
-                    <AlertCircle size={14} />
-                    {errors.name}
-                  </p>
-                )}
+                {errors.name && <p className="text-[10px] text-error font-medium flex items-center gap-1 mt-1 px-1"><AlertCircle size={14} />{errors.name}</p>}
               </div>
 
               <div className="space-y-2">
-                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Contact Number</label>
-                <div
+                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Parent Name</label>
+                <input
+                  type="text"
+                  value={formData.parentName}
+                  onChange={e => setFormData(prev => ({ ...prev, parentName: e.target.value }))}
                   className={cn(
-                    "w-full bg-surface-container-lowest border rounded-2xl px-5 py-4 flex items-center gap-3 focus-within:ring-4 focus-within:ring-primary/10 focus-within:border-primary transition-all",
-                    errors.phone ? "border-error" : "border-outline-variant/30"
+                    "w-full bg-surface-container-lowest border rounded-2xl px-5 py-4 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all placeholder:text-on-surface-variant/40",
+                    errors.parentName ? "border-error" : "border-outline-variant/30"
                   )}
-                >
+                  placeholder="e.g. Rajesh Sharma"
+                />
+                {errors.parentName && <p className="text-[10px] text-error font-medium flex items-center gap-1 mt-1 px-1"><AlertCircle size={14} />{errors.parentName}</p>}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Phone Number</label>
+                <div className={cn(
+                  "w-full bg-surface-container-lowest border rounded-2xl px-5 py-4 flex items-center gap-3 focus-within:ring-4 focus-within:ring-primary/10 focus-within:border-primary transition-all",
+                  errors.phone ? "border-error" : "border-outline-variant/30"
+                )}>
                   <span className="text-on-surface font-semibold">+91</span>
                   <input
                     type="tel"
                     inputMode="numeric"
                     maxLength={10}
                     value={formData.phone}
-                    onChange={e => {
-                      const digitsOnly = e.target.value.replace(/\D/g, '').slice(0, 10);
-                      setFormData(prev => ({ ...prev, phone: digitsOnly }));
-                    }}
+                    onChange={e => setFormData(prev => ({ ...prev, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
                     className="w-full bg-transparent outline-none"
                     placeholder="9876543210"
                   />
                 </div>
-                {errors.phone && (
-                  <p className="text-[10px] text-error font-medium flex items-center gap-1 mt-1 px-1">
-                    <AlertCircle size={14} />
-                    {errors.phone}
-                  </p>
-                )}
+                {errors.phone && <p className="text-[10px] text-error font-medium flex items-center gap-1 mt-1 px-1"><AlertCircle size={14} />{errors.phone}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Therapy Name</label>
+                <CustomSelect
+                  value={formData.therapyType}
+                  onChange={v => setFormData(prev => ({ ...prev, therapyType: v }))}
+                  options={THERAPY_OPTIONS}
+                  placeholder="Select therapy type"
+                  error={!!errors.therapyType}
+                />
+                {errors.therapyType && <p className="text-[10px] text-error font-medium flex items-center gap-1 mt-1 px-1"><AlertCircle size={14} />{errors.therapyType}</p>}
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Age</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   value={formData.age}
                   onChange={e => setFormData(prev => ({ ...prev, age: e.target.value }))}
                   className={cn(
                     "w-full bg-surface-container-lowest border rounded-2xl px-5 py-4 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all",
                     errors.age ? "border-error" : "border-outline-variant/30"
                   )}
-                  placeholder="24"
+                  placeholder="e.g. 8"
                 />
-                {errors.age && (
-                  <p className="text-[10px] text-error font-medium flex items-center gap-1 mt-1 px-1">
-                    <AlertCircle size={14} />
-                    {errors.age}
-                  </p>
-                )}
+                {errors.age && <p className="text-[10px] text-error font-medium flex items-center gap-1 mt-1 px-1"><AlertCircle size={14} />{errors.age}</p>}
               </div>
 
               <div className="space-y-2">
-                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Assigned Gender</label>
-                <select 
+                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Gender</label>
+                <CustomSelect
                   value={formData.gender}
-                  onChange={e => setFormData(prev => ({ ...prev, gender: e.target.value }))}
+                  onChange={v => setFormData(prev => ({ ...prev, gender: v }))}
+                  options={GENDER_OPTIONS}
+                  placeholder="Select gender"
+                  error={!!errors.gender}
+                />
+                {errors.gender && <p className="text-[10px] text-error font-medium flex items-center gap-1 mt-1 px-1"><AlertCircle size={14} />{errors.gender}</p>}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Branch</label>
+                <CustomSelect
+                  value={formData.branchId}
+                  onChange={v => setFormData(prev => ({ ...prev, branchId: v }))}
+                  options={branches.map(b => ({ value: b._id, label: b.name }))}
+                  placeholder="Select branch"
+                  error={!!errors.branchId}
+                />
+                {errors.branchId && <p className="text-[10px] text-error font-medium flex items-center gap-1 mt-1 px-1"><AlertCircle size={14} />{errors.branchId}</p>}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Address</label>
+                <input
+                  type="text"
+                  value={formData.address}
+                  onChange={e => setFormData(prev => ({ ...prev, address: e.target.value }))}
                   className={cn(
-                    "w-full bg-surface-container-lowest border rounded-2xl px-5 py-4 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all appearance-none",
-                    errors.gender ? "border-error" : "border-outline-variant/30"
+                    "w-full bg-surface-container-lowest border rounded-2xl px-5 py-4 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all placeholder:text-on-surface-variant/40",
+                    errors.address ? "border-error" : "border-outline-variant/30"
                   )}
-                >
-                  <option value="" disabled>Select option</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other / Prefer not to say</option>
-                </select>
-                {errors.gender && (
-                  <p className="text-[10px] text-error font-medium flex items-center gap-1 mt-1 px-1">
-                    <AlertCircle size={14} />
-                    {errors.gender}
-                  </p>
-                )}
+                  placeholder="e.g. 12, MG Road, Delhi"
+                />
+                {errors.address && <p className="text-[10px] text-error font-medium flex items-center gap-1 mt-1 px-1"><AlertCircle size={14} />{errors.address}</p>}
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Medical Condition Summary</label>
-              <textarea 
-                rows={4}
-                value={formData.condition}
-                onChange={e => setFormData(prev => ({ ...prev, condition: e.target.value }))}
-                className={cn(
-                  "w-full bg-surface-container-lowest border rounded-2xl px-5 py-4 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all resize-none",
-                  errors.condition ? "border-error" : "border-outline-variant/30"
-                )}
-                placeholder="Detail symptoms, duration, and any pre-existing clinical notes..."
+              <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Diagnosis / Condition</label>
+              <textarea
+                rows={3}
+                value={formData.diagnosis}
+                onChange={e => setFormData(prev => ({ ...prev, diagnosis: e.target.value }))}
+                className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-2xl px-5 py-4 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all resize-none"
+                placeholder="Brief diagnosis or clinical notes..."
               />
-              {errors.condition && (
-                <p className="text-[10px] text-error font-medium flex items-center gap-1 mt-1 px-1">
-                  <AlertCircle size={14} />
-                  {errors.condition}
-                </p>
-              )}
             </div>
 
             <div className="pt-4 space-y-3">

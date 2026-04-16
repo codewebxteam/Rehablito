@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const patientSchema = new mongoose.Schema({
+    patientId: { type: String, unique: true, sparse: true },
     name: { type: String, required: [true, 'Name is required'], trim: true },
     parentName: { type: String },
     parentPhone: { type: String },
@@ -9,6 +10,7 @@ const patientSchema = new mongoose.Schema({
     age: { type: Number },
     gender: { type: String, enum: ['male', 'female', 'other'] },
     diagnosis: { type: String },
+    address: { type: String },
     therapyType: [{
         type: String,
         enum: ['physiotherapy', 'speech_therapy', 'occupational_therapy', 'aba_therapy', 'autism_therapy']
