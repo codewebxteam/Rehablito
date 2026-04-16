@@ -8,10 +8,14 @@ const { getBranches, getBranch, createBranch, updateBranch, deleteBranch } = req
 const { getLeads, createLead, updateLead, getLeadStats } = require('../controllers/lead.controller');
 const { getPatients, createPatient, updatePatient, getPatientStats } = require('../controllers/patient.controller');
 const { getFees, createFee, getFeeSummary } = require('../controllers/fee.controller');
+const { getDashboardData } = require('../controllers/dashboard.controller');
 const { getStaff, createStaff, updateStaff, deleteStaff, transferStaff, getAttendance, markAttendance, getAttendanceStats } = require('../controllers/staff.controller');
 
 // All routes require super_admin
 router.use(protect, authorize('super_admin'));
+
+// ── Dashboard (combined endpoint) ──
+router.get('/dashboard', getDashboardData);
 
 // ── Branches ──
 router.route('/branches').get(getBranches).post(createBranch);

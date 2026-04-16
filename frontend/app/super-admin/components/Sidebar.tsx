@@ -29,7 +29,7 @@ interface BranchOption {
   name: string;
 }
 
-export const Sidebar = ({ active, onChange }: SidebarProps) => {
+export const Sidebar = React.memo(({ active, onChange }: SidebarProps) => {
   const { logout, user } = useAuth();
   const initials = (user?.name || 'SA').split(' ').map(part => part[0]).join('').slice(0, 2).toUpperCase();
   const [selectedBranch, setSelectedBranch] = useState('All Branches');
@@ -289,4 +289,5 @@ export const Sidebar = ({ active, onChange }: SidebarProps) => {
       </AnimatePresence>
     </>
   );
-};
+});
+Sidebar.displayName = 'Sidebar';

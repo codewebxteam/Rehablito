@@ -30,7 +30,7 @@ interface ApiStaff {
 
 interface ApiAttendance {
   _id: string;
-  userId: { _id: string; name: string } | string;
+  userId: { _id: string; name: string } | string | null;
   branchId: { _id: string; name: string } | string;
   date: string;
   checkIn?: string;
@@ -55,10 +55,10 @@ const mapApiStatus = (s: ApiAttendance['status']): UiStatus => {
   return 'Not Marked';
 };
 
-export const AttendanceView = () => {
+export const AttendanceView = ({ initialData }: { initialData?: any }) => {
   const [staff, setStaff] = useState<StaffMember[]>([]);
-  const [attendance, setAttendance] = useState<ApiAttendance[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
+  const [attendance, setAttendance] = useState<ApiAttendance[]>(initialData?.attendance || []);
+  const [branches, setBranches] = useState<Branch[]>(initialData?.branches || []);
   const [date, setDate] = useState<string>(todayIso());
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -101,6 +101,7 @@ export const AttendanceView = () => {
   const rows: AttendanceRow[] = useMemo(() => {
     const byUser = new Map<string, ApiAttendance>();
     attendance.forEach(a => {
+      if (!a.userId) return;
       const uid = typeof a.userId === 'object' ? a.userId._id : a.userId;
       byUser.set(uid, a);
     });
@@ -154,6 +155,7 @@ export const AttendanceView = () => {
         toast.success(`Marked ${uiStatus.toLowerCase()}`);
         setAttendance(prev => {
           const other = prev.filter(a => {
+            if (!a.userId) return true;
             const uid = typeof a.userId === 'object' ? a.userId._id : a.userId;
             return uid !== row.userId;
           });
@@ -169,7 +171,7 @@ export const AttendanceView = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-10">
+    <div className="w-full space-y-4 sm:space-y-6 pb-6 lg:pb-10">
       {/* Top Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm flex items-center justify-between">
@@ -203,7 +205,7 @@ export const AttendanceView = () => {
 
       {/* Main Table Card */}
       <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden">
-        <div className="p-6 md:p-8 border-b border-surface-container-low flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="p-4 sm:p-6 border-b border-surface-container-low flex flex-col md:flex-row md:items-center justify-between gap-4">
           <h3 className="text-xl font-bold font-headline text-on-surface">Attendance Register</h3>
 
           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
@@ -241,11 +243,11 @@ export const AttendanceView = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-surface-container-low/30">
-                  <th className="px-8 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Staff Member</th>
-                  <th className="px-8 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Branch</th>
-                  <th className="px-8 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Check-In</th>
-                  <th className="px-8 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Status</th>
-                  <th className="px-8 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70 text-right">Action</th>
+                  <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Staff Member</th>
+                  <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Branch</th>
+                  <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Check-In</th>
+                  <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Status</th>
+                  <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-container-low/50">
@@ -259,7 +261,7 @@ export const AttendanceView = () => {
                       key={row.userId}
                       className="hover:bg-surface-container-low/20 transition-colors"
                     >
-                      <td className="px-8 py-4">
+                      <td className="px-4 sm:px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs uppercase">
                             {row.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
@@ -267,11 +269,11 @@ export const AttendanceView = () => {
                           <span className="text-sm font-bold text-on-surface">{row.name}</span>
                         </div>
                       </td>
-                      <td className="px-8 py-4 text-sm font-medium text-on-surface-variant">
+                      <td className="px-4 sm:px-6 py-4 text-sm font-medium text-on-surface-variant">
                         {branches.find(b => b._id === row.branchId)?.name || 'Unknown'}
                       </td>
-                      <td className="px-8 py-4 text-sm font-medium text-on-surface-variant opacity-80">{row.checkIn}</td>
-                      <td className="px-8 py-4">
+                      <td className="px-4 sm:px-6 py-4 text-sm font-medium text-on-surface-variant opacity-80">{row.checkIn}</td>
+                      <td className="px-4 sm:px-6 py-4">
                         <span className={cn(
                           "px-3 py-1 text-[11px] font-black rounded-lg uppercase tracking-wider",
                           row.status === 'Present' && "bg-green-100 text-green-700",
@@ -282,7 +284,7 @@ export const AttendanceView = () => {
                           {row.status}
                         </span>
                       </td>
-                      <td className="px-8 py-4 text-right">
+                      <td className="px-4 sm:px-6 py-4 text-right">
                         {row.status !== 'On Leave' ? (
                           <div className="flex items-center justify-end gap-2">
                             <button

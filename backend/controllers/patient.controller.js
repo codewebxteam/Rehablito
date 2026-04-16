@@ -1,17 +1,35 @@
 const Patient = require('../models/Patient');
 
-// GET /api/admin/patients?branch=ID&status=active
+// GET /api/admin/patients?branch=ID&status=active&page=1&limit=20
 const getPatients = async (req, res) => {
     try {
         const filter = {};
         if (req.query.branch) filter.branchId = req.query.branch;
         if (req.query.status) filter.status = req.query.status;
 
-        const patients = await Patient.find(filter)
+        const page = parseInt(req.query.page) || 0;
+        const limit = parseInt(req.query.limit) || 0;
+
+        let query = Patient.find(filter)
             .populate('branchId', 'name')
             .populate('assignedTherapist', 'name')
             .sort({ admissionDate: -1 });
-        res.json({ success: true, count: patients.length, data: patients });
+
+        const total = await Patient.countDocuments(filter);
+
+        if (page > 0 && limit > 0) {
+            query = query.skip((page - 1) * limit).limit(limit);
+        }
+
+        const patients = await query;
+        res.json({
+            success: true,
+            count: patients.length,
+            total,
+            page: page || 1,
+            pages: limit > 0 ? Math.ceil(total / limit) : 1,
+            data: patients,
+        });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }

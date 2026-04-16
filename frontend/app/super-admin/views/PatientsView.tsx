@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Search, Plus, Filter, MoreVertical, FileText, X, Edit, CheckCircle2, Trash2 } from 'lucide-react';
+import { Search, Plus, Filter, MoreVertical, FileText, X, Edit, CheckCircle2, Trash2, Eye, Download, Printer, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import api from '@/lib/api';
 import { toast } from 'sonner';
@@ -40,10 +40,24 @@ interface Branch {
   name: string;
 }
 
-export const PatientsView = () => {
-  const [patients, setPatients] = useState<Patient[]>(DEFAULT_PATIENTS);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export const PatientsView = ({ initialData }: { initialData?: any }) => {
+  const transformApiPatients = (data: ApiPatient[]): Patient[] => data.map((p: ApiPatient) => ({
+    _id: p._id,
+    id: p._id,
+    name: p.name,
+    age: p.age,
+    condition: p.condition,
+    branch: p.branchId?._id || '',
+    status: (p.status === 'active' ? 'Active' : p.status === 'discharged' ? 'Discharged' : 'Critical') as Patient['status'],
+    lastVisit: p.admissionDate ? new Date(p.admissionDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'
+  }));
+
+  const hasServerData = !!initialData;
+  const [patients, setPatients] = useState<Patient[]>(
+    hasServerData && Array.isArray(initialData?.patients) ? transformApiPatients(initialData.patients) : DEFAULT_PATIENTS
+  );
+  const [branches, setBranches] = useState<Branch[]>(initialData?.branches || []);
+  const [isLoading, setIsLoading] = useState(!hasServerData);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<PatientStatusFilter>('All');
@@ -52,6 +66,21 @@ export const PatientsView = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [deletingPatient, setDeletingPatient] = useState<Patient | null>(null);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
+  const [viewingPatient, setViewingPatient] = useState<Patient | null>(null);
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setViewingPatient(null);
+        setIsAddModalOpen(false);
+        setEditingPatient(null);
+        setDeletingPatient(null);
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, []);
+
   const [newPatient, setNewPatient] = useState<Omit<Patient, 'id'>>({
     name: '',
     age: 0,
@@ -73,6 +102,8 @@ export const PatientsView = () => {
   };
 
   useEffect(() => {
+    if (hasServerData) return;
+
     const fetchPatients = async () => {
       try {
         setIsLoading(true);
@@ -86,17 +117,7 @@ export const PatientsView = () => {
         if (branchList.length) setBranches(branchList);
 
         if (patientRes.data.success) {
-          const transformed = patientRes.data.data.map((p: ApiPatient) => ({
-            _id: p._id,
-            id: p._id,
-            name: p.name,
-            age: p.age,
-            condition: p.condition,
-            branch: p.branchId?._id || '',
-            status: p.status === 'active' ? 'Active' : p.status === 'discharged' ? 'Discharged' : 'Critical',
-            lastVisit: p.admissionDate ? new Date(p.admissionDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'
-          }));
-          setPatients(transformed);
+          setPatients(transformApiPatients(patientRes.data.data));
         }
       } catch (err: unknown) {
         console.error('Failed to fetch patients:', err);
@@ -203,7 +224,7 @@ export const PatientsView = () => {
   });
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-10">
+    <div className="w-full space-y-4 sm:space-y-6 pb-6 lg:pb-10">
       {/* Header Actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface-container-lowest p-6 rounded-2xl shadow-sm border border-outline-variant/10">
         <div className="flex items-center gap-3">
@@ -304,7 +325,8 @@ export const PatientsView = () => {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   key={patient.id} 
-                  className="hover:bg-surface-container-low/20 transition-colors group"
+                  onClick={() => setViewingPatient(patient)}
+                  className="hover:bg-surface-container-low/50 transition-colors group cursor-pointer"
                 >
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
@@ -318,7 +340,7 @@ export const PatientsView = () => {
                   <td className="px-6 py-4 text-sm text-on-surface-variant opacity-80">{patient.lastVisit}</td>
                   <td className="px-6 py-4">
                     <span className={cn(
-                      "px-3 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-wider",
+                      "px-3 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-wider inline-block",
                       patient.status === 'Active' && "bg-blue-50 text-blue-700",
                       patient.status === 'Discharged' && "bg-surface-container-low text-on-surface-variant",
                       patient.status === 'Critical' && "bg-error/10 text-error"
@@ -326,10 +348,13 @@ export const PatientsView = () => {
                       {patient.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-right">
+                  <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="relative inline-block text-left">
                       <button
-                        onClick={() => patient.id && setActiveMenu(activeMenu === patient.id ? null : patient.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          patient.id && setActiveMenu(activeMenu === patient.id ? null : patient.id);
+                        }}
                         className="p-2 hover:bg-surface-container-low rounded-lg text-on-surface-variant transition-colors"
                       >
                         <MoreVertical size={16} />
@@ -338,8 +363,21 @@ export const PatientsView = () => {
                       {activeMenu === patient.id && (
                         <div className="absolute right-0 mt-2 w-44 rounded-xl border border-outline-variant/20 bg-surface-container-lowest shadow-xl p-1.5 z-20">
                           <button
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setViewingPatient(patient);
+                              setActiveMenu(null);
+                            }}
+                            className="w-full px-3 py-2 text-left text-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low flex items-center gap-2"
+                          >
+                            <Eye size={14} />
+                            View
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setEditingPatient(patient);
+                              setActiveMenu(null);
                             }}
                             className="w-full px-3 py-2 text-left text-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low flex items-center gap-2"
                           >
@@ -348,7 +386,10 @@ export const PatientsView = () => {
                           </button>
                           {patient.status !== 'Discharged' && patient._id && (
                             <button
-                              onClick={() => handleMarkDischarged(patient._id!)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleMarkDischarged(patient._id!);
+                              }}
                               className="w-full px-3 py-2 text-left text-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low flex items-center gap-2"
                             >
                               <CheckCircle2 size={14} />
@@ -356,7 +397,8 @@ export const PatientsView = () => {
                             </button>
                           )}
                           <button
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setDeletingPatient(patient);
                               setActiveMenu(null);
                             }}
@@ -385,12 +427,125 @@ export const PatientsView = () => {
       </div>
 
       <AnimatePresence>
+        {viewingPatient && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9990] flex items-center justify-center p-4 overflow-y-auto"
+            style={{ backgroundColor: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(4px)' }}
+            onClick={() => setViewingPatient(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 12, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.97 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-lg md:max-w-xl rounded-2xl overflow-hidden my-4 sm:my-8 flex flex-col max-h-[93vh] sm:max-h-[90vh]"
+              style={{ background: '#ffffff', border: '1px solid #eee', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}
+              onClick={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: '1px solid #eee' }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center font-bold font-headline select-none">R</div>
+                  <span className="font-bold font-headline text-lg tracking-tight" style={{ color: '#111' }}>Rehablito</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <span className="text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest hidden sm:inline-block" style={{ color: '#666', background: '#f5f5f5', border: '1px solid #eee' }}>ID: {viewingPatient._id?.slice(-8) || viewingPatient.id}</span>
+                  <button onClick={() => setViewingPatient(null)} className="p-1.5 rounded-lg transition-colors hover:bg-gray-100" style={{ color: '#666' }} aria-label="Close patient details">
+                    <X size={20} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Scrollable Content */}
+              <div className="p-5 sm:p-6 md:p-8 overflow-y-auto flex-1">
+                {/* Patient Summary */}
+                <div style={{ marginBottom: '24px' }}>
+                  <h2 className="text-2xl sm:text-3xl font-black font-headline leading-tight" style={{ color: '#111', marginBottom: '16px' }}>{viewingPatient.name}</h2>
+                  <div className="grid grid-cols-2" style={{ gap: '16px 24px' }}>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#666', marginBottom: '4px' }}>Age / Gender</p>
+                      <p className="text-[15px] font-semibold" style={{ color: '#222' }}>{viewingPatient.age} Yrs / N/A</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#666', marginBottom: '4px' }}>Condition</p>
+                      <p className="text-[15px] font-semibold" style={{ color: '#222' }}>{viewingPatient.condition}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#666', marginBottom: '4px' }}>Branch</p>
+                      <p className="text-[15px] font-semibold" style={{ color: '#222' }}>{branches.find(b => b._id === viewingPatient.branch)?.name || viewingPatient.branch || 'Unknown'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#666', marginBottom: '4px' }}>Status</p>
+                      <span className={cn(
+                        "px-2.5 py-1 text-[11px] font-black rounded uppercase tracking-wider inline-block mt-0.5",
+                        viewingPatient.status === 'Active' && "bg-blue-50 text-blue-700",
+                        viewingPatient.status === 'Discharged' && "bg-gray-100 text-gray-600",
+                        viewingPatient.status === 'Critical' && "bg-red-50 text-red-600"
+                      )}>
+                        {viewingPatient.status}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ width: '100%', height: '1px', background: '#eee', marginBottom: '32px' }} />
+
+                {/* Additional Information */}
+                <div>
+                  <h3 className="text-[12px] font-black uppercase tracking-widest" style={{ color: '#444', marginBottom: '16px' }}>Detailed Information</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: '16px 24px' }}>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#666', marginBottom: '4px' }}>Last Visit Date</p>
+                      <p className="text-[15px] font-semibold" style={{ color: '#222' }}>{viewingPatient.lastVisit}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#666', marginBottom: '4px' }}>Contact Info</p>
+                      <p className="text-[15px] font-semibold" style={{ color: '#222' }}>Not Provided</p>
+                    </div>
+                    <div className="col-span-2">
+                       <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#666', marginBottom: '8px' }}>Notes / Remarks</p>
+                       <div className="rounded-xl text-sm font-medium leading-relaxed" style={{ padding: '16px', border: '1px solid #eee', color: '#444' }}>
+                         Regular assessments recommended. Monitor progress in next sessions and check for mobility improvements.
+                       </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Bar */}
+              <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-4 shrink-0" style={{ padding: '20px 24px', borderTop: '1px solid #eee', marginTop: '0' }}>
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                  <button className="flex-1 sm:flex-none flex justify-center items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-colors hover:bg-gray-200" style={{ background: '#f0f0f0', color: '#222' }}>
+                    <Download size={16} />
+                    Download
+                  </button>
+                  <button className="flex-1 sm:flex-none flex justify-center items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-colors hover:bg-gray-100" style={{ border: '1px solid #ddd', color: '#222' }}>
+                    <Printer size={16} />
+                    Print
+                  </button>
+                </div>
+                <button className="w-full sm:w-auto flex justify-center items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold bg-primary text-white shadow-lg shadow-primary/20 hover:bg-primary/90 hover:-translate-y-0.5 transition-all">
+                  <CreditCard size={16} />
+                  Initiate Payment
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {isAddModalOpen && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+            className="fixed inset-0 z-[9990] bg-black/40 backdrop-blur-sm flex items-start justify-center pt-20 sm:pt-24 pb-8 overflow-y-auto px-4"
             onClick={() => {
               setIsAddModalOpen(false);
               resetPatientForm();
@@ -401,7 +556,7 @@ export const PatientsView = () => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 8, scale: 0.98 }}
               transition={{ duration: 0.16 }}
-              className="w-full max-w-lg rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-2xl p-6"
+              className="w-full max-w-[540px] rounded-xl bg-surface-container-lowest border border-outline-variant/20 shadow-2xl p-6"
               role="dialog"
               aria-modal="true"
               aria-label="Add patient"
@@ -497,7 +652,7 @@ export const PatientsView = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+            className="fixed inset-0 z-[9990] bg-black/40 backdrop-blur-sm flex items-start justify-center pt-20 sm:pt-24 pb-8 overflow-y-auto px-4"
             onClick={() => setDeletingPatient(null)}
           >
             <motion.div
@@ -505,10 +660,7 @@ export const PatientsView = () => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 8, scale: 0.98 }}
               transition={{ duration: 0.16 }}
-              className="w-full max-w-md rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-2xl p-6"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Delete patient"
+              className="w-full max-w-[540px] rounded-xl bg-surface-container-lowest border border-outline-variant/20 shadow-2xl p-6"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-start justify-between gap-4 mb-4">
@@ -555,7 +707,7 @@ export const PatientsView = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-start justify-center pt-20 sm:pt-24 pb-8 overflow-y-auto px-4"
             onClick={() => setEditingPatient(null)}
           >
             <motion.div
@@ -563,10 +715,7 @@ export const PatientsView = () => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 8, scale: 0.98 }}
               transition={{ duration: 0.16 }}
-              className="w-full max-w-lg rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-2xl p-6"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Edit patient"
+              className="w-full max-w-[540px] rounded-xl bg-surface-container-lowest border border-outline-variant/20 shadow-2xl p-6"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-start justify-between gap-4 mb-5">

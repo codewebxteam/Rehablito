@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { IndianRupee, TrendingUp, Download, Filter, Search } from 'lucide-react';
+import { useAddTransaction } from '../components/AddTransactionContext';
 import {
   AreaChart,
   Area,
@@ -154,15 +155,37 @@ const formatDate = (iso?: string) => {
   });
 };
 
-export const FinanceView = () => {
-  const [summary, setSummary] = useState<FeeSummary | null>(null);
-  const [fees, setFees] = useState<ApiFee[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export const FinanceView = ({ initialData }: { initialData?: any }) => {
+  const hasServerData = !!initialData;
+  const [summary, setSummary] = useState<FeeSummary | null>(initialData?.summary || null);
+  const [fees, setFees] = useState<ApiFee[]>(initialData?.fees || []);
+  const [isLoading, setIsLoading] = useState(!hasServerData);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState<StatusFilter>('All');
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
 
+  // Register to receive new transactions from the global Add Transaction modal
+  const { registerSavedHandler } = useAddTransaction();
   useEffect(() => {
+    registerSavedHandler((tx) => {
+      const newFee: ApiFee = {
+        _id: tx._id,
+        amount: tx.amount,
+        paymentDate: tx.paymentDate,
+        method: (tx.method as ApiFee['method']) || 'cash',
+        status: tx.status as ApiFee['status'],
+        description: tx.description,
+        receiptNumber: tx.receiptNumber,
+        patientId: tx.patientId ?? null,
+        branchId: tx.branchId ?? null,
+      };
+      setFees(prev => [newFee, ...prev]);
+    });
+  }, [registerSavedHandler]);
+
+  useEffect(() => {
+    if (hasServerData) return;
+
     const fetchFinance = async () => {
       try {
         setIsLoading(true);
@@ -202,7 +225,7 @@ export const FinanceView = () => {
   });
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 pb-10">
+    <div className="w-full space-y-4 sm:space-y-6 lg:space-y-8 pb-6 lg:pb-10">
       {/* Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm relative overflow-hidden">
@@ -233,7 +256,7 @@ export const FinanceView = () => {
       </div>
 
       {/* Chart Section */}
-      <div className="bg-surface-container-lowest p-8 rounded-2xl border border-outline-variant/10 shadow-sm">
+      <div className="bg-surface-container-lowest p-4 sm:p-6 lg:p-8 rounded-2xl border border-outline-variant/10 shadow-sm">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h3 className="text-xl font-bold font-headline text-on-surface">Monthly Revenue</h3>
@@ -249,7 +272,7 @@ export const FinanceView = () => {
 
       {/* Branch-wise breakdown */}
       {summary && summary.branchWise.length > 0 && (
-        <div className="bg-surface-container-lowest p-8 rounded-2xl border border-outline-variant/10 shadow-sm">
+        <div className="bg-surface-container-lowest p-4 sm:p-6 lg:p-8 rounded-2xl border border-outline-variant/10 shadow-sm">
           <h3 className="text-xl font-bold font-headline text-on-surface mb-6">Branch Performance</h3>
           <div className="space-y-4">
             {summary.branchWise.map(branch => {
@@ -283,7 +306,7 @@ export const FinanceView = () => {
 
       {/* Transactions Table */}
       <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/10 overflow-visible">
-        <div className="p-6 md:p-8 border-b border-surface-container-low flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="p-4 sm:p-6 border-b border-surface-container-low flex flex-col md:flex-row md:items-center justify-between gap-4">
           <h3 className="text-xl font-bold font-headline text-on-surface">Recent Transactions</h3>
 
           <div className="flex w-full md:w-auto items-center gap-3">
@@ -353,12 +376,12 @@ export const FinanceView = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-surface-container-low/30">
-                  <th className="px-8 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Transaction</th>
-                  <th className="px-8 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Branch</th>
-                  <th className="px-8 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Method</th>
-                  <th className="px-8 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Date</th>
-                  <th className="px-8 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Amount</th>
-                  <th className="px-8 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70 text-right">Status</th>
+                  <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Transaction</th>
+                  <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Branch</th>
+                  <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Method</th>
+                  <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Date</th>
+                  <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Amount</th>
+                  <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70 text-right">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-container-low/50">
@@ -369,7 +392,7 @@ export const FinanceView = () => {
                     key={fee._id}
                     className="hover:bg-surface-container-low/20 transition-colors"
                   >
-                    <td className="px-8 py-4">
+                    <td className="px-4 sm:px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold bg-green-50 text-green-600">
                           <TrendingUp size={18} />
@@ -384,18 +407,18 @@ export const FinanceView = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-8 py-4 text-sm font-medium text-on-surface-variant">
+                    <td className="px-4 sm:px-6 py-4 text-sm font-medium text-on-surface-variant">
                       {fee.branchId?.name || '—'}
                     </td>
-                    <td className="px-8 py-4">
+                    <td className="px-4 sm:px-6 py-4">
                       <span className="px-3 py-1 bg-surface-container-low rounded-lg text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
                         {METHOD_LABEL[fee.method || 'cash'] || fee.method}
                       </span>
                     </td>
-                    <td className="px-8 py-4 text-sm font-medium text-on-surface-variant">
+                    <td className="px-4 sm:px-6 py-4 text-sm font-medium text-on-surface-variant">
                       {formatDate(fee.paymentDate || fee.createdAt)}
                     </td>
-                    <td className="px-8 py-4">
+                    <td className="px-4 sm:px-6 py-4">
                       <div className="flex flex-col">
                         <span className="text-sm font-black text-green-600">+₹{fee.amount.toLocaleString()}</span>
                         {(fee.dueAmount ?? 0) > 0 && (
@@ -403,7 +426,7 @@ export const FinanceView = () => {
                         )}
                       </div>
                     </td>
-                    <td className="px-8 py-4 text-right">
+                    <td className="px-4 sm:px-6 py-4 text-right">
                       <span className={cn(
                         "px-3 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-wider",
                         fee.status === 'paid' && "bg-green-50 text-green-700",

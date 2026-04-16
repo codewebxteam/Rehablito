@@ -55,9 +55,10 @@ const INITIAL_FORM: NewBranchForm = {
   shiftEnd: '18:00',
 };
 
-export const BranchesView = () => {
-  const [branches, setBranches] = useState<ApiBranch[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export const BranchesView = ({ initialData }: { initialData?: any }) => {
+  const hasServerData = !!initialData;
+  const [branches, setBranches] = useState<ApiBranch[]>(initialData?.branches || []);
+  const [isLoading, setIsLoading] = useState(!hasServerData);
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -77,6 +78,7 @@ export const BranchesView = () => {
   };
 
   useEffect(() => {
+    if (hasServerData) return;
     fetchBranches();
   }, []);
 
@@ -139,7 +141,7 @@ export const BranchesView = () => {
   const activeCount = branches.filter(b => b.isActive).length;
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-10">
+    <div className="w-full space-y-4 sm:space-y-6 pb-6 lg:pb-10">
       {/* Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         {[
@@ -255,7 +257,7 @@ export const BranchesView = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed top-32 left-0 right-0 bottom-0 z-40 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+            className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
             onClick={closeModal}
           >
             <motion.div

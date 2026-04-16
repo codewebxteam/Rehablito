@@ -1,17 +1,35 @@
 const Lead = require('../models/Lead');
 
-// GET /api/admin/leads?branch=ID&status=new
+// GET /api/admin/leads?branch=ID&status=new&page=1&limit=20
 const getLeads = async (req, res) => {
     try {
         const filter = {};
         if (req.query.branch) filter.branchId = req.query.branch;
         if (req.query.status) filter.status = req.query.status;
 
-        const leads = await Lead.find(filter)
+        const page = parseInt(req.query.page) || 0;
+        const limit = parseInt(req.query.limit) || 0;
+
+        let query = Lead.find(filter)
             .populate('branchId', 'name')
             .populate('assignedTo', 'name')
             .sort({ createdAt: -1 });
-        res.json({ success: true, count: leads.length, data: leads });
+
+        const total = await Lead.countDocuments(filter);
+
+        if (page > 0 && limit > 0) {
+            query = query.skip((page - 1) * limit).limit(limit);
+        }
+
+        const leads = await query;
+        res.json({
+            success: true,
+            count: leads.length,
+            total,
+            page: page || 1,
+            pages: limit > 0 ? Math.ceil(total / limit) : 1,
+            data: leads,
+        });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }
