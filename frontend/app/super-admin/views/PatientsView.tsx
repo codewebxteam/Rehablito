@@ -1,15 +1,22 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { Search, Plus, Filter, MoreVertical, FileText, X, Edit, CheckCircle2, Trash2, Eye, Download, Printer, CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import api from '@/lib/api';
 import { toast } from 'sonner';
+import { AddPatientModal } from '../components/AddPatientModal';
+import { useBranch } from '../components/BranchContext';
 
 // --- Types ---
 interface Patient {
   _id?: string;
   id?: string;
-  name: string;
+  name: string;        // Child Name
+  parentName?: string;
+  parentPhone?: string;
+  address?: string;
+  therapyType?: string[];
   age: number;
   condition: string;
   branch: string;
@@ -22,6 +29,10 @@ type PatientStatusFilter = 'All' | Patient['status'];
 interface ApiPatient {
   _id: string;
   name: string;
+  parentName?: string;
+  parentPhone?: string;
+  address?: string;
+  therapyType?: string[];
   age: number;
   condition: string;
   branchId?: { _id: string; name: string } | null;
@@ -31,8 +42,8 @@ interface ApiPatient {
 
 // Default fallback data
 const DEFAULT_PATIENTS: Patient[] = [
-  { id: 'PT-001', name: 'Aarav Gupta', age: 34, condition: 'Post-Op Rehab', branch: 'Mumbai', status: 'Active', lastVisit: '10 May 2026' },
-  { id: 'PT-002', name: 'Riya Sharma', age: 10, condition: 'Autism Spectrum', branch: 'Delhi', status: 'Active', lastVisit: '09 May 2026' },
+  { id: 'PT-001', name: 'Aarav Gupta', parentName: 'Rahul Gupta', parentPhone: '9876543210', therapyType: ['autism_therapy'], age: 5, condition: 'Autism Spectrum', branch: 'Mumbai', status: 'Active', lastVisit: '10 May 2026' },
+  { id: 'PT-002', name: 'Riya Sharma', parentName: 'Priya Sharma', parentPhone: '8765432109', therapyType: ['speech_therapy'], age: 6, condition: 'Speech Delay', branch: 'Delhi', status: 'Active', lastVisit: '09 May 2026' },
 ];
 
 interface Branch {
@@ -45,6 +56,10 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
     _id: p._id,
     id: p._id,
     name: p.name,
+    parentName: p.parentName,
+    parentPhone: p.parentPhone,
+    address: p.address,
+    therapyType: p.therapyType,
     age: p.age,
     condition: p.condition,
     branch: p.branchId?._id || '',
@@ -58,6 +73,12 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
   );
   const [branches, setBranches] = useState<Branch[]>(initialData?.branches || []);
   const [isLoading, setIsLoading] = useState(!hasServerData);
+  const { selectedBranchId } = useBranch();
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<PatientStatusFilter>('All');
@@ -102,14 +123,13 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
   };
 
   useEffect(() => {
-    if (hasServerData) return;
-
     const fetchPatients = async () => {
       try {
         setIsLoading(true);
         setError(null);
+        const branchParam = selectedBranchId ? `?branch=${selectedBranchId}` : '';
         const [patientRes, branchRes] = await Promise.all([
-          api.get('/admin/patients'),
+          api.get(`/admin/patients${branchParam}`),
           api.get('/admin/branches')
         ]);
 
@@ -129,7 +149,7 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
       }
     };
     fetchPatients();
-  }, []);
+  }, [selectedBranchId]);
 
   const handleAddPatient = async () => {
     if (!newPatient.name.trim() || !newPatient.condition.trim() || !newPatient.branch.trim() || newPatient.age <= 0) {
@@ -310,11 +330,11 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-surface-container-low/30">
-                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Patient</th>
-                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Age</th>
-                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Condition</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Child Name</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Parent Name</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Therapy</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Contact</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Branch</th>
-                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Last Visit</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Status</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70 text-right">Action</th>
                 </tr>
@@ -331,13 +351,23 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
                       <span className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">{patient.name}</span>
-                      <span className="text-[10px] text-on-surface-variant uppercase tracking-wider mt-0.5 opacity-60 font-bold">{patient._id?.slice(-8)}</span>
+                      <span className="text-[10px] text-on-surface-variant uppercase tracking-wider mt-0.5 opacity-60 font-bold">{patient._id?.slice(-8) || patient.id}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{patient.age} yrs</td>
-                  <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{patient.condition}</td>
+                  <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{patient.parentName || 'N/A'}</td>
+                  <td className="px-6 py-4 flex flex-wrap gap-1">
+                    {patient.therapyType && patient.therapyType.length > 0 ? (
+                      patient.therapyType.map((t, i) => (
+                        <span key={i} className="px-2 py-1 bg-surface-container-low text-on-surface-variant text-[10px] font-bold rounded-md uppercase tracking-wider">
+                          {t.replace('_', ' ')}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-sm text-on-surface-variant opacity-60">N/A</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-sm font-medium text-on-surface-variant whitespace-nowrap">{patient.parentPhone || 'N/A'}</td>
                   <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{branches.find(b => b._id === patient.branch)?.name || 'Unknown'}</td>
-                  <td className="px-6 py-4 text-sm text-on-surface-variant opacity-80">{patient.lastVisit}</td>
                   <td className="px-6 py-4">
                     <span className={cn(
                       "px-3 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-wider inline-block",
@@ -426,13 +456,15 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
         )}
       </div>
 
-      <AnimatePresence>
+      {mounted && createPortal(
+        <div id="prescription-portal-root">
+          <AnimatePresence>
         {viewingPatient && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9990] flex items-center justify-center p-4 overflow-y-auto"
+            className="fixed inset-0 z-[99999] flex items-center justify-center p-4 overflow-y-auto"
             style={{ backgroundColor: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(4px)' }}
             onClick={() => setViewingPatient(null)}
           >
@@ -441,210 +473,178 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 12, scale: 0.97 }}
               transition={{ duration: 0.2 }}
-              className="w-full max-w-lg md:max-w-xl rounded-2xl overflow-hidden my-4 sm:my-8 flex flex-col max-h-[93vh] sm:max-h-[90vh]"
+              className="w-full max-w-2xl lg:max-w-3xl rounded-2xl my-4 sm:my-8 flex flex-col"
               style={{ background: '#ffffff', border: '1px solid #eee', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}
               onClick={(e) => e.stopPropagation()}
               role="dialog"
               aria-modal="true"
             >
-              {/* Header */}
-              <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderBottom: '1px solid #eee' }}>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center font-bold font-headline select-none">R</div>
-                  <span className="font-bold font-headline text-lg tracking-tight" style={{ color: '#111' }}>Rehablito</span>
-                </div>
-                <div className="flex items-center gap-4">
-                  <span className="text-[10px] font-black px-2 py-1 rounded uppercase tracking-widest hidden sm:inline-block" style={{ color: '#666', background: '#f5f5f5', border: '1px solid #eee' }}>ID: {viewingPatient._id?.slice(-8) || viewingPatient.id}</span>
-                  <button onClick={() => setViewingPatient(null)} className="p-1.5 rounded-lg transition-colors hover:bg-gray-100" style={{ color: '#666' }} aria-label="Close patient details">
-                    <X size={20} />
-                  </button>
-                </div>
+              <div className="flex justify-between items-center px-4 py-3 bg-slate-100 border-b border-slate-200 no-print">
+                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-2">Document Preview</p>
+                <button onClick={() => setViewingPatient(null)} className="p-1.5 rounded-lg transition-colors hover:bg-slate-200" style={{ color: '#666' }} aria-label="Close document">
+                  <X size={20} />
+                </button>
               </div>
 
-              {/* Scrollable Content */}
-              <div className="p-5 sm:p-6 md:p-8 overflow-y-auto flex-1">
-                {/* Patient Summary */}
-                <div style={{ marginBottom: '24px' }}>
-                  <h2 className="text-2xl sm:text-3xl font-black font-headline leading-tight" style={{ color: '#111', marginBottom: '16px' }}>{viewingPatient.name}</h2>
-                  <div className="grid grid-cols-2" style={{ gap: '16px 24px' }}>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#666', marginBottom: '4px' }}>Age / Gender</p>
-                      <p className="text-[15px] font-semibold" style={{ color: '#222' }}>{viewingPatient.age} Yrs / N/A</p>
+              {/* Print Stylesheet */}
+              <style type="text/css" media="print">
+                {`
+                  body > *:not(#prescription-portal-root) {
+                    display: none !important;
+                  }
+                  body {
+                    background: white;
+                  }
+                  
+                  #prescription-portal-root, #prescription-portal-root > div {
+                    position: static !important;
+                    display: block !important;
+                    background: transparent !important;
+                    box-shadow: none !important;
+                    transform: none !important;
+                    width: 100% !important;
+                    height: auto !important;
+                  }
+
+                  /* Hide backdrop and centered spacing tricks */
+                  #prescription-portal-root > div > div {
+                    position: static !important;
+                    margin: 0 !important;
+                    transform: none !important;
+                    box-shadow: none !important;
+                    border: none !important;
+                  }
+
+                  #printable-prescription { 
+                    max-width: none !important; 
+                    margin: 0 !important; padding: 0 !important;
+                    border: none !important;
+                  }
+
+                  .no-print { display: none !important; }
+                  @page { margin: 1cm; size: A4 portrait; }
+                `}
+              </style>
+
+              {/* Printable Document Area */}
+              <div className="p-6 md:p-10 bg-white flex-1 relative rounded-b-2xl">
+                
+                <div id="printable-prescription" className="bg-white mx-auto flex flex-col w-full h-full max-w-[800px]">
+                  
+                  {/* Docket Header */}
+                  <div className="flex justify-between items-start border-b-[3px] border-slate-900 pb-5 mb-5 mt-2">
+                    <div className="flex gap-4 items-center">
+                      <div className="w-16 h-16 bg-transparent flex items-center justify-center shrink-0">
+                        <img src="/logo.jpeg" alt="Rehablito Logo" className="w-full h-full object-contain" />
+                      </div>
+                      <div className="flex flex-col">
+                         <h2 className="text-[26px] font-black text-slate-900 tracking-tight font-headline uppercase" style={{ lineHeight: 1 }}>REHABLITO</h2>
+                         <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-1.5">{branches.find(b => b._id === viewingPatient.branch)?.name || viewingPatient.branch || 'Clinic'}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#666', marginBottom: '4px' }}>Condition</p>
-                      <p className="text-[15px] font-semibold" style={{ color: '#222' }}>{viewingPatient.condition}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#666', marginBottom: '4px' }}>Branch</p>
-                      <p className="text-[15px] font-semibold" style={{ color: '#222' }}>{branches.find(b => b._id === viewingPatient.branch)?.name || viewingPatient.branch || 'Unknown'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#666', marginBottom: '4px' }}>Status</p>
-                      <span className={cn(
-                        "px-2.5 py-1 text-[11px] font-black rounded uppercase tracking-wider inline-block mt-0.5",
-                        viewingPatient.status === 'Active' && "bg-blue-50 text-blue-700",
-                        viewingPatient.status === 'Discharged' && "bg-gray-100 text-gray-600",
-                        viewingPatient.status === 'Critical' && "bg-red-50 text-red-600"
-                      )}>
-                        {viewingPatient.status}
+                    <div className="text-right flex flex-col items-end pt-1">
+                      <span className="text-[10px] font-black bg-slate-100 px-2 py-1 rounded text-slate-600 uppercase tracking-widest border border-slate-200">
+                        PID: {viewingPatient._id?.slice(-8).toUpperCase() || viewingPatient.id}
                       </span>
+                      <p className="text-[11px] font-bold text-slate-500 mt-2.5 uppercase tracking-widest">Date: {viewingPatient.lastVisit || new Date().toLocaleDateString('en-GB')}</p>
                     </div>
+                  </div>
+
+                  {/* Patient Info Table */}
+                  <div className="border border-slate-300/80 rounded-xl overflow-hidden mb-8 shadow-sm">
+                    <div className="grid grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-slate-300/80">
+                      <div className="p-4 bg-slate-50/50">
+                         <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Child / Patient Name</p>
+                         <p className="text-[15px] font-black text-slate-800">{viewingPatient.name}</p>
+                      </div>
+                      <div className="p-4 bg-slate-50/50">
+                         <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Age / DOB</p>
+                         <p className="text-[15px] font-bold text-slate-800">{viewingPatient.age} Years</p>
+                      </div>
+                      <div className="p-4 bg-slate-50/50 sm:border-t mt-[-1px] sm:mt-0 border-slate-300/80">
+                         <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Parent / Guardian</p>
+                         <p className="text-[15px] font-bold text-slate-800">{viewingPatient.parentName || 'N/A'}</p>
+                      </div>
+                      <div className="p-4 bg-slate-50/50 sm:border-t mt-[-1px] sm:mt-0 border-slate-300/80">
+                         <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Emergency Contact</p>
+                         <p className="text-[15px] font-bold text-slate-800">{viewingPatient.parentPhone || 'N/A'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Clinical Section */}
+                  <div className="flex-1 flex flex-col gap-6 mt-4">
+                    <div>
+                      <h4 className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200 pb-2 mb-3">
+                        <span className="w-1 h-1 rounded-full bg-slate-400"></span>
+                        Therapy Program
+                      </h4>
+                      <p className="text-[14px] font-bold text-slate-700 bg-slate-50/80 p-4 rounded-xl border border-slate-100">
+                         {viewingPatient.therapyType && viewingPatient.therapyType.length > 0 
+                            ? viewingPatient.therapyType.map(t => t.replace(/_/g, ' ')).join(', ').toUpperCase()
+                            : (viewingPatient.condition?.toUpperCase() || 'UNSPECIFIED')}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Signatures */}
+                  <div className="mt-auto pt-16 flex justify-between items-end pb-3 border-b border-white">
+                    <div className="text-center w-40">
+                      <div className="border-t-2 border-slate-300"></div>
+                      <p className="mt-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">Parent/Guardian Signature</p>
+                    </div>
+                    <div className="text-center w-48">
+                      <div className="border-t-2 border-slate-800"></div>
+                      <p className="mt-2 text-[9px] font-black text-slate-900 uppercase tracking-widest">Authorized Therapist</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 text-center">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Rehablito Electronic Medical Record • generated automatically</p>
                   </div>
                 </div>
 
-                <div style={{ width: '100%', height: '1px', background: '#eee', marginBottom: '32px' }} />
-
-                {/* Additional Information */}
-                <div>
-                  <h3 className="text-[12px] font-black uppercase tracking-widest" style={{ color: '#444', marginBottom: '16px' }}>Detailed Information</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: '16px 24px' }}>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#666', marginBottom: '4px' }}>Last Visit Date</p>
-                      <p className="text-[15px] font-semibold" style={{ color: '#222' }}>{viewingPatient.lastVisit}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#666', marginBottom: '4px' }}>Contact Info</p>
-                      <p className="text-[15px] font-semibold" style={{ color: '#222' }}>Not Provided</p>
-                    </div>
-                    <div className="col-span-2">
-                       <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#666', marginBottom: '8px' }}>Notes / Remarks</p>
-                       <div className="rounded-xl text-sm font-medium leading-relaxed" style={{ padding: '16px', border: '1px solid #eee', color: '#444' }}>
-                         Regular assessments recommended. Monitor progress in next sessions and check for mobility improvements.
-                       </div>
-                    </div>
-                  </div>
-                </div>
               </div>
 
-              {/* Action Bar */}
-              <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-4 shrink-0" style={{ padding: '20px 24px', borderTop: '1px solid #eee', marginTop: '0' }}>
-                <div className="flex items-center gap-3 w-full sm:w-auto">
-                  <button className="flex-1 sm:flex-none flex justify-center items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-colors hover:bg-gray-200" style={{ background: '#f0f0f0', color: '#222' }}>
-                    <Download size={16} />
-                    Download
-                  </button>
-                  <button className="flex-1 sm:flex-none flex justify-center items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-colors hover:bg-gray-100" style={{ border: '1px solid #ddd', color: '#222' }}>
-                    <Printer size={16} />
-                    Print
-                  </button>
-                </div>
-                <button className="w-full sm:w-auto flex justify-center items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold bg-primary text-white shadow-lg shadow-primary/20 hover:bg-primary/90 hover:-translate-y-0.5 transition-all">
-                  <CreditCard size={16} />
-                  Initiate Payment
+              {/* Floating Action Bar (Hidden in Print) */}
+              <div className="bg-slate-50 border-t border-slate-200 p-4 sm:p-5 flex items-center justify-end gap-3 shrink-0 rounded-b-2xl no-print">
+                <button 
+                  onClick={() => window.print()} 
+                  className="flex justify-center items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black transition-all bg-white hover:bg-slate-100 text-slate-700 shadow-sm border border-slate-200" 
+                >
+                  <Download size={16} />
+                  Download PDF
+                </button>
+                <button 
+                  onClick={() => window.print()} 
+                  className="flex justify-center items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black transition-all bg-slate-800 hover:bg-slate-900 text-white shadow-md shadow-slate-900/10" 
+                >
+                  <Printer size={16} />
+                  Print Docket
                 </button>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+      </div>, document.body)}
 
-      <AnimatePresence>
-        {isAddModalOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9990] bg-black/40 backdrop-blur-sm flex items-start justify-center pt-20 sm:pt-24 pb-8 overflow-y-auto px-4"
-            onClick={() => {
-              setIsAddModalOpen(false);
-              resetPatientForm();
-            }}
-          >
-            <motion.div
-              initial={{ opacity: 0, y: 8, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 8, scale: 0.98 }}
-              transition={{ duration: 0.16 }}
-              className="w-full max-w-[540px] rounded-xl bg-surface-container-lowest border border-outline-variant/20 shadow-2xl p-6"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Add patient"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-start justify-between gap-4 mb-5">
-                <div>
-                  <h4 className="text-lg font-extrabold text-on-surface">Add Patient</h4>
-                  <p className="text-sm text-on-surface-variant mt-1">Create a new patient record.</p>
-                </div>
-                <button
-                  onClick={() => {
-                    setIsAddModalOpen(false);
-                    resetPatientForm();
-                  }}
-                  className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low"
-                  aria-label="Close add patient modal"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <input
-                  type="text"
-                  value={newPatient.name}
-                  onChange={(e) => setNewPatient(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Full name"
-                />
-                <input
-                  type="number"
-                  min={1}
-                  value={newPatient.age || ''}
-                  onChange={(e) => setNewPatient(prev => ({ ...prev, age: Number(e.target.value) || 0 }))}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Age"
-                />
-                <input
-                  type="text"
-                  value={newPatient.condition}
-                  onChange={(e) => setNewPatient(prev => ({ ...prev, condition: e.target.value }))}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Condition"
-                />
-                <select
-                  value={newPatient.branch}
-                  onChange={(e) => setNewPatient(prev => ({ ...prev, branch: e.target.value }))}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                >
-                  <option value="">Select Branch</option>
-                  {branches.map(branch => (
-                    <option key={branch._id} value={branch._id}>{branch.name}</option>
-                  ))}
-                </select>
-                <select
-                  value={newPatient.status}
-                  onChange={(e) => setNewPatient(prev => ({ ...prev, status: e.target.value as Patient['status'] }))}
-                  className="sm:col-span-2 w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                >
-                  <option value="Active">Active</option>
-                  <option value="Discharged">Discharged</option>
-                  <option value="Critical">Critical</option>
-                </select>
-              </div>
-
-              <div className="mt-6 flex justify-end gap-3">
-                <button
-                  onClick={() => {
-                    setIsAddModalOpen(false);
-                    resetPatientForm();
-                  }}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold text-on-surface-variant border border-outline-variant/30 hover:text-on-surface hover:bg-surface-container-low transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddPatient}
-                  disabled={!newPatient.name.trim() || !newPatient.condition.trim() || !newPatient.branch.trim() || newPatient.age <= 0}
-                  className="px-4 py-2 rounded-xl text-sm font-bold bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  Add Patient
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <AddPatientModal 
+        isOpen={isAddModalOpen} 
+        onClose={() => setIsAddModalOpen(false)} 
+        branches={branches}
+        onSuccess={(newPatient) => {
+          setPatients(prev => [
+            {
+              ...newPatient,
+              id: newPatient._id,
+              branch: newPatient.branchId?._id || newPatient.branchId,
+              status: newPatient.status === 'active' ? 'Active' : 'Discharged'
+            },
+            ...prev
+          ]);
+        }} 
+      />
 
       <AnimatePresence>
         {deletingPatient && (

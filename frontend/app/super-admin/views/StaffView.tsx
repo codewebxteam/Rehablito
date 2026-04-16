@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { AnimatePresence, motion } from 'motion/react';
 import api from '@/lib/api';
 import { toast } from 'sonner';
+import { useBranch } from '../components/BranchContext';
 
 type StaffRole = 'staff' | 'branch_manager';
 
@@ -72,6 +73,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
   }));
 
   const hasServerData = !!initialData;
+  const { selectedBranchId } = useBranch();
   const [staffList, setStaffList] = useState<Staff[]>(
     hasServerData && Array.isArray(initialData?.staff) ? transformApiStaff(initialData.staff) : []
   );
@@ -113,13 +115,12 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
   };
 
   useEffect(() => {
-    if (hasServerData) return;
-
     const fetchData = async () => {
       try {
         setIsLoading(true);
+        const branchParam = selectedBranchId ? `?branch=${selectedBranchId}` : '';
         const [staffRes, branchRes] = await Promise.all([
-          api.get('/admin/staff'),
+          api.get(`/admin/staff${branchParam}`),
           api.get('/admin/branches'),
         ]);
 
@@ -138,7 +139,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
       }
     };
     fetchData();
-  }, []);
+  }, [selectedBranchId]);
 
   const handleAddStaff = async () => {
     if (!form.name.trim() || !form.email.trim() || !form.password.trim() || !form.branch) {

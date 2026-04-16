@@ -4,6 +4,7 @@ import { Building2, Plus, Search, MapPin, Phone, Mail, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import api from '@/lib/api';
 import { toast } from 'sonner';
+import { AddBranchModal } from '../components/AddBranchModal';
 
 interface ApiManager {
   _id: string;
@@ -27,42 +28,12 @@ interface ApiBranch {
   createdAt: string;
 }
 
-interface NewBranchForm {
-  name: string;
-  address: string;
-  city: string;
-  state: string;
-  phone: string;
-  email: string;
-  latitude: string;
-  longitude: string;
-  radiusMeters: string;
-  shiftStart: string;
-  shiftEnd: string;
-}
-
-const INITIAL_FORM: NewBranchForm = {
-  name: '',
-  address: '',
-  city: '',
-  state: '',
-  phone: '',
-  email: '',
-  latitude: '',
-  longitude: '',
-  radiusMeters: '200',
-  shiftStart: '09:00',
-  shiftEnd: '18:00',
-};
-
 export const BranchesView = ({ initialData }: { initialData?: any }) => {
   const hasServerData = !!initialData;
   const [branches, setBranches] = useState<ApiBranch[]>(initialData?.branches || []);
   const [isLoading, setIsLoading] = useState(!hasServerData);
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [form, setForm] = useState<NewBranchForm>(INITIAL_FORM);
 
   const fetchBranches = async () => {
     try {
@@ -80,54 +51,7 @@ export const BranchesView = ({ initialData }: { initialData?: any }) => {
   useEffect(() => {
     if (hasServerData) return;
     fetchBranches();
-  }, []);
-
-  const resetForm = () => setForm(INITIAL_FORM);
-
-  const closeModal = () => {
-    setIsAddModalOpen(false);
-    resetForm();
-  };
-
-  const handleAddBranch = async () => {
-    if (!form.name.trim() || !form.address.trim() || !form.city.trim() || !form.phone.trim()) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-
-    try {
-      setIsSubmitting(true);
-      const payload: Record<string, unknown> = {
-        name: form.name.trim(),
-        address: form.address.trim(),
-        city: form.city.trim(),
-        phone: form.phone.trim(),
-      };
-      if (form.state.trim()) payload.state = form.state.trim();
-      if (form.email.trim()) payload.email = form.email.trim();
-      if (form.shiftStart) payload.shiftStart = form.shiftStart;
-      if (form.shiftEnd) payload.shiftEnd = form.shiftEnd;
-      if (form.latitude || form.longitude || form.radiusMeters) {
-        payload.location = {
-          latitude: Number(form.latitude) || 0,
-          longitude: Number(form.longitude) || 0,
-          radiusMeters: Number(form.radiusMeters) || 200,
-        };
-      }
-
-      const { data } = await api.post('/admin/branches', payload);
-      if (data.success) {
-        toast.success('Branch added successfully');
-        setBranches(prev => [data.data, ...prev]);
-        closeModal();
-      }
-    } catch (err: unknown) {
-      const axiosError = err as { response?: { data?: { message?: string } } };
-      toast.error(axiosError?.response?.data?.message || 'Failed to add branch');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  }, [hasServerData]);
 
   const filteredBranches = branches.filter(b => {
     const q = searchTerm.toLowerCase();
@@ -251,153 +175,11 @@ export const BranchesView = ({ initialData }: { initialData?: any }) => {
         )}
       </div>
 
-      <AnimatePresence>
-        {isAddModalOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={closeModal}
-          >
-            <motion.div
-              initial={{ opacity: 0, y: 8, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 8, scale: 0.98 }}
-              transition={{ duration: 0.16 }}
-              className="w-full max-w-xl rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-2xl p-6 max-h-[90vh] overflow-y-auto"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Add branch"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-start justify-between gap-4 mb-5">
-                <div>
-                  <h4 className="text-lg font-extrabold text-on-surface">Add Branch</h4>
-                  <p className="text-sm text-on-surface-variant mt-1">Create a new clinic branch.</p>
-                </div>
-                <button
-                  onClick={closeModal}
-                  className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low"
-                  aria-label="Close add branch modal"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm(p => ({ ...p, name: e.target.value }))}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Branch name *"
-                />
-                <input
-                  type="text"
-                  value={form.address}
-                  onChange={(e) => setForm(p => ({ ...p, address: e.target.value }))}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Address *"
-                />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <input
-                    type="text"
-                    value={form.city}
-                    onChange={(e) => setForm(p => ({ ...p, city: e.target.value }))}
-                    className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                    placeholder="City *"
-                  />
-                  <input
-                    type="text"
-                    value={form.state}
-                    onChange={(e) => setForm(p => ({ ...p, state: e.target.value }))}
-                    className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                    placeholder="State"
-                  />
-                  <input
-                    type="tel"
-                    value={form.phone}
-                    onChange={(e) => setForm(p => ({ ...p, phone: e.target.value }))}
-                    className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                    placeholder="Phone *"
-                  />
-                  <input
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => setForm(p => ({ ...p, email: e.target.value }))}
-                    className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                    placeholder="Email"
-                  />
-                </div>
-
-                <div className="pt-2">
-                  <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2 opacity-70">Geofence (optional)</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <input
-                      type="number"
-                      step="any"
-                      value={form.latitude}
-                      onChange={(e) => setForm(p => ({ ...p, latitude: e.target.value }))}
-                      className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                      placeholder="Latitude"
-                    />
-                    <input
-                      type="number"
-                      step="any"
-                      value={form.longitude}
-                      onChange={(e) => setForm(p => ({ ...p, longitude: e.target.value }))}
-                      className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                      placeholder="Longitude"
-                    />
-                    <input
-                      type="number"
-                      value={form.radiusMeters}
-                      onChange={(e) => setForm(p => ({ ...p, radiusMeters: e.target.value }))}
-                      className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                      placeholder="Radius (m)"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2 opacity-70">Shift timing</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <input
-                      type="time"
-                      value={form.shiftStart}
-                      onChange={(e) => setForm(p => ({ ...p, shiftStart: e.target.value }))}
-                      className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                    />
-                    <input
-                      type="time"
-                      value={form.shiftEnd}
-                      onChange={(e) => setForm(p => ({ ...p, shiftEnd: e.target.value }))}
-                      className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6 flex justify-end gap-3">
-                <button
-                  onClick={closeModal}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold text-on-surface-variant border border-outline-variant/30 hover:text-on-surface hover:bg-surface-container-low transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddBranch}
-                  disabled={isSubmitting || !form.name.trim() || !form.address.trim() || !form.city.trim() || !form.phone.trim()}
-                  className="px-4 py-2 rounded-xl text-sm font-bold bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {isSubmitting ? 'Adding...' : 'Add Branch'}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <AddBranchModal 
+        isOpen={isAddModalOpen} 
+        onClose={() => setIsAddModalOpen(false)} 
+        onSuccess={(newBranch) => setBranches(prev => [newBranch, ...prev])} 
+      />
     </div>
   );
 };

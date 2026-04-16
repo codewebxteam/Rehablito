@@ -10,11 +10,15 @@ export interface User {
 export interface AttendanceRecord {
   id: string;
   userId: string;
+  branchId?: {
+    name: string;
+  };
   date: string; // ISO date
   checkIn: string; // ISO timestamp
   checkOut?: string; // ISO timestamp
   totalHours?: number;
-  status: 'COMPLETED' | 'OVERTIME' | 'SHORT_SHIFT' | 'IN_PROGRESS';
+  dutyHours?: number;
+  status: 'present' | 'absent' | 'leave' | 'half_day' | 'on_duty';
   ward: string;
 }
 

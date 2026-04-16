@@ -4,14 +4,18 @@ import { Search, Plus, PhoneCall, Mail, UserPlus, Filter, ChevronDown, CheckCirc
 import { cn } from '@/lib/utils';
 import api from '@/lib/api';
 import { toast } from 'sonner';
+import { useBranch } from '../components/BranchContext';
 
 interface Lead {
   _id?: string;
   id?: string;
-  name: string;
-  phone: string;
-  source: string;
-  service: string;
+  name: string;        // Child Name
+  parentName?: string;
+  phone: string;       // Parent Phone
+  email?: string;      // Parent Email
+  age?: number;
+  source: string;      // Referred By
+  service: string;     // Diagnosis
   status: 'New' | 'Contacted' | 'Converted' | 'Lost';
   date: string;
 }
@@ -23,6 +27,8 @@ interface ApiLead {
   childName: string;
   parentName?: string;
   parentPhone?: string;
+  parentEmail?: string;
+  age?: number;
   referredBy?: string;
   diagnosis?: string;
   status: 'new' | 'contacted' | 'converted' | 'closed';
@@ -63,7 +69,10 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
     _id: l._id,
     id: l._id,
     name: l.childName || '',
+    parentName: l.parentName || '',
     phone: l.parentPhone || '',
+    email: l.parentEmail || '',
+    age: l.age,
     source: l.referredBy || 'Direct',
     service: l.diagnosis || 'Service',
     status: l.status === 'new' ? 'New' : l.status === 'contacted' ? 'Contacted' : l.status === 'converted' ? 'Converted' : 'Lost' as Lead['status'],
@@ -76,6 +85,7 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
   );
   const [branches, setBranches] = useState<Branch[]>(initialData?.branches || []);
   const [isLoading, setIsLoading] = useState(!hasServerData);
+  const { selectedBranchId } = useBranch();
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<LeadStatusFilter>('All');
@@ -109,14 +119,13 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
   };
 
   useEffect(() => {
-    if (hasServerData) return; // Skip if server data was provided
-
     const fetchLeads = async () => {
       try {
         setIsLoading(true);
         setError(null);
+        const branchParam = selectedBranchId ? `?branch=${selectedBranchId}` : '';
         const [leadsRes, branchRes] = await Promise.all([
-          api.get('/admin/leads'),
+          api.get(`/admin/leads${branchParam}`),
           api.get('/admin/branches')
         ]);
         
@@ -136,7 +145,7 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
       }
     };
     fetchLeads();
-  }, []);
+  }, [selectedBranchId]);
 
   const handleAddLead = async () => {
     if (!newLead.parentPhone.trim()) {
@@ -162,17 +171,7 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
         // Refresh leads after adding
         const leadsRes = await api.get('/admin/leads');
         if (leadsRes.data.success) {
-          const transformed = leadsRes.data.data.map((l: ApiLead) => ({
-            _id: l._id,
-            id: l._id,
-            name: l.childName || '',
-            phone: l.parentPhone || '',
-            source: l.referredBy || 'Direct',
-            service: l.diagnosis || 'Service',
-            status: l.status === 'new' ? 'New' : l.status === 'contacted' ? 'Contacted' : l.status === 'converted' ? 'Converted' : 'Lost',
-            date: new Date(l.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })
-          }));
-          setLeads(transformed);
+          setLeads(transformApiLeads(leadsRes.data.data));
         }
         setIsAddModalOpen(false);
         resetLeadForm();
@@ -186,6 +185,8 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
   const filteredLeads = leads.filter((l) => {
     const matchesSearch =
       (l.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (l.parentName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (l.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (l.phone || '').includes(searchTerm);
     const matchesStatus = statusFilter === 'All' || l.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -314,7 +315,7 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
               <thead>
                 <tr className="bg-surface-container-low/30 border-b border-outline-variant/10">
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Lead Info</th>
-                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Source</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Source & Contact</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Service Required</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Date</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Status</th>
@@ -325,14 +326,23 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
                 <tr key={lead.id} className="hover:bg-surface-container-low/20 transition-colors group">
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
-                      <span className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">{lead.name}</span>
-                      <span className="text-xs text-on-surface-variant mt-0.5 opacity-80">{maskPhoneNumber(lead.phone)}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">{lead.name}</span>
+                        {lead.age && <span className="px-1.5 py-0.5 bg-surface-container-low rounded text-[10px] text-on-surface-variant font-bold">{lead.age}y</span>}
+                      </div>
+                      {lead.parentName && <span className="text-xs text-on-surface-variant opacity-70 mt-0.5 italic">P: {lead.parentName}</span>}
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className="px-3 py-1 bg-surface-container-low rounded-lg text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
-                      {lead.source}
-                    </span>
+                    <div className="flex flex-col">
+                      <span className="px-3 py-1 bg-surface-container-low rounded-lg text-[10px] font-bold text-on-surface-variant uppercase tracking-wider w-fit">
+                        {lead.source}
+                      </span>
+                      <div className="flex flex-col mt-1 space-y-0.5">
+                        <span className="text-xs text-on-surface-variant opacity-80">{maskPhoneNumber(lead.phone)}</span>
+                        {lead.email && <span className="text-[10px] text-on-surface-variant opacity-60 truncate max-w-[120px]">{lead.email}</span>}
+                      </div>
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{lead.service}</td>
                   <td className="px-6 py-4 text-sm text-on-surface-variant opacity-80">{lead.date}</td>

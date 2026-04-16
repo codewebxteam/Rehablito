@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Patient = require('../models/Patient');
 const Lead = require('../models/Lead');
 const FeePayment = require('../models/FeePayment');
@@ -67,7 +68,7 @@ const getDashboardData = async (req, res) => {
 
             // Fee summary with branch-wise and monthly trend
             FeePayment.aggregate([
-                ...(req.query.branch ? [{ $match: { branchId: require('mongoose').Types.ObjectId(req.query.branch) } }] : []),
+                ...(req.query.branch ? [{ $match: { branchId: new mongoose.Types.ObjectId(req.query.branch) } }] : []),
                 {
                     $lookup: {
                         from: 'branches',

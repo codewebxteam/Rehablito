@@ -29,6 +29,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSearch } from '../context/SearchContext';
 
+import { MobileNav } from './MobileNav';
+
 export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout } = useAuth();
   const { searchQuery, setSearchQuery } = useSearch();
@@ -66,29 +68,16 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', path: '/staff/dashboard' },
     { id: 'attendance', icon: CalendarDays, label: 'Attendance', path: '/staff/attendance' },
     { id: 'history', icon: Clock, label: 'History', path: '/staff/history' },
-    { id: 'schedules', icon: Calendar, label: 'Schedules', path: '/staff/schedules' },
-    { id: 'staff', icon: Users, label: 'Staff Directory', path: '/staff/staff' },
-    { id: 'reports', icon: FileBarChart, label: 'Reports', path: '/staff/reports' },
-    { id: 'requests', icon: ClipboardList, label: 'Requests', path: '/staff/requests' },
-    { id: 'settings', icon: Settings, label: 'Settings', path: '/staff/settings' },
   ];
 
   return (
-    <div className="flex min-h-screen bg-surface-container-lowest font-sans selection:bg-primary/10 selection:text-primary">
-      {/* Mobile Sidebar Overlay */}
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-on-surface/40 backdrop-blur-sm z-40 lg:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
+    <div className="flex min-h-screen bg-surface-container-lowest font-sans selection:bg-primary/10 selection:text-primary overflow-x-hidden">
+      {/* Sidebar - Desktop Only */}
       <aside className={cn(
         "w-72 bg-surface-container-low border-r border-outline-variant/10 flex flex-col fixed h-full z-50 transition-transform duration-300",
-        isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        "hidden lg:flex translate-x-0"
       )}>
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
           <div className="p-6 lg:p-8">
             <div className="flex items-center justify-between mb-10">
               <div className="flex items-center gap-3.5">
@@ -103,12 +92,6 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
                   </div>
                 </div>
               </div>
-              <button 
-                className="p-2 lg:hidden text-on-surface-variant hover:bg-surface-container-high rounded-xl"
-                onClick={() => setIsSidebarOpen(false)}
-              >
-                <X className="w-5 h-5" />
-              </button>
             </div>
 
             <nav className="space-y-1">
@@ -124,7 +107,6 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
                         ? "text-primary bg-primary/5 border-r-4 border-primary" 
                         : "text-on-surface-variant hover:bg-surface-container-high"
                     )}
-                    onClick={() => setIsSidebarOpen(false)}
                   >
                     <item.icon className="w-5 h-5 flex-shrink-0" />
                     <span className="truncate">{item.label}</span>
@@ -136,7 +118,7 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
         </div>
 
         <div className="p-6 space-y-4 border-t border-outline-variant/10 bg-surface-container-low">
-          <div className="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/10 shadow-sm">
+          <div className="bg-surface-container-lowest p-5 rounded-2xl border border-outline-variant/10 shadow-sm glass-card">
             <div className="flex items-center justify-between mb-3">
               <span className="text-[10px] font-bold text-outline uppercase tracking-widest">Active Shift</span>
               {activeRecord && <div className="w-2 h-2 rounded-full bg-secondary animate-pulse"></div>}
@@ -171,10 +153,7 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
               <span>Help Center</span>
             </Link>
             <button 
-              onClick={() => {
-                console.log("Opening logout confirmation...");
-                setShowLogoutConfirm(true);
-              }}
+              onClick={() => setShowLogoutConfirm(true)}
               className="flex items-center gap-3 px-4 py-3 text-error font-medium hover:bg-error/5 rounded-xl transition-all"
             >
               <LogOut className="w-5 h-5" />
@@ -184,7 +163,60 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
         </div>
       </aside>
 
-      {/* Logout Confirmation Modal */}
+      {/* Main Content */}
+      <main className="flex-1 w-full lg:ml-72 min-h-screen flex flex-col transition-all duration-300">
+        <header className="h-16 lg:h-20 bg-surface-container-lowest/80 backdrop-blur-md border-b border-outline-variant/10 px-4 lg:px-8 flex items-center justify-between sticky top-0 z-30">
+          <div className="flex items-center gap-3">
+            <div className="flex lg:hidden items-center gap-2.5">
+              <div className="w-12 h-12 flex items-center justify-center shrink-0">
+                <img src="/logo.jpeg" alt="Logo" className="w-full h-full object-contain" />
+              </div>
+              <div className="flex flex-col justify-center">
+                <span className="text-base font-black font-display text-on-surface leading-tight tracking-tight">Rehablito</span>
+                <span className="text-[9px] font-bold text-[#7dce82] uppercase tracking-wide -mt-0.5">Physio & Autism</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 lg:gap-6">
+            <div className="flex items-center gap-1 md:gap-2">
+              <button className="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-xl transition-all relative">
+                <Bell className="w-5 h-5" />
+                <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-primary rounded-full ring-2 ring-surface-container-lowest"></span>
+              </button>
+              <button className="hidden sm:flex p-2 text-on-surface-variant hover:bg-surface-container-low rounded-xl transition-all">
+                <Moon className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="h-6 w-px bg-outline-variant/20 mx-1"></div>
+
+            <div className="flex items-center gap-3 pl-1 lg:pl-2">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-bold text-on-surface">{user?.name}</p>
+                <p className="text-[10px] font-bold text-outline uppercase tracking-widest">{user?.staffId}</p>
+              </div>
+              <div className="w-9 h-9 rounded-xl overflow-hidden border-2 border-primary/10 bg-surface-container-high shrink-0 shadow-sm hover:scale-105 transition-transform cursor-pointer">
+                {user?.photoUrl ? (
+                  <img src={user.photoUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-on-surface font-bold bg-primary/5 text-primary">
+                    {user?.name?.charAt(0)}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div className="p-4 md:p-6 lg:p-8 max-w-screen-2xl mx-auto w-full pb-32 lg:pb-8">
+          {children}
+        </div>
+      </main>
+
+      <MobileNav />
+
+      {/* Logout Modal remains same */}
       <AnimatePresence>
         {showLogoutConfirm && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -202,114 +234,24 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
               className="relative bg-surface-container-lowest w-full max-w-md rounded-3xl shadow-2xl p-8 overflow-hidden"
             >
               <div className="absolute top-0 right-0 p-4">
-                <button 
-                  onClick={() => setShowLogoutConfirm(false)}
-                  className="p-2 hover:bg-surface-container-low rounded-full transition-colors"
-                >
-                  <X className="w-5 h-5 text-outline" />
-                </button>
+                <button onClick={() => setShowLogoutConfirm(false)} className="p-2 hover:bg-surface-container-low rounded-full"><X className="w-5 h-5" /></button>
               </div>
-
               <div className="flex flex-col items-center text-center space-y-6">
-                <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center text-red-500">
-                  <AlertTriangle className="w-8 h-8" />
-                </div>
-                
+                <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center text-red-500"><AlertTriangle className="w-8 h-8" /></div>
                 <div className="space-y-2">
-                  <h3 className="text-2xl font-headline font-bold text-on-surface">Confirm Logout</h3>
-                  <p className="text-on-surface-variant">
-                    Are you sure you want to log out? Any unsaved shift data might be lost.
-                  </p>
+                  <h3 className="text-2xl font-headline font-bold">Confirm Logout</h3>
+                  <p className="text-on-surface-variant">Are you sure you want to log out?</p>
                 </div>
-
                 <div className="grid grid-cols-2 gap-4 w-full pt-4">
-                  <button 
-                    onClick={() => setShowLogoutConfirm(false)}
-                    className="px-6 py-3 bg-surface-container-low text-on-surface font-bold rounded-xl hover:bg-surface-container-high transition-all active:scale-[0.98]"
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    onClick={() => {
-                      console.log("Confirmed logout");
-                      logout();
-                      router.push('/');
-                    }}
-                    className="px-6 py-3 bg-red-500 text-white font-bold rounded-xl shadow-lg shadow-red-500/20 hover:bg-red-600 transition-all active:scale-[0.98]"
-                  >
-                    Logout
-                  </button>
+                  <button onClick={() => setShowLogoutConfirm(false)} className="px-6 py-3 bg-surface-container-low rounded-xl font-bold">Cancel</button>
+                  <button onClick={() => { logout(); router.push('/'); }} className="px-6 py-3 bg-red-500 text-white rounded-xl font-bold shadow-lg shadow-red-500/20">Logout</button>
                 </div>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
-
-      {/* Main Content */}
-      <main className="flex-1 w-full lg:ml-72 min-h-screen flex flex-col">
-        {/* Top Navbar */}
-        <header className="h-16 lg:h-20 bg-surface-container-lowest/80 backdrop-blur-md border-b border-outline-variant/10 px-4 lg:px-8 flex items-center justify-between sticky top-0 z-30">
-          <div className="flex items-center gap-3">
-            <button 
-              className="p-2 lg:hidden text-on-surface-variant hover:bg-surface-container-low rounded-xl transition-all"
-              onClick={() => setIsSidebarOpen(true)}
-            >
-              <Menu className="w-6 h-6" />
-            </button>
-            
-            <div className="hidden md:flex items-center gap-4 bg-surface-container-low px-4 py-2 rounded-2xl w-64 lg:w-96 border border-outline-variant/5">
-              <Search className="w-4 h-4 text-outline flex-shrink-0" />
-              <input 
-                type="text" 
-                placeholder="Search patients, records..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-transparent border-none text-sm focus:ring-0 w-full placeholder:text-outline/60 truncate"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <button className="p-2.5 text-on-surface-variant hover:bg-surface-container-low rounded-xl transition-all relative">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full border-2 border-surface-container-lowest"></span>
-              </button>
-              <button className="p-2.5 text-on-surface-variant hover:bg-surface-container-low rounded-xl transition-all">
-                <Moon className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="h-8 w-px bg-outline-variant/20"></div>
-
-            <div className="flex items-center gap-3 pl-2">
-              <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-on-surface">{user?.name}</p>
-                <p className="text-[10px] font-bold text-outline uppercase tracking-widest">{user?.staffId || user?.role}</p>
-              </div>
-              <div className="w-10 h-10 rounded-xl overflow-hidden border-2 border-primary/10 shadow-sm bg-surface-container-high">
-                {user?.photoUrl ? (
-                  <img 
-                    src={user.photoUrl} 
-                    alt="Avatar" 
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-on-surface font-bold">
-                    {user?.name?.charAt(0) || "U"}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <div className="p-4 md:p-6 lg:p-8 max-w-screen-2xl mx-auto w-full overflow-hidden">
-          {children}
-        </div>
-      </main>
     </div>
   );
 };
+

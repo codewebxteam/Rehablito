@@ -4,6 +4,7 @@ import { Users, Search, CheckCircle2, XCircle, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import api from '@/lib/api';
 import { toast } from 'sonner';
+import { useBranch } from '../components/BranchContext';
 
 type UiStatus = 'Present' | 'Absent' | 'On Leave' | 'Not Marked';
 
@@ -34,6 +35,7 @@ interface ApiAttendance {
   branchId: { _id: string; name: string } | string;
   date: string;
   checkIn?: string;
+  checkOut?: string;
   status: 'present' | 'absent' | 'leave' | 'half_day' | 'on_duty';
 }
 
@@ -42,6 +44,7 @@ interface AttendanceRow {
   name: string;
   branchId: string;
   checkIn: string;
+  checkOut: string;
   status: UiStatus;
   attendanceId?: string;
 }
@@ -63,15 +66,17 @@ export const AttendanceView = ({ initialData }: { initialData?: any }) => {
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [pendingUser, setPendingUser] = useState<string | null>(null);
+  const { selectedBranchId } = useBranch();
 
   useEffect(() => {
     const fetchAll = async () => {
       try {
         setIsLoading(true);
+        const branchParam = selectedBranchId ? `&branch=${selectedBranchId}` : '';
         const [staffRes, branchRes, attendanceRes] = await Promise.all([
-          api.get('/admin/staff'),
+          api.get(`/admin/staff${selectedBranchId ? `?branch=${selectedBranchId}` : ''}`),
           api.get('/admin/branches'),
-          api.get(`/admin/attendance?date=${date}`),
+          api.get(`/admin/attendance?date=${date}${branchParam}`),
         ]);
 
         if (branchRes.data.success) setBranches(branchRes.data.data || []);
@@ -96,7 +101,7 @@ export const AttendanceView = ({ initialData }: { initialData?: any }) => {
       }
     };
     fetchAll();
-  }, [date]);
+  }, [date, selectedBranchId]);
 
   const rows: AttendanceRow[] = useMemo(() => {
     const byUser = new Map<string, ApiAttendance>();
@@ -113,6 +118,7 @@ export const AttendanceView = ({ initialData }: { initialData?: any }) => {
         name: s.name,
         branchId: s.branchId,
         checkIn: att?.checkIn || '—',
+        checkOut: att?.checkOut || '—',
         status: att ? mapApiStatus(att.status) : 'Not Marked',
         attendanceId: att?._id,
       };
@@ -246,6 +252,7 @@ export const AttendanceView = ({ initialData }: { initialData?: any }) => {
                   <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Staff Member</th>
                   <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Branch</th>
                   <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Check-In</th>
+                  <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Check-Out</th>
                   <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Status</th>
                   <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70 text-right">Action</th>
                 </tr>
@@ -273,6 +280,7 @@ export const AttendanceView = ({ initialData }: { initialData?: any }) => {
                         {branches.find(b => b._id === row.branchId)?.name || 'Unknown'}
                       </td>
                       <td className="px-4 sm:px-6 py-4 text-sm font-medium text-on-surface-variant opacity-80">{row.checkIn}</td>
+                      <td className="px-4 sm:px-6 py-4 text-sm font-medium text-on-surface-variant opacity-80">{row.checkOut}</td>
                       <td className="px-4 sm:px-6 py-4">
                         <span className={cn(
                           "px-3 py-1 text-[11px] font-black rounded-lg uppercase tracking-wider",

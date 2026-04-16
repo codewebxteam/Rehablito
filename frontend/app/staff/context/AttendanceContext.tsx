@@ -53,6 +53,7 @@ const getCurrentPosition = (): Promise<GeolocationPosition> =>
 
 export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activeRecord, setActiveRecord] = useState<AttendanceRecord | null>(null);
+  const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [geofence, setGeofence] = useState<Geofence | null>(null);
   const [branchName, setBranchName] = useState<string | null>(null);
   const [isInsideOffice, setIsInsideOffice] = useState(false);
@@ -62,7 +63,18 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [isProcessing, setIsProcessing] = useState(false);
   const wardRef = useRef<string>('');
 
-  // Initial load: geofence + duty status
+  const fetchRecords = useCallback(async () => {
+    try {
+      const { data } = await api.get('/staff/attendance/history');
+      if (data.success) {
+        setRecords(data.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch history:', err);
+    }
+  }, []);
+
+  // Initial load: geofence + duty status + history
   useEffect(() => {
     const bootstrap = async () => {
       try {
@@ -83,19 +95,21 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
               userId: '',
               date: duty.checkInTime,
               checkIn: duty.checkInTime,
-              status: 'IN_PROGRESS',
+              status: 'on_duty',
               ward: wardRef.current || branchName || 'Your branch',
             });
             setElapsedTime(duty.elapsedSeconds || 0);
           }
         }
+        // Fetch history
+        void fetchRecords();
       } catch (err) {
         console.error('Failed to bootstrap attendance:', err);
       }
     };
     bootstrap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchRecords]);
 
   const updateLocation = useCallback(() => {
     if (!navigator.geolocation) {
@@ -157,9 +171,11 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           userId: data.data.userId?._id || data.data.userId || '',
           date: checkInIso,
           checkIn: checkInIso,
-          status: 'IN_PROGRESS',
+          status: 'on_duty',
           ward: ward || wardRef.current || branchName || 'Your branch',
         });
+        // Refresh records
+        void fetchRecords();
       } else {
         setLocationError(data.message || 'Check-in failed');
       }
@@ -185,6 +201,8 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const { data } = await api.post('/staff/check-out', payload);
       if (data.success) {
         setActiveRecord(null);
+        // Refresh records
+        void fetchRecords();
       } else {
         setLocationError(data.message || 'Check-out failed');
       }
@@ -198,7 +216,7 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   return (
     <AttendanceContext.Provider value={{
-      records: [],
+      records,
       activeRecord,
       branchName,
       geofence,

@@ -9,6 +9,7 @@ import { Sidebar } from './Sidebar';
 import { SuperAdminTab, isSuperAdminTab } from '../lib/navigation';
 import { AddTransactionProvider, useAddTransaction } from './AddTransactionContext';
 import { AddTransactionModal } from './AddTransactionModal';
+import { BranchProvider } from './BranchContext';
 
 interface SuperAdminShellProps {
   children: React.ReactNode;
@@ -106,7 +107,7 @@ function ShellInner({ children }: SuperAdminShellProps) {
       </AnimatePresence>
 
       {/* Main content — full width on mobile, offset on desktop */}
-      <main className="flex-1 lg:ml-72 relative min-h-screen flex flex-col w-full">
+      <main className="flex-1 lg:ml-[270px] relative min-h-screen flex flex-col w-full">
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
@@ -171,8 +172,10 @@ function ShellInner({ children }: SuperAdminShellProps) {
 
 export function SuperAdminShell({ children }: SuperAdminShellProps) {
   return (
-    <AddTransactionProvider>
-      <ShellInner>{children}</ShellInner>
-    </AddTransactionProvider>
+    <BranchProvider>
+      <AddTransactionProvider>
+        <ShellInner>{children}</ShellInner>
+      </AddTransactionProvider>
+    </BranchProvider>
   );
 }
