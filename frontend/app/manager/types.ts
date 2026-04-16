@@ -1,9 +1,13 @@
 export interface Patient {
   id: string;
+  patientId?: string;
   name: string;
+  parentName?: string;
   age: number;
   gender: string;
+  therapyType?: string;
   condition: string;
+  address?: string;
   phone: string;
   onboardedAt: string;
 }
@@ -61,4 +65,4 @@ export interface InvoiceItem {
   price: number;
 }
 
-export type ViewType = 'dashboard' | 'onboarding' | 'patients' | 'leads' | 'staff' | 'billing';
+export type ViewType = 'dashboard' | 'onboarding' | 'patients' | 'leads' | 'staff' | 'billing' | 'services';

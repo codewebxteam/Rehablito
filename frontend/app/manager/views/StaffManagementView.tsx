@@ -1,27 +1,15 @@
-﻿"use client";
+"use client";
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
-import { 
-  History, 
-  CheckCircle2, 
-  MapPin, 
-  MoreVertical, 
-  UserPlus, 
-  Activity,
-  ChevronRight,
-  Clock,
-  AlertCircle,
-  XCircle,
-  Eye,
-  Edit,
-  Trash2,
-  X,
-  Download
+import {
+  History, CheckCircle2, MapPin, MoreVertical,
+  Activity, Clock, AlertCircle, XCircle,
+  Eye, Edit, Trash2, Download
 } from 'lucide-react';
 import { Staff } from '../types';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import React from 'react';
+import React, { useRef } from 'react';
 import { Button } from '../components/ui/Button';
 
 interface StaffManagementProps {
@@ -32,614 +20,417 @@ interface StaffManagementProps {
 }
 
 interface AttendanceStats {
-  today: {
-    date: string;
-    present: number;
-    absent: number;
-    leave: number;
-    halfDay: number;
-    notMarked: number;
-    totalStaff: number;
-  };
-  monthly: {
-    month: string;
-    present: number;
-    absent: number;
-    leave: number;
-    halfDay: number;
-  };
+  today: { date: string; present: number; absent: number; leave: number; halfDay: number; notMarked: number; totalStaff: number };
+  monthly: { month: string; present: number; absent: number; leave: number; halfDay: number };
 }
 
 const getInitials = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .map(part => part[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase();
+  name.split(/\s+/).filter(Boolean).map(p => p[0]).slice(0, 2).join('').toUpperCase();
+
+// ── Card dropdown menu ──
+function RowMenu({ memberId, onView, onEdit, onDelete }: { memberId: string; onView: () => void; onEdit: () => void; onDelete: () => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+  return (
+    <div ref={ref} className="relative">
+      <button onClick={() => setOpen(p => !p)} className="p-2 rounded-lg text-on-surface-variant hover:text-primary hover:bg-surface-container-high transition-colors">
+        <MoreVertical size={18} />
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div initial={{ opacity: 0, scale: 0.95, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: -4 }} transition={{ duration: 0.1 }}
+            className="absolute right-0 top-9 w-36 bg-white rounded-xl shadow-xl border border-outline-variant/20 z-50 overflow-hidden">
+            {[
+              { label: 'View', icon: Eye, action: onView, cls: 'text-primary' },
+              { label: 'Edit', icon: Edit, action: onEdit, cls: 'text-on-surface' },
+              { label: 'Delete', icon: Trash2, action: onDelete, cls: 'text-error' },
+            ].map(({ label, icon: Icon, action, cls }) => (
+              <button key={label} onClick={() => { action(); setOpen(false); }}
+                className={cn('w-full flex items-center gap-2 px-4 py-2.5 text-sm font-semibold hover:bg-surface-container-low transition-colors', cls)}>
+                <Icon size={14} />{label}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 export default function StaffManagementView({ staff, onToggleStatus, onDeleteStaff, onUpdateStaff }: StaffManagementProps) {
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
-  const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [attendanceStats, setAttendanceStats] = useState<AttendanceStats | null>(null);
   const [attendanceLoading, setAttendanceLoading] = useState(true);
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        setAttendanceLoading(true);
-        const { data } = await api.get('/manager/attendance/stats');
-        if (data.success) setAttendanceStats(data.data as AttendanceStats);
-      } catch (err) {
-        console.error('Failed to load attendance stats:', err);
-      } finally {
-        setAttendanceLoading(false);
-      }
-    };
-    fetchStats();
+    api.get('/manager/attendance/stats')
+      .then(({ data }) => { if (data.success) setAttendanceStats(data.data as AttendanceStats); })
+      .catch(() => {})
+      .finally(() => setAttendanceLoading(false));
   }, []);
 
   const monthlyHours = attendanceStats ? attendanceStats.monthly.present * 8 : 0;
-  const capacityPercent = attendanceStats && attendanceStats.today.totalStaff > 0
-    ? Math.round((attendanceStats.today.present / attendanceStats.today.totalStaff) * 100)
-    : 0;
+  const capacityPercent = attendanceStats?.today.totalStaff
+    ? Math.round((attendanceStats.today.present / attendanceStats.today.totalStaff) * 100) : 0;
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div className="space-y-1">
-          <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-on-surface">Staff Directory</h2>
-          <p className="text-on-surface-variant font-medium text-sm md:text-base">Manage clinical roles, monitor attendance, and live GPS tracking.</p>
+    <div className="space-y-6 w-full min-w-0">
+
+      {/* ── Header ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-extrabold tracking-tight text-on-surface">Staff Directory</h2>
+          <p className="text-on-surface-variant text-sm mt-0.5">Manage roles, monitor attendance and GPS tracking.</p>
         </div>
-        <div className="flex gap-3 w-full md:w-auto">
-          <Button 
-            variant="surface"
-            onClick={() => {
-              setIsProcessing(true);
-              setTimeout(() => setIsProcessing(false), 1500);
-            }}
-            isLoading={isProcessing}
-            className="flex-1 md:flex-none"
-          >
-            <Download size={16} /> Export Report
-          </Button>
-          <Button 
-            variant="primary"
-            onClick={() => {
-              setIsProcessing(true);
-              setTimeout(() => setIsProcessing(false), 800);
-            }}
-            isLoading={isProcessing}
-            className="flex-1 md:flex-none"
-          >
-            <Clock size={18} /> Check-in
-          </Button>
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => { setIsProcessing(true); setTimeout(() => setIsProcessing(false), 1500); }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-outline-variant/30 bg-white text-sm font-semibold text-on-surface hover:bg-surface-container-low transition-colors">
+            <Download size={15} /> Export Report
+          </button>
+          <button onClick={() => { setIsProcessing(true); setTimeout(() => setIsProcessing(false), 800); }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:opacity-90 transition-opacity">
+            <Clock size={15} /> Check-in
+          </button>
         </div>
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full">
+      {/* ── Main Grid ── */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 w-full min-w-0">
+
         {/* Staff List */}
-        <section className="col-span-12 lg:col-span-8 min-w-0 space-y-6 max-w-full">
-          <div className="bg-surface-container-lowest rounded-xl overflow-hidden shadow-sm border border-outline-variant/10">
-            <div className="p-6 border-b border-surface-container-low flex justify-between items-center">
-              <h3 className="font-bold text-lg">Healthcare Professionals</h3>
+        <section className="xl:col-span-8 w-full min-w-0">
+          <div className="bg-white rounded-2xl border border-outline-variant/10 shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-outline-variant/10 flex flex-wrap justify-between items-center gap-3">
+              <h3 className="font-bold text-base">Healthcare Professionals</h3>
               <div className="flex items-center gap-2 text-xs font-bold text-on-surface-variant uppercase tracking-widest">
-                <span className="w-2 h-2 rounded-full bg-secondary"></span>
-                {staff.filter(s => s.status === 'Active').length} Currently Active
+                <span className="w-2 h-2 rounded-full bg-secondary shrink-0"></span>
+                {staff.filter(s => s.status === 'Active').length} Active
               </div>
             </div>
-            {/* Desktop/Tablet Table View (> 640px) */}
-            <div className="hidden sm:block overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[800px]">
-                <thead>
-                  <tr className="bg-surface-container-low/50">
-                    <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/60">Staff Member</th>
-                    <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/60">Clinical Role</th>
-                    <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/60">Live GPS</th>
-                    <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/60">Status</th>
-                    <th className="px-6 py-4 text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/60">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-surface-container-low">
-                  {staff.map((member) => (
-                    <tr key={member.id} className="group hover:bg-surface-container-low transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div
-                            aria-hidden="true"
-                            className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-xs"
-                          >
+
+            {staff.length === 0 ? (
+              <div className="p-12 text-center text-on-surface-variant text-sm">No staff members found.</div>
+            ) : (
+              <>
+                {/* Desktop table — hidden on mobile */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-surface-container-low/50">
+                        {['Staff Member', 'Role', 'GPS', 'Status', ''].map(h => (
+                          <th key={h} className="px-5 py-3 text-[10px] uppercase tracking-widest font-bold text-on-surface-variant/60 whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-surface-container-low">
+                      {staff.map(member => (
+                        <tr key={member.id} className="hover:bg-surface-container-low/50 transition-colors">
+                          <td className="px-5 py-3">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
+                                {getInitials(member.name)}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-bold text-sm text-on-surface truncate">{member.name}</p>
+                                <p className="text-xs text-on-surface-variant truncate">{member.email}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-5 py-3">
+                            <span className={cn('px-2 py-1 rounded-md text-[11px] font-bold uppercase whitespace-nowrap',
+                              member.role === 'Physio' ? 'bg-primary/10 text-primary' :
+                              member.role === 'Admin' ? 'bg-secondary/10 text-secondary' :
+                              'bg-surface-container-high text-on-surface-variant')}>
+                              {member.role}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3">
+                            {member.status === 'Active'
+                              ? <span className="flex items-center gap-1.5 text-secondary font-bold text-xs whitespace-nowrap"><MapPin size={13} />Active</span>
+                              : <span className="text-on-surface-variant/50 text-xs">Offline</span>}
+                          </td>
+                          <td className="px-5 py-3">
+                            <button onClick={() => onToggleStatus(member.id)}
+                              className={cn('relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0',
+                                member.status === 'Active' ? 'bg-secondary' : 'bg-surface-container-high')}>
+                              <span className={cn('inline-block h-4 w-4 rounded-full bg-white transition-transform',
+                                member.status === 'Active' ? 'translate-x-4.5' : 'translate-x-0.5')} />
+                            </button>
+                          </td>
+                          <td className="px-5 py-3">
+                            <RowMenu memberId={member.id}
+                              onView={() => setSelectedStaff(member)}
+                              onEdit={() => { setEditingStaff(member); setIsEditModalOpen(true); }}
+                              onDelete={() => { if (window.confirm('Delete this staff member?')) onDeleteStaff(member.id); }} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile cards */}
+                <div className="md:hidden divide-y divide-outline-variant/10">
+                  {staff.map(member => (
+                    <div key={member.id} className="p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
                             {getInitials(member.name)}
                           </div>
-                          <div>
-                            <p className="font-bold text-sm text-on-surface">{member.name}</p>
-                            <p className="text-xs text-on-surface-variant">{member.email}</p>
+                          <div className="min-w-0">
+                            <p className="font-bold text-sm text-on-surface truncate">{member.name}</p>
+                            <p className="text-xs text-on-surface-variant truncate">{member.email}</p>
                           </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={cn(
-                          "px-2 py-1 rounded-md text-[11px] font-bold uppercase",
-                          member.role === 'Physio' ? "bg-primary-fixed text-on-primary-fixed" :
-                          member.role === 'Admin' ? "bg-secondary-fixed text-on-secondary-fixed" :
-                          "bg-surface-container-high text-on-surface-variant"
-                        )}>
+                        <RowMenu memberId={member.id}
+                          onView={() => setSelectedStaff(member)}
+                          onEdit={() => { setEditingStaff(member); setIsEditModalOpen(true); }}
+                          onDelete={() => { if (window.confirm('Delete this staff member?')) onDeleteStaff(member.id); }} />
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span className={cn('px-2 py-1 rounded-md text-[11px] font-bold uppercase',
+                          member.role === 'Physio' ? 'bg-primary/10 text-primary' :
+                          member.role === 'Admin' ? 'bg-secondary/10 text-secondary' :
+                          'bg-surface-container-high text-on-surface-variant')}>
                           {member.role}
                         </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        {member.status === 'Active' ? (
-                          <div className="flex items-center gap-2 text-secondary font-bold text-xs">
-                            <MapPin size={14} />
-                            Active
-                          </div>
-                        ) : (
-                          <span className="text-on-surface-variant/60 text-xs">Offline</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <button 
-                          onClick={() => onToggleStatus(member.id)}
-                          className={cn(
-                            "relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none",
-                            member.status === 'Active' ? "bg-secondary" : "bg-surface-container-high"
-                          )}
-                        >
-                          <span className={cn(
-                            "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
-                            member.status === 'Active' ? "translate-x-4.5" : "translate-x-0.5"
-                          )} />
+                        {member.status === 'Active'
+                          ? <span className="flex items-center gap-1 text-secondary font-bold text-xs"><MapPin size={12} />Active</span>
+                          : <span className="text-on-surface-variant/50 text-xs">Offline</span>}
+                        <button onClick={() => onToggleStatus(member.id)}
+                          className={cn('relative inline-flex h-5 w-9 items-center rounded-full transition-colors ml-auto',
+                            member.status === 'Active' ? 'bg-secondary' : 'bg-surface-container-high')}>
+                          <span className={cn('inline-block h-4 w-4 rounded-full bg-white transition-transform',
+                            member.status === 'Active' ? 'translate-x-4.5' : 'translate-x-0.5')} />
                         </button>
-                      </td>
-                      <td className="px-6 py-4 text-right relative">
-                        <button 
-                          onClick={() => setActiveMenu(activeMenu === member.id ? null : member.id)}
-                          className="text-on-surface-variant hover:text-primary transition-all p-2 rounded-lg hover:bg-surface-container-high"
-                        >
-                          <MoreVertical size={20} />
-                        </button>
-
-                        {activeMenu === member.id && (
-                          <div className="absolute right-12 top-12 w-32 bg-white rounded-xl shadow-xl border border-outline-variant/10 z-50 py-2 overflow-hidden text-left">
-                            <button 
-                              onClick={() => {
-                                setSelectedStaff(member);
-                                setActiveMenu(null);
-                              }}
-                              className="w-full px-4 py-2 text-left text-xs font-bold hover:bg-surface-container-low flex items-center gap-2"
-                            >
-                              <Eye size={14} /> View
-                            </button>
-                            <button 
-                              onClick={() => {
-                                setEditingStaff(member);
-                                setIsEditModalOpen(true);
-                                setActiveMenu(null);
-                              }}
-                              className="w-full px-4 py-2 text-left text-xs font-bold hover:bg-surface-container-low flex items-center gap-2"
-                            >
-                              <Edit size={14} /> Edit
-                            </button>
-                            <button 
-                              onClick={() => {
-                                if (window.confirm('Are you sure you want to delete this staff member?')) {
-                                  onDeleteStaff(member.id);
-                                  setActiveMenu(null);
-                                }
-                              }}
-                              className="w-full px-4 py-2 text-left text-xs font-bold hover:bg-surface-container-low text-error flex items-center gap-2"
-                            >
-                              <Trash2 size={14} /> Delete
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile Card View (< 640px) */}
-            <div className="sm:hidden divide-y divide-outline-variant/10">
-              {staff.map((member) => (
-                <div key={member.id} className="p-4 sm:p-6 space-y-4">
-                  <div className="flex justify-between items-start">
-                    <div className="flex items-center gap-3">
-                      <div
-                        aria-hidden="true"
-                        className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0"
-                      >
-                        {getInitials(member.name)}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-bold text-on-surface truncate">{member.name}</p>
-                        <p className="text-xs text-on-surface-variant truncate">{member.email}</p>
-                      </div>
-                    </div>
-                    <button 
-                      onClick={() => setActiveMenu(activeMenu === member.id ? null : member.id)}
-                      className="text-on-surface-variant p-2 rounded-lg hover:bg-surface-container-high"
-                    >
-                      <MoreVertical size={20} />
-                    </button>
-                    
-                    {activeMenu === member.id && (
-                      <div className="absolute right-12 top-12 w-32 bg-white rounded-xl shadow-xl border border-outline-variant/10 z-50 py-2 overflow-hidden text-left">
-                        <button 
-                          onClick={() => {
-                            setSelectedStaff(member);
-                            setActiveMenu(null);
-                          }}
-                          className="w-full px-4 py-2 text-left text-xs font-bold hover:bg-surface-container-low flex items-center gap-2"
-                        >
-                          <Eye size={14} /> View
-                        </button>
-                        <button 
-                          onClick={() => {
-                            setEditingStaff(member);
-                            setIsEditModalOpen(true);
-                            setActiveMenu(null);
-                          }}
-                          className="w-full px-4 py-2 text-left text-xs font-bold hover:bg-surface-container-low flex items-center gap-2"
-                        >
-                          <Edit size={14} /> Edit
-                        </button>
-                        <button 
-                          onClick={() => {
-                            if (window.confirm('Are you sure you want to delete this staff member?')) {
-                              onDeleteStaff(member.id);
-                              setActiveMenu(null);
-                            }
-                          }}
-                          className="w-full px-4 py-2 text-left text-xs font-bold hover:bg-surface-container-low text-error flex items-center gap-2"
-                        >
-                          <Trash2 size={14} /> Delete
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest mb-1">Clinical Role</p>
-                      <span className={cn(
-                        "px-2 py-1 rounded-md text-[10px] font-bold uppercase",
-                        member.role === 'Physio' ? "bg-primary-fixed text-on-primary-fixed" :
-                        member.role === 'Admin' ? "bg-secondary-fixed text-on-secondary-fixed" :
-                        "bg-surface-container-high text-on-surface-variant"
-                      )}>
-                        {member.role}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest mb-1">Live GPS</p>
-                      {member.status === 'Active' ? (
-                        <div className="flex items-center gap-1 text-secondary font-bold text-[10px]">
-                          <MapPin size={12} />
-                          Active
-                        </div>
-                      ) : (
-                        <span className="text-on-surface-variant/60 text-[10px]">Offline</span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between items-center pt-2">
-                    <div className="flex items-center gap-2">
-                      <p className="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest">Status</p>
-                      <button 
-                        onClick={() => onToggleStatus(member.id)}
-                        className={cn(
-                          "relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none",
-                          member.status === 'Active' ? "bg-secondary" : "bg-surface-container-high"
-                        )}
-                      >
-                        <span className={cn(
-                          "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
-                          member.status === 'Active' ? "translate-x-4.5" : "translate-x-0.5"
-                        )} />
-                      </button>
-                    </div>
-                    <button 
-                      onClick={() => setSelectedStaff(member)}
-                      className="text-primary text-[10px] font-bold hover:underline"
-                    >
-                      View Full History
-                    </button>
-                  </div>
                 </div>
-              ))}
-            </div>
+              </>
+            )}
           </div>
         </section>
 
-        {/* Analytics Sidebar */}
-        <aside className="col-span-12 lg:col-span-4 min-w-0 space-y-6 lg:sticky lg:top-24 h-fit max-w-full">
-          <div className="bg-surface-container-lowest rounded-xl p-6 shadow-sm border border-outline-variant/10">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-bold text-lg">Attendance Hub</h3>
-              <Activity className="text-on-surface-variant/60" size={20} />
+        {/* ── Attendance Hub Sidebar ── */}
+        <aside className="xl:col-span-4 w-full min-w-0 space-y-5">
+          <div className="bg-white rounded-2xl border border-outline-variant/10 shadow-sm p-5 w-full min-w-0 overflow-hidden">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-base">Attendance Hub</h3>
+              <Activity className="text-on-surface-variant/60 shrink-0" size={18} />
             </div>
+
             {attendanceLoading ? (
-              <div className="py-10 text-center">
-                <div className="w-10 h-10 rounded-full border-4 border-primary/20 border-t-primary animate-spin mx-auto mb-3"></div>
-                <p className="text-xs text-on-surface-variant">Loading attendance...</p>
+              <div className="py-8 text-center">
+                <div className="w-8 h-8 rounded-full border-4 border-primary/20 border-t-primary animate-spin mx-auto mb-2"></div>
+                <p className="text-xs text-on-surface-variant">Loading...</p>
               </div>
             ) : (
-              <div className="space-y-6">
-                <div className="p-4 bg-primary/5 rounded-xl">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs font-bold text-primary tracking-widest uppercase">{attendanceStats?.monthly.month || 'This Month'}</span>
-                    <span className="text-2xl font-black text-primary">{monthlyHours.toLocaleString()}h</span>
+              <div className="space-y-4">
+                {/* Monthly summary */}
+                <div className="p-3 bg-primary/5 rounded-xl">
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-xs font-bold text-primary uppercase tracking-wider truncate">
+                      {attendanceStats?.monthly.month || 'This Month'}
+                    </span>
+                    <span className="text-lg font-black text-primary shrink-0">{monthlyHours}h</span>
                   </div>
                   <div className="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-primary h-full rounded-full" style={{ width: `${Math.min(capacityPercent, 100)}%` }}></div>
+                    <div className="bg-primary h-full rounded-full transition-all" style={{ width: `${Math.min(capacityPercent, 100)}%` }} />
                   </div>
-                  <p className="text-[10px] text-on-surface-variant mt-2">
-                    {capacityPercent}% of clinical capacity present today ({attendanceStats?.today.present || 0}/{attendanceStats?.today.totalStaff || 0})
+                  <p className="text-[10px] text-on-surface-variant mt-1.5">
+                    {capacityPercent}% today · {attendanceStats?.today.present ?? 0}/{attendanceStats?.today.totalStaff ?? 0} staff
                   </p>
                 </div>
 
-                <div className="space-y-3">
-                  <p className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Today&apos;s Check-in Status</p>
-                  <div className="space-y-3">
-                    {[
-                      { label: 'Present', value: attendanceStats?.today.present ?? 0, color: 'bg-secondary' },
-                      { label: 'Half Day', value: attendanceStats?.today.halfDay ?? 0, color: 'bg-orange-400' },
-                      { label: 'On Leave', value: attendanceStats?.today.leave ?? 0, color: 'bg-amber-400' },
-                      { label: 'Absent', value: attendanceStats?.today.absent ?? 0, color: 'bg-error' },
-                      { label: 'Not Marked', value: attendanceStats?.today.notMarked ?? 0, color: 'bg-surface-container-high' },
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-center justify-between p-3 border border-surface-container-low rounded-xl">
-                        <div className="flex items-center gap-3">
-                          <div className={cn("w-2 h-2 rounded-full", item.color)}></div>
-                          <span className="text-sm font-semibold">{item.label}</span>
-                        </div>
-                        <span className="font-bold">{item.value}</span>
+                {/* Status rows */}
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-2">Today's Status</p>
+                  {[
+                    { label: 'Present',    value: attendanceStats?.today.present    ?? 0, color: 'bg-secondary' },
+                    { label: 'Half Day',   value: attendanceStats?.today.halfDay    ?? 0, color: 'bg-orange-400' },
+                    { label: 'On Leave',   value: attendanceStats?.today.leave      ?? 0, color: 'bg-amber-400' },
+                    { label: 'Absent',     value: attendanceStats?.today.absent     ?? 0, color: 'bg-error' },
+                    { label: 'Not Marked', value: attendanceStats?.today.notMarked  ?? 0, color: 'bg-surface-container-high' },
+                  ].map(item => (
+                    <div key={item.label} className="flex items-center justify-between px-3 py-2 rounded-xl border border-outline-variant/10 bg-surface-container-lowest">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className={cn('w-2 h-2 rounded-full shrink-0', item.color)} />
+                        <span className="text-sm font-medium truncate">{item.label}</span>
                       </div>
-                    ))}
-                  </div>
+                      <span className="text-sm font-bold shrink-0 ml-2">{item.value}</span>
+                    </div>
+                  ))}
                 </div>
 
-                <Button
-                  variant="surface"
-                  size="sm"
-                  onClick={() => {
-                    setIsProcessing(true);
-                    setTimeout(() => setIsProcessing(false), 1000);
-                  }}
-                  isLoading={isProcessing}
-                  className="w-full border-dashed"
-                >
+                <button onClick={() => { setIsProcessing(true); setTimeout(() => setIsProcessing(false), 1000); }}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed border-outline-variant/40 text-sm font-semibold text-on-surface-variant hover:bg-surface-container-low transition-colors">
                   <Download size={14} /> Export Attendance Log
-                </Button>
+                </button>
               </div>
             )}
           </div>
 
-          <div className="relative bg-on-surface text-white rounded-xl p-6 overflow-hidden min-h-[300px] flex flex-col">
+          {/* Staff Map */}
+          <div className="relative bg-on-surface text-white rounded-2xl p-5 overflow-hidden w-full min-w-0">
             <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-4">
-                <MapPin className="text-secondary-container" size={20} />
-                <h3 className="font-bold text-lg">Staff Map Overview</h3>
+              <div className="flex items-center gap-2 mb-2">
+                <MapPin className="text-secondary shrink-0" size={18} />
+                <h3 className="font-bold text-base">Staff Map</h3>
               </div>
-              <p className="text-sm text-white/70 mb-6">Real-time GPS tracking for active field therapists.</p>
-              <div className="space-y-4">
+              <p className="text-xs text-white/60 mb-4">Real-time GPS for active therapists.</p>
+              <div className="space-y-2.5 mb-4">
                 {[
                   { label: 'Downtown Branch', value: '8 Staff' },
-                  { label: 'North Suburban', value: '4 Staff' },
+                  { label: 'North Suburban',  value: '4 Staff' },
                   { label: 'Westside Center', value: '2 Staff' },
                 ].map((loc, i) => (
-                  <div key={i} className="flex items-center justify-between text-xs border-b border-white/10 pb-3">
-                    <span>{loc.label}</span>
-                    <span className="font-bold">{loc.value}</span>
+                  <div key={i} className="flex items-center justify-between text-xs border-b border-white/10 pb-2.5">
+                    <span className="truncate mr-2 text-white/80">{loc.label}</span>
+                    <span className="font-bold shrink-0">{loc.value}</span>
                   </div>
                 ))}
               </div>
-              <Button 
-                variant="secondary"
-                onClick={() => {
-                  setIsProcessing(true);
-                  setTimeout(() => setIsProcessing(false), 1200);
-                }}
-                isLoading={isProcessing}
-                className="w-full mt-6"
-              >
+              <button className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm font-semibold transition-colors">
                 Open Full Map
-              </Button>
+              </button>
             </div>
-            <div className="absolute -right-20 -bottom-20 w-64 h-64 opacity-20 pointer-events-none bg-gradient-to-tr from-secondary-container to-primary rounded-full blur-3xl"></div>
+            <div className="absolute -right-16 -bottom-16 w-48 h-48 opacity-20 pointer-events-none bg-gradient-to-tr from-secondary to-primary rounded-full blur-3xl" />
           </div>
         </aside>
       </div>
 
-      {/* Recent Logs */}
-      <div className="bg-surface-container-low p-6 rounded-xl flex items-center gap-8 overflow-hidden w-full max-w-full">
+      {/* ── Recent Logs ── */}
+      <div className="bg-surface-container-low px-5 py-4 rounded-2xl flex items-center gap-4 overflow-hidden w-full min-w-0">
         <div className="flex items-center gap-2 shrink-0">
-          <History className="text-primary" size={20} />
-          <span className="font-bold text-sm uppercase tracking-widest">Recent Logs</span>
+          <History className="text-primary shrink-0" size={18} />
+          <span className="font-bold text-xs uppercase tracking-widest whitespace-nowrap">Recent Logs</span>
         </div>
         <div className="flex-1 min-w-0 overflow-hidden">
-          <div className="flex gap-12 animate-marquee whitespace-nowrap text-sm text-on-surface-variant w-max pr-8">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-on-surface">14:02</span>
-            <span>Sarah Jenkins checked in at North Suburban Clinic</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-on-surface">13:45</span>
-            <span>Lisa Thompson completed payroll sync</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-on-surface">12:30</span>
-            <span>Shift Swap: Thomas Chen & Marcus Wright approved</span>
-          </div>
+          <div className="flex gap-10 animate-marquee whitespace-nowrap text-xs text-on-surface-variant">
+            {[
+              { time: '14:02', text: 'Sarah Jenkins checked in at North Suburban Clinic' },
+              { time: '13:45', text: 'Lisa Thompson completed payroll sync' },
+              { time: '12:30', text: 'Shift Swap: Thomas Chen & Marcus Wright approved' },
+            ].map((log, i) => (
+              <span key={i} className="flex items-center gap-2 shrink-0">
+                <span className="font-bold text-on-surface">{log.time}</span>
+                <span>{log.text}</span>
+              </span>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Attendance Modal */}
-      {selectedStaff && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-3xl p-8 w-full max-w-2xl shadow-2xl"
-          >
-            <div className="flex justify-between items-start mb-8">
-              <div className="flex items-center gap-4">
-                <div
-                  aria-hidden="true"
-                  className="w-16 h-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-bold text-lg"
-                >
-                  {getInitials(selectedStaff.name)}
+      {/* ── View Modal ── */}
+      <AnimatePresence>
+        {selectedStaff && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl p-6 md:p-8 w-full max-w-lg shadow-2xl">
+              <div className="flex justify-between items-start mb-6">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center font-bold text-base shrink-0">
+                    {getInitials(selectedStaff.name)}
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-lg font-bold truncate">{selectedStaff.name}</h3>
+                    <p className="text-on-surface-variant text-sm truncate">{selectedStaff.role} · {selectedStaff.email}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-2xl font-bold">{selectedStaff.name}</h3>
-                  <p className="text-on-surface-variant font-medium">{selectedStaff.role} • {selectedStaff.email}</p>
-                </div>
+                <button onClick={() => setSelectedStaff(null)} className="p-2 hover:bg-surface-container-low rounded-full transition-colors shrink-0">
+                  <XCircle size={22} />
+                </button>
               </div>
-              <button 
-                onClick={() => setSelectedStaff(null)}
-                className="p-2 hover:bg-surface-container-low rounded-full transition-colors"
-              >
-                <XCircle size={24} />
-              </button>
-            </div>
 
-            <div className="space-y-6">
-              <h4 className="font-bold text-lg">Attendance History (Last 7 Days)</h4>
-              <div className="grid grid-cols-7 gap-2">
-                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, i) => (
-                  <div key={i} className="space-y-2 text-center">
-                    <p className="text-[10px] font-bold text-on-surface-variant uppercase">{day}</p>
-                    <div className={cn(
-                      "h-12 rounded-xl flex items-center justify-center",
-                      i < 4 ? "bg-secondary/10 text-secondary" : i === 4 ? "bg-orange-50 text-orange-400" : "bg-surface-container-low text-on-surface-variant/40"
-                    )}>
-                      {i < 4 ? <CheckCircle2 size={20} /> : i === 4 ? <Clock size={20} /> : <AlertCircle size={20} />}
+              <h4 className="font-bold mb-3">Attendance — Last 7 Days</h4>
+              <div className="grid grid-cols-7 gap-1.5 mb-5">
+                {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((day, i) => (
+                  <div key={i} className="text-center space-y-1.5">
+                    <p className="text-[9px] font-bold text-on-surface-variant uppercase">{day}</p>
+                    <div className={cn('h-10 rounded-xl flex items-center justify-center',
+                      i < 4 ? 'bg-secondary/10 text-secondary' : i === 4 ? 'bg-orange-50 text-orange-400' : 'bg-surface-container-low text-on-surface-variant/40')}>
+                      {i < 4 ? <CheckCircle2 size={16} /> : i === 4 ? <Clock size={16} /> : <AlertCircle size={16} />}
                     </div>
                   </div>
                 ))}
               </div>
-              
-              <div className="bg-surface-container-low p-6 rounded-2xl space-y-4">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="font-medium text-on-surface-variant">Average Check-in Time</span>
-                  <span className="font-bold">08:52 AM</span>
-                </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="font-medium text-on-surface-variant">Total Hours (This Week)</span>
-                  <span className="font-bold">38.5h / 40h</span>
-                </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="font-medium text-on-surface-variant">Compliance Score</span>
-                  <span className="text-secondary font-bold">96%</span>
-                </div>
+
+              <div className="bg-surface-container-low p-4 rounded-2xl space-y-3 mb-6">
+                {[
+                  ['Avg Check-in', '08:52 AM'],
+                  ['Total Hours (Week)', '38.5h / 40h'],
+                  ['Compliance Score', '96%'],
+                ].map(([label, val]) => (
+                  <div key={label} className="flex justify-between items-center text-sm">
+                    <span className="text-on-surface-variant">{label}</span>
+                    <span className="font-bold">{val}</span>
+                  </div>
+                ))}
               </div>
-            </div>
 
-            <div className="mt-8 flex gap-4">
-              <Button 
-                variant="outline"
-                onClick={() => {
-                  setIsProcessing(true);
-                  setTimeout(() => setIsProcessing(false), 1000);
-                }}
-                isLoading={isProcessing}
-                className="flex-1"
-              >
-                <Download size={16} />
-                Download Report
-              </Button>
-              <Button 
-                onClick={() => setSelectedStaff(null)}
-                className="flex-1"
-              >
-                Close History
-              </Button>
-            </div>
-          </motion.div>
-        </div>
-      )}
+              <div className="flex gap-3">
+                <button className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-outline-variant/30 text-sm font-semibold text-on-surface-variant hover:bg-surface-container-low transition-colors">
+                  <Download size={15} /> Download
+                </button>
+                <button onClick={() => setSelectedStaff(null)}
+                  className="flex-1 py-3 rounded-xl bg-primary text-white text-sm font-semibold hover:opacity-90 transition-opacity">
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
-      {/* Edit Staff Modal */}
+      {/* ── Edit Modal ── */}
       <AnimatePresence>
         {isEditModalOpen && editingStaff && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-3xl p-8 w-full max-w-2xl shadow-2xl"
-            >
-              <h3 className="text-xl font-bold mb-6">Edit Staff Member</h3>
-              <form 
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setIsProcessing(true);
-                  setTimeout(() => {
-                    onUpdateStaff(editingStaff);
-                    setIsEditModalOpen(false);
-                    setIsProcessing(false);
-                  }, 800);
-                }} 
-                className="grid grid-cols-1 md:grid-cols-2 gap-4"
-              >
-                <div className="space-y-1 md:col-span-2">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl">
+              <h3 className="text-lg font-bold mb-5">Edit Staff Member</h3>
+              <form onSubmit={e => { e.preventDefault(); setIsProcessing(true); setTimeout(() => { onUpdateStaff(editingStaff); setIsEditModalOpen(false); setIsProcessing(false); }, 800); }}
+                className="space-y-4">
+                <div className="space-y-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Full Name</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={editingStaff.name}
-                    onChange={e => setEditingStaff(prev => prev ? ({ ...prev, name: e.target.value }) : null)}
-                    className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"
-                  />
+                  <input type="text" required value={editingStaff.name}
+                    onChange={e => setEditingStaff(p => p ? { ...p, name: e.target.value } : null)}
+                    className="w-full bg-surface-container-low rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Email Address</label>
-                  <input 
-                    type="email" 
-                    required
-                    value={editingStaff.email}
-                    onChange={e => setEditingStaff(prev => prev ? ({ ...prev, email: e.target.value }) : null)}
-                    className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"
-                  />
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Email</label>
+                  <input type="email" required value={editingStaff.email}
+                    onChange={e => setEditingStaff(p => p ? { ...p, email: e.target.value } : null)}
+                    className="w-full bg-surface-container-low rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Clinical Role</label>
-                  <select 
-                    value={editingStaff.role}
-                    onChange={e => setEditingStaff(prev => prev ? ({ ...prev, role: e.target.value as Staff['role'] }) : null)}
-                    className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"
-                  >
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Role</label>
+                  <select value={editingStaff.role} onChange={e => setEditingStaff(p => p ? { ...p, role: e.target.value as Staff['role'] } : null)}
+                    className="w-full bg-surface-container-low rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20 appearance-none">
                     <option value="Physio">Physio</option>
                     <option value="Admin">Admin</option>
-                    <option value="Nurse">Nurse</option>
+                    <option value="Support">Support</option>
                   </select>
                 </div>
-                <div className="flex gap-4 pt-4 md:col-span-2">
-                  <Button 
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setIsEditModalOpen(false)}
-                    className="flex-1"
-                  >
+                <div className="flex gap-3 pt-2">
+                  <button type="button" onClick={() => setIsEditModalOpen(false)}
+                    className="flex-1 py-3 rounded-xl border border-outline-variant/30 text-sm font-semibold text-on-surface-variant hover:bg-surface-container-low transition-colors">
                     Cancel
-                  </Button>
-                  <Button 
-                    type="submit"
-                    isLoading={isProcessing}
-                    className="flex-1"
-                  >
-                    Save Changes
-                  </Button>
+                  </button>
+                  <button type="submit" disabled={isProcessing}
+                    className="flex-1 py-3 rounded-xl bg-primary text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-60">
+                    {isProcessing ? 'Saving...' : 'Save Changes'}
+                  </button>
                 </div>
               </form>
             </motion.div>
@@ -649,4 +440,3 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
     </div>
   );
 }
-

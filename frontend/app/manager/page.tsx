@@ -43,6 +43,7 @@ import LeadManagementView from './views/LeadManagementView';
 import StaffManagementView from './views/StaffManagementView';
 import BillingManagementView from './views/BillingManagementView';
 import PatientsListView from './views/PatientsListView';
+import ServicesView from './views/ServicesView';
 
 // ── Lead API types & mappers ──
 type ApiLeadStatus = 'new' | 'contacted' | 'converted' | 'closed';
@@ -105,10 +106,14 @@ const apiStaffToUi = (s: ApiStaff): Staff => ({
 // ── Patient API types & mappers ──
 interface ApiPatient {
   _id: string;
+  patientId?: string;
   name: string;
+  parentName?: string;
   age?: number;
   gender?: 'male' | 'female' | 'other';
   diagnosis?: string;
+  therapyType?: string[];
+  address?: string;
   parentPhone?: string;
   admissionDate?: string;
   createdAt?: string;
@@ -118,10 +123,14 @@ const capitalize = (s?: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) :
 
 const apiPatientToUi = (p: ApiPatient): Patient => ({
   id: p._id,
+  patientId: p.patientId || `RX-${p._id.slice(-6).toUpperCase()}`,
   name: p.name,
+  parentName: p.parentName,
   age: p.age ?? 0,
   gender: capitalize(p.gender),
+  therapyType: p.therapyType?.[0],
   condition: p.diagnosis || '',
+  address: p.address,
   phone: p.parentPhone || '',
   onboardedAt: p.admissionDate || p.createdAt || new Date().toISOString(),
 });
@@ -182,7 +191,7 @@ export default function ManagerDashboardApp() {
 
   const resolveViewFromPath = (path: string): ViewType => {
     const segment = path.split('/')[2];
-    const validViews: ViewType[] = ['dashboard', 'onboarding', 'patients', 'leads', 'staff', 'billing'];
+    const validViews: ViewType[] = ['dashboard', 'onboarding', 'patients', 'leads', 'staff', 'billing', 'services'];
     return validViews.includes(segment as ViewType) ? (segment as ViewType) : 'dashboard';
   };
 
@@ -421,6 +430,37 @@ export default function ManagerDashboardApp() {
     }
   };
 
+  const deletePatient = async (id: string) => {
+    try {
+      await api.delete(`/manager/patients/${id}`);
+    } catch (_) {}
+    setPatients(prev => prev.filter(p => p.id !== id));
+    addNotification('Patient removed successfully');
+  };
+
+  const updatePatientRecord = async (updated: Patient) => {
+    try {
+      const payload = {
+        name: updated.name,
+        parentName: updated.parentName,
+        age: updated.age,
+        gender: updated.gender.toLowerCase(),
+        therapyType: updated.therapyType ? [updated.therapyType] : [],
+        diagnosis: updated.condition,
+        address: updated.address,
+        parentPhone: updated.phone,
+      };
+      const { data } = await api.put(`/manager/patients/${updated.id}`, payload);
+      if (data.success) {
+        setPatients(prev => prev.map(p => p.id === updated.id ? apiPatientToUi(data.data) : p));
+        addNotification(`Patient ${updated.name} updated`);
+      }
+    } catch (err: unknown) {
+      const e = err as { response?: { data?: { message?: string } } };
+      addNotification(e?.response?.data?.message || 'Failed to update patient', 'error');
+    }
+  };
+
   const deleteBilling = (id: string) => {
     setBilling(prev => prev.filter(b => b.id !== id));
     addNotification('Invoice removed from view', 'error');
@@ -455,6 +495,7 @@ export default function ManagerDashboardApp() {
     { id: 'patients', label: 'Patients', icon: ClipboardList },
     { id: 'leads', label: 'Leads', icon: Users },
     { id: 'staff', label: 'Staff', icon: UserCheck },
+    { id: 'services', label: 'Services', icon: Settings },
     { id: 'billing', label: 'Billing', icon: CreditCard },
   ];
 
@@ -579,7 +620,7 @@ export default function ManagerDashboardApp() {
 
       {/* Main Content */}
       <main className={cn(
-        "flex-1 min-h-screen pink-gradient-bg relative transition-all duration-300",
+        "flex-1 min-h-screen min-w-0 overflow-x-hidden pink-gradient-bg relative transition-all duration-300",
         isSidebarCollapsed ? "lg:ml-20" : "lg:ml-64",
         "2xl:ml-64"
       )}>
@@ -657,7 +698,7 @@ export default function ManagerDashboardApp() {
         </header>
 
         {/* Content Area */}
-        <div className="pt-28 md:pt-32 px-4 md:px-8 pb-12 max-w-7xl mx-auto w-full">
+        <div className="pt-28 md:pt-32 px-4 md:px-8 pb-12 max-w-7xl mx-auto w-full overflow-x-hidden">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentView}
@@ -679,7 +720,7 @@ export default function ManagerDashboardApp() {
                 <PatientOnboardingView onOnboard={addPatient} />
               )}
               { currentView === 'patients' && (
-                <PatientsListView patients={patients} billing={billing} />
+              <PatientsListView patients={patients} billing={billing} onDelete={deletePatient} onUpdate={updatePatientRecord} />
               )}
               {currentView === 'leads' && (
                 <LeadManagementView
@@ -698,6 +739,7 @@ export default function ManagerDashboardApp() {
                   onUpdateStaff={updateStaff}
                 />
               )}
+              {currentView === 'services' && <ServicesView />}
               {currentView === 'billing' && (
                 <BillingManagementView
                   billing={billing}
