@@ -17,6 +17,7 @@ import {
   X,
   MapPin,
   Check,
+  Stethoscope,
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -55,6 +56,7 @@ const NAV_GROUPS = [
     title: 'System',
     items: [
       { tab: 'branches' as const, icon: TreeDeciduous },
+      { tab: 'services' as const, icon: Stethoscope },
       { tab: 'settings' as const, icon: Settings },
     ],
   },

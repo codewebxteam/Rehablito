@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useEffect, useState, useMemo } from 'react';
 import api from '@/lib/api';
 import { 
@@ -59,7 +59,7 @@ export default function LeadManagementView({ leads, onUpdateStatus, onAddLead, o
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [newLead, setNewLead] = useState({ name: '', phone: '', source: '', status: 'New' as Lead['status'] });
+  const [newLead, setNewLead] = useState<any>({ name: '', parentName: '', phone: '', email: '', age: '', service: '', source: '', status: 'New' });
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
 
   const filteredLeads = useMemo(() => {
@@ -81,7 +81,7 @@ export default function LeadManagementView({ leads, onUpdateStatus, onAddLead, o
       setTimeout(() => {
         onAddLead(newLead);
         setIsModalOpen(false);
-        setNewLead({ name: '', phone: '', source: '', status: 'New' });
+        setNewLead({ name: '', parentName: '', phone: '', email: '', age: '', service: '', source: '', status: 'New' });
         setIsProcessing(false);
       }, 800);
     }
@@ -456,26 +456,66 @@ export default function LeadManagementView({ leads, onUpdateStatus, onAddLead, o
             >
               <h3 className="text-xl font-bold mb-6">Add New Lead</h3>
               <form onSubmit={handleAddLead} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1 md:col-span-2">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Full Name</label>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Child Name</label>
                   <input 
                     type="text" 
                     required
                     value={newLead.name}
-                    onChange={e => setNewLead(prev => ({ ...prev, name: e.target.value }))}
+                    onChange={e => setNewLead((prev: any) => ({ ...prev, name: e.target.value }))}
                     className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"
                     placeholder="e.g. Julianne Roberts"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Phone Number</label>
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Parent Name</label>
+                  <input 
+                    type="text" 
+                    value={newLead.parentName || ''}
+                    onChange={e => setNewLead((prev: any) => ({ ...prev, parentName: e.target.value }))}
+                    className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"
+                    placeholder="Parent's Name"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Phone Number *</label>
                   <input 
                     type="tel" 
                     required
                     value={newLead.phone}
-                    onChange={e => setNewLead(prev => ({ ...prev, phone: e.target.value }))}
+                    onChange={e => setNewLead((prev: any) => ({ ...prev, phone: e.target.value }))}
                     className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"
                     placeholder="9876543210"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Email</label>
+                  <input 
+                    type="email" 
+                    value={newLead.email || ''}
+                    onChange={e => setNewLead((prev: any) => ({ ...prev, email: e.target.value }))}
+                    className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"
+                    placeholder="Email Address"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Age</label>
+                  <input 
+                    type="number" 
+                    value={newLead.age || ''}
+                    onChange={e => setNewLead((prev: any) => ({ ...prev, age: e.target.value }))}
+                    className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"
+                    placeholder="Age"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Diagnosis / Service</label>
+                  <input 
+                    type="text" 
+                    value={newLead.service || ''}
+                    onChange={e => setNewLead((prev: any) => ({ ...prev, service: e.target.value }))}
+                    className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"
+                    placeholder="Service required"
                   />
                 </div>
                 <div className="space-y-1">
@@ -483,10 +523,23 @@ export default function LeadManagementView({ leads, onUpdateStatus, onAddLead, o
                   <input 
                     type="text" 
                     value={newLead.source}
-                    onChange={e => setNewLead(prev => ({ ...prev, source: e.target.value }))}
+                    onChange={e => setNewLead((prev: any) => ({ ...prev, source: e.target.value }))}
                     className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"
                     placeholder="e.g. Facebook Ads"
                   />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Status</label>
+                  <select 
+                    value={newLead.status}
+                    onChange={e => setNewLead((prev: any) => ({ ...prev, status: e.target.value as Lead['status'] }))}
+                    className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 appearance-none"
+                  >
+                    <option value="New">New</option>
+                    <option value="Contacted">Contacted</option>
+                    <option value="Converted">Converted</option>
+                    <option value="Cold">Cold</option>
+                  </select>
                 </div>
                 <div className="flex gap-4 pt-4 md:col-span-2">
                   <Button 
@@ -521,8 +574,8 @@ export default function LeadManagementView({ leads, onUpdateStatus, onAddLead, o
             >
               <h3 className="text-xl font-bold mb-6">Edit Lead</h3>
               <form onSubmit={handleUpdateLead} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1 md:col-span-2">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Full Name</label>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Child Name</label>
                   <input 
                     type="text" 
                     required
@@ -532,12 +585,48 @@ export default function LeadManagementView({ leads, onUpdateStatus, onAddLead, o
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Phone Number</label>
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Parent Name</label>
+                  <input 
+                    type="text" 
+                    value={editingLead.parentName || ''}
+                    onChange={e => setEditingLead(prev => prev ? ({ ...prev, parentName: e.target.value }) : null)}
+                    className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Phone Number *</label>
                   <input 
                     type="tel" 
                     required
                     value={editingLead.phone}
                     onChange={e => setEditingLead(prev => prev ? ({ ...prev, phone: e.target.value }) : null)}
+                    className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Email</label>
+                  <input 
+                    type="email" 
+                    value={editingLead.email || ''}
+                    onChange={e => setEditingLead(prev => prev ? ({ ...prev, email: e.target.value }) : null)}
+                    className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Age</label>
+                  <input 
+                    type="number" 
+                    value={editingLead.age || ''}
+                    onChange={e => setEditingLead(prev => prev ? ({ ...prev, age: parseInt(e.target.value) || undefined }) : null)}
+                    className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Diagnosis / Service</label>
+                  <input 
+                    type="text" 
+                    value={editingLead.service || ''}
+                    onChange={e => setEditingLead(prev => prev ? ({ ...prev, service: e.target.value }) : null)}
                     className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
@@ -549,6 +638,19 @@ export default function LeadManagementView({ leads, onUpdateStatus, onAddLead, o
                     onChange={e => setEditingLead(prev => prev ? ({ ...prev, source: e.target.value }) : null)}
                     className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"
                   />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Status</label>
+                  <select 
+                    value={editingLead.status}
+                    onChange={e => setEditingLead(prev => prev ? ({ ...prev, status: e.target.value as Lead['status'] }) : null)}
+                    className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 appearance-none"
+                  >
+                    <option value="New">New</option>
+                    <option value="Contacted">Contacted</option>
+                    <option value="Converted">Converted</option>
+                    <option value="Cold">Cold</option>
+                  </select>
                 </div>
                 <div className="flex gap-4 pt-4 md:col-span-2">
                   <Button 

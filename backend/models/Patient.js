@@ -12,9 +12,12 @@ const patientSchema = new mongoose.Schema({
     diagnosis: { type: String },
     address: { type: String },
     therapyType: [{
-        type: String,
-        enum: ['physiotherapy', 'speech_therapy', 'occupational_therapy', 'aba_therapy', 'autism_therapy']
+        type: String
     }],
+    // Service from the Services catalogue
+    serviceId: { type: mongoose.Schema.ObjectId, ref: 'Service', default: null },
+    // Total fee captured at time of onboarding (denormalised for billing reference)
+    totalFee: { type: Number, default: 0 },
     branchId: { type: mongoose.Schema.ObjectId, ref: 'Branch', required: true },
     assignedTherapist: { type: mongoose.Schema.ObjectId, ref: 'User', default: null },
     admissionDate: { type: Date, default: Date.now },

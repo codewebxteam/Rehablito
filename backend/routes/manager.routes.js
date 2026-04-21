@@ -4,6 +4,7 @@ const { protect } = require('../middleware/auth.middleware');
 const { authorize } = require('../middleware/role.middleware');
 
 const { getBranches } = require('../controllers/branch.controller');
+const { getServices, createService, updateService, deleteService } = require('../controllers/service.controller');
 
 // ── Manager Controllers ──
 const {
@@ -49,6 +50,18 @@ router.use(protect, authorize('super_admin', 'branch_manager'));
 
 // GET /api/manager/branches → for dropdowns
 router.get('/branches', getBranches);
+
+// ════════════════════════════════════════════════
+// ██  Services (branch-scoped)
+// ════════════════════════════════════════════════
+
+// GET    /api/manager/services      → Services available to manager's branch
+// POST   /api/manager/services      → Create service (auto-scoped to manager's branch)
+router.route('/services').get(getServices).post(createService);
+
+// PUT    /api/manager/services/:id  → Edit service (branch-scoped)
+// DELETE /api/manager/services/:id  → Delete service (branch-scoped)
+router.route('/services/:id').put(updateService).delete(deleteService);
 
 // ════════════════════════════════════════════════
 // ██  Patient Onboarding

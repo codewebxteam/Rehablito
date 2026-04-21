@@ -53,6 +53,10 @@ function ShellInner({ children }: SuperAdminShellProps) {
       title: 'Branches',
       subtitle: 'Manage and configure branch locations'
     },
+    services: {
+      title: 'Therapy Services',
+      subtitle: 'Manage common therapy services and dynamic base pricing'
+    },
     settings: {
       title: 'System Settings',
       subtitle: 'Configure platform-wide preferences'

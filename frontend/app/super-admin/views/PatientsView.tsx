@@ -7,6 +7,7 @@ import api from '@/lib/api';
 import { toast } from 'sonner';
 import { AddPatientModal } from '../components/AddPatientModal';
 import { useBranch } from '../components/BranchContext';
+import { useAddTransaction } from '../components/AddTransactionContext';
 
 // --- Types ---
 interface Patient {
@@ -22,6 +23,7 @@ interface Patient {
   branch: string;
   status: 'Active' | 'Discharged' | 'Critical';
   lastVisit: string;
+  totalFee?: number;
 }
 
 type PatientStatusFilter = 'All' | Patient['status'];
@@ -38,6 +40,7 @@ interface ApiPatient {
   branchId?: { _id: string; name: string } | null;
   status: 'active' | 'discharged' | 'on_hold';
   admissionDate: string;
+  totalFee?: number;
 }
 
 // Default fallback data
@@ -64,7 +67,8 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
     condition: p.condition,
     branch: p.branchId?._id || '',
     status: (p.status === 'active' ? 'Active' : p.status === 'discharged' ? 'Discharged' : 'Critical') as Patient['status'],
-    lastVisit: p.admissionDate ? new Date(p.admissionDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'
+    lastVisit: p.admissionDate ? new Date(p.admissionDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A',
+    totalFee: p.totalFee
   }));
 
   const hasServerData = !!initialData;
@@ -74,6 +78,7 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
   const [branches, setBranches] = useState<Branch[]>(initialData?.branches || []);
   const [isLoading, setIsLoading] = useState(!hasServerData);
   const { selectedBranchId } = useBranch();
+  const { openModal } = useAddTransaction();
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -335,6 +340,7 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Therapy</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Contact</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Branch</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70 text-right">Fee (₹)</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Status</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70 text-right">Action</th>
                 </tr>
@@ -368,6 +374,9 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
                   </td>
                   <td className="px-6 py-4 text-sm font-medium text-on-surface-variant whitespace-nowrap">{patient.parentPhone || 'N/A'}</td>
                   <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{branches.find(b => b._id === patient.branch)?.name || 'Unknown'}</td>
+                  <td className="px-6 py-4 text-right">
+                    <span className="text-sm font-black text-on-surface">₹{(patient.totalFee || 0).toLocaleString()}</span>
+                  </td>
                   <td className="px-6 py-4">
                     <span className={cn(
                       "px-3 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-wider inline-block",
@@ -392,6 +401,17 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
 
                       {activeMenu === patient.id && (
                         <div className="absolute right-0 mt-2 w-44 rounded-xl border border-outline-variant/20 bg-surface-container-lowest shadow-xl p-1.5 z-20">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openModal({ patientId: patient._id, branchId: patient.branch });
+                              setActiveMenu(null);
+                            }}
+                            className="w-full px-3 py-2 text-left text-sm rounded-lg text-secondary hover:bg-secondary/10 flex items-center gap-2 font-semibold"
+                          >
+                            <CreditCard size={14} />
+                            Add Payment
+                          </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -579,11 +599,23 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
                         <span className="w-1 h-1 rounded-full bg-slate-400"></span>
                         Therapy Program
                       </h4>
-                      <p className="text-[14px] font-bold text-slate-700 bg-slate-50/80 p-4 rounded-xl border border-slate-100">
-                         {viewingPatient.therapyType && viewingPatient.therapyType.length > 0 
-                            ? viewingPatient.therapyType.map(t => t.replace(/_/g, ' ')).join(', ').toUpperCase()
-                            : (viewingPatient.condition?.toUpperCase() || 'UNSPECIFIED')}
-                      </p>
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        <div className="flex-1 bg-slate-50/80 p-4 rounded-xl border border-slate-100">
+                          <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Program Details</p>
+                          <p className="text-[14px] font-bold text-slate-700">
+                            {viewingPatient.therapyType && viewingPatient.therapyType.length > 0 
+                                ? viewingPatient.therapyType.map(t => t.replace(/_/g, ' ')).join(', ').toUpperCase()
+                                : (viewingPatient.condition?.toUpperCase() || 'UNSPECIFIED')}
+                          </p>
+                        </div>
+                        {viewingPatient.totalFee && (
+                          <div className="bg-slate-900 p-4 rounded-xl shadow-lg sm:min-w-[180px]">
+                            <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Prescribed Fee</p>
+                            <p className="text-[18px] font-black text-white">₹{viewingPatient.totalFee.toLocaleString()}</p>
+                            <p className="text-[9px] font-bold text-slate-500 mt-1 uppercase">Standard Rate</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
 

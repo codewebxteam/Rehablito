@@ -14,9 +14,15 @@ export interface NewTransaction {
   branchId?: { _id: string; name: string } | null;
 }
 
+export interface AddTransactionInitPayload {
+  patientId?: string;
+  branchId?: string;
+}
+
 interface AddTransactionCtx {
   isOpen: boolean;
-  openModal: () => void;
+  initialPayload: AddTransactionInitPayload | null;
+  openModal: (payload?: AddTransactionInitPayload) => void;
   closeModal: () => void;
   /** Called by FinanceView to receive newly saved transactions */
   onSaved: (tx: NewTransaction) => void;
@@ -39,11 +45,18 @@ const ctx = createContext<AddTransactionCtx | null>(null);
 
 export function AddTransactionProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [initialPayload, setInitialPayload] = useState<AddTransactionInitPayload | null>(null);
   const [savedHandler, setSavedHandler] = useState<((tx: NewTransaction) => void) | null>(null);
   const [liveFeedItems, setLiveFeedItems] = useState<LiveFeedItem[]>([]);
 
-  const openModal = useCallback(() => setIsOpen(true), []);
-  const closeModal = useCallback(() => setIsOpen(false), []);
+  const openModal = useCallback((payload?: AddTransactionInitPayload) => {
+    if (payload) setInitialPayload(payload);
+    setIsOpen(true);
+  }, []);
+  const closeModal = useCallback(() => {
+    setIsOpen(false);
+    setTimeout(() => setInitialPayload(null), 300);
+  }, []);
 
   const onSaved = useCallback((tx: NewTransaction) => {
     if (savedHandler) savedHandler(tx);
@@ -58,7 +71,7 @@ export function AddTransactionProvider({ children }: { children: React.ReactNode
   }, []);
 
   return (
-    <ctx.Provider value={{ isOpen, openModal, closeModal, onSaved, registerSavedHandler, liveFeedItems, pushLiveFeedItem }}>
+    <ctx.Provider value={{ isOpen, initialPayload, openModal, closeModal, onSaved, registerSavedHandler, liveFeedItems, pushLiveFeedItem }}>
       {children}
     </ctx.Provider>
   );

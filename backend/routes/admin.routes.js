@@ -10,6 +10,7 @@ const { getPatients, createPatient, updatePatient, getPatientStats } = require('
 const { getFees, createFee, getFeeSummary } = require('../controllers/fee.controller');
 const { getDashboardData } = require('../controllers/dashboard.controller');
 const { getStaff, createStaff, updateStaff, deleteStaff, transferStaff, getAttendance, markAttendance, getAttendanceStats } = require('../controllers/staff.controller');
+const { getServices, createService, updateService, deleteService } = require('../controllers/service.controller');
 
 // All routes require super_admin
 router.use(protect, authorize('super_admin'));
@@ -41,5 +42,9 @@ router.route('/staff/:id').put(updateStaff).delete(deleteStaff);
 router.put('/staff/:id/transfer', transferStaff);
 router.get('/attendance/stats', getAttendanceStats);
 router.route('/attendance').get(getAttendance).post(markAttendance);
+
+// ── Services ──
+router.route('/services').get(getServices).post(createService);
+router.route('/services/:id').put(updateService).delete(deleteService);
 
 module.exports = router;

@@ -54,6 +54,8 @@ interface ApiLead {
   parentName?: string;
   parentPhone?: string;
   parentEmail?: string;
+  age?: number;
+  diagnosis?: string;
   referredBy?: string;
   status: ApiLeadStatus;
   createdAt: string;
@@ -76,7 +78,11 @@ const uiToApiStatus = (s: Lead['status']): ApiLeadStatus => {
 const apiLeadToUi = (l: ApiLead): Lead => ({
   id: l._id,
   name: l.childName || l.parentName || 'Unknown',
+  parentName: l.parentName,
   phone: l.parentPhone || '',
+  email: l.parentEmail,
+  age: l.age,
+  service: l.diagnosis,
   source: l.referredBy || 'Direct',
   status: apiToUiStatus(l.status),
   dateReceived: new Date(l.createdAt).toISOString().split('T')[0],
@@ -117,6 +123,8 @@ interface ApiPatient {
   parentPhone?: string;
   admissionDate?: string;
   createdAt?: string;
+  totalFee?: number;
+  serviceId?: string;
 }
 
 const capitalize = (s?: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
@@ -133,6 +141,8 @@ const apiPatientToUi = (p: ApiPatient): Patient => ({
   address: p.address,
   phone: p.parentPhone || '',
   onboardedAt: p.admissionDate || p.createdAt || new Date().toISOString(),
+  totalFee: p.totalFee ?? 0,
+  serviceId: p.serviceId,
 });
 
 // ── Billing API types & mappers ──
@@ -348,8 +358,11 @@ export default function ManagerDashboardApp() {
     try {
       const payload = {
         childName: lead.name,
-        parentName: lead.name,
+        parentName: lead.parentName || lead.name,
         parentPhone: lead.phone,
+        parentEmail: lead.email,
+        age: lead.age,
+        diagnosis: lead.service,
         referredBy: lead.source || undefined,
         status: uiToApiStatus(lead.status),
       };
@@ -373,8 +386,11 @@ export default function ManagerDashboardApp() {
     try {
       const payload = {
         childName: updatedLead.name,
-        parentName: updatedLead.name,
+        parentName: updatedLead.parentName || updatedLead.name,
         parentPhone: updatedLead.phone,
+        parentEmail: updatedLead.email,
+        age: updatedLead.age,
+        diagnosis: updatedLead.service,
         referredBy: updatedLead.source || undefined,
         status: uiToApiStatus(updatedLead.status),
       };
@@ -720,7 +736,7 @@ export default function ManagerDashboardApp() {
                 <PatientOnboardingView onOnboard={addPatient} />
               )}
               { currentView === 'patients' && (
-              <PatientsListView patients={patients} billing={billing} onDelete={deletePatient} onUpdate={updatePatientRecord} />
+              <PatientsListView patients={patients} billing={billing} onDelete={deletePatient} onUpdate={updatePatientRecord} onAddPayment={addBilling} />
               )}
               {currentView === 'leads' && (
                 <LeadManagementView

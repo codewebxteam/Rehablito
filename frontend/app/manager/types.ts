@@ -10,12 +10,18 @@ export interface Patient {
   address?: string;
   phone: string;
   onboardedAt: string;
+  totalFee?: number;
+  serviceId?: string;
 }
 
 export interface Lead {
   id: string;
   name: string;
+  parentName?: string;
   phone: string;
+  email?: string;
+  age?: number;
+  service?: string;
   source: string;
   status: 'New' | 'Contacted' | 'Converted' | 'Cold' | 'Hot' | 'In Discussion';
   dateReceived: string;

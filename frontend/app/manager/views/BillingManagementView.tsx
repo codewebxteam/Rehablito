@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useMemo } from 'react';
 import { 
   TrendingUp, 
@@ -42,6 +42,10 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
     method: 'cash' as NonNullable<BillingRecord['method']>,
   });
   const formatINR = (amount: number | string) => `\u20B9${amount}`;
+
+  // Derived: selected patient's total fee
+  const selectedPatient = patients.find(p => p.id === newPayment.patientId) || null;
+  const patientTotalFee = selectedPatient?.totalFee ?? 0;
 
   const stats = useMemo(() => {
     const total = billing.reduce((acc, curr) => acc + curr.amountPaid, 0);
@@ -540,30 +544,54 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                   <select
                     required
                     value={newPayment.patientId}
-                    onChange={e => setNewPayment(prev => ({ ...prev, patientId: e.target.value }))}
+                    onChange={e => {
+                      const pid = e.target.value;
+                      const pat = patients.find(p => p.id === pid);
+                      const fee = pat?.totalFee ?? 0;
+                      setNewPayment(prev => ({
+                        ...prev,
+                        patientId: pid,
+                        // Auto-fill due as totalFee when patient changes
+                        dueAmount: fee > 0 ? String(fee) : prev.dueAmount,
+                      }));
+                    }}
                     className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"
                   >
                     <option value="">Select a patient</option>
                     {patients.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
+                      <option key={p.id} value={p.id}>{p.name}{p.totalFee ? ` — ₹${p.totalFee.toLocaleString()} total` : ''}</option>
                     ))}
                   </select>
+                  {patientTotalFee > 0 && (
+                    <div className="mt-1.5 flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/8 border border-secondary/20">
+                      <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">Service Fee (Reference)</span>
+                      <span className="text-sm font-black text-on-surface">₹{patientTotalFee.toLocaleString()}</span>
+                    </div>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Amount (₹)</label>
+                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Amount Paid (₹)</label>
                     <input
                       type="number"
                       required
                       min={0}
                       value={newPayment.amount}
-                      onChange={e => setNewPayment(prev => ({ ...prev, amount: e.target.value }))}
+                      onChange={e => {
+                        const paid = parseFloat(e.target.value) || 0;
+                        const due = patientTotalFee > 0 ? Math.max(0, patientTotalFee - paid) : undefined;
+                        setNewPayment(prev => ({
+                          ...prev,
+                          amount: e.target.value,
+                          dueAmount: due !== undefined ? String(due) : prev.dueAmount,
+                        }));
+                      }}
                       className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"
                       placeholder="1200"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Due (₹)</label>
+                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Due Amount (₹)</label>
                     <input
                       type="number"
                       min={0}

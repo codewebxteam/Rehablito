@@ -13,6 +13,13 @@ interface Branch {
   name: string;
 }
 
+interface ServiceOption {
+  _id: string;
+  name: string;
+  price: number;
+  unit: 'session' | 'month';
+}
+
 interface AddPatientModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -23,20 +30,17 @@ interface AddPatientModalProps {
 const INPUT_CLASS = 'w-full bg-surface-container-lowest border border-outline-variant/30 rounded-xl py-3 px-4 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all placeholder:text-on-surface-variant/40';
 const LABEL_CLASS = 'block text-[11px] font-black uppercase tracking-wider text-on-surface-variant/60 mb-1.5';
 
-const THERAPY_OPTIONS = [
-  { value: 'physiotherapy', label: 'Physiotherapy' },
-  { value: 'speech_therapy', label: 'Speech Therapy' },
-  { value: 'occupational_therapy', label: 'Occupational Therapy' },
-  { value: 'aba_therapy', label: 'ABA Therapy' },
-  { value: 'autism_therapy', label: 'Autism Therapy' },
-];
-
 export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPatientModalProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [services, setServices] = useState<ServiceOption[]>([]);
 
   useEffect(() => {
     setMounted(true);
+    // Fetch services from DB
+    api.get('/admin/services').then(({ data }) => {
+      if (data.success) setServices(data.data);
+    }).catch(() => {});
   }, []);
 
   const [form, setForm] = useState({
@@ -45,8 +49,12 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
     parentPhone: '',
     address: '',
     branchId: '',
-    therapyType: '',    // Single mapping to array
+    serviceId: '',      // Service from DB
+    therapyType: '',    // legacy fallback
   });
+
+  // Derived: selected service
+  const selectedService = services.find(s => s._id === form.serviceId) || null;
 
   // reset on close
   useEffect(() => {
@@ -57,6 +65,7 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
         parentPhone: '',
         address: '',
         branchId: '',
+        serviceId: '',
         therapyType: '',
       });
     }
@@ -85,8 +94,15 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
         const rawPhone = form.parentPhone.trim();
         payload.parentPhone = rawPhone.startsWith('+') ? rawPhone : `+91 ${rawPhone}`;
       }
-      
-      if (form.therapyType) {
+
+      if (form.serviceId) {
+        payload.serviceId = form.serviceId;
+        payload.totalFee = selectedService?.price ?? 0;
+        // Also populate therapyType for backward compat
+        if (selectedService) {
+          payload.therapyType = [selectedService.name.toLowerCase().replace(/ /g, '_')];
+        }
+      } else if (form.therapyType) {
         payload.therapyType = [form.therapyType];
       }
 
@@ -187,15 +203,21 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
                      {/* Therapy Type */}
                      <div className="space-y-4">
                        <h4 className="text-[12px] font-black uppercase text-slate-800 tracking-wider">Clinical details</h4>
-                       <div className="space-y-3">
-                          <label className={LABEL_CLASS}>Therapy Name</label>
-                          <select value={form.therapyType} onChange={(e) => set('therapyType', e.target.value)} className={cn(INPUT_CLASS, 'appearance-none cursor-pointer bg-white')}>
-                            <option value="">No therapy specified</option>
-                            {THERAPY_OPTIONS.map(opt => (
-                              <option key={opt.value} value={opt.value}>{opt.label}</option>
-                            ))}
-                          </select>
-                       </div>
+                        <div className="space-y-3">
+                           <label className={LABEL_CLASS}>Service / Therapy Name</label>
+                           <select value={form.serviceId} onChange={(e) => set('serviceId', e.target.value)} className={cn(INPUT_CLASS, 'appearance-none cursor-pointer bg-white')}>
+                             <option value="">No service selected</option>
+                             {services.map(s => (
+                               <option key={s._id} value={s._id}>{s.name} — ₹{s.price.toLocaleString()} / {s.unit}</option>
+                             ))}
+                           </select>
+                           {selectedService && (
+                             <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-blue-50 border border-blue-100">
+                               <span className="text-[10px] font-black uppercase tracking-wider text-blue-600">Total Fee</span>
+                               <span className="text-sm font-black text-slate-800">₹{selectedService.price.toLocaleString()} / {selectedService.unit}</span>
+                             </div>
+                           )}
+                        </div>
                      </div>
 
                      {/* Address */}

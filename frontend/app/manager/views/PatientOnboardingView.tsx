@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useRef, useEffect } from 'react';
 import {
   AlertCircle,
@@ -15,14 +15,14 @@ import { cn } from '../lib/utils';
 import React from 'react';
 import api from '@/lib/api';
 import { generatePatientPDF } from '../lib/generatePatientPDF';
+import { useAuth } from '@/app/context/AuthContext';
 
-const THERAPY_OPTIONS = [
-  { value: 'physiotherapy',        label: 'Physiotherapy' },
-  { value: 'speech_therapy',       label: 'Speech Therapy' },
-  { value: 'occupational_therapy', label: 'Occupational Therapy' },
-  { value: 'aba_therapy',          label: 'ABA Therapy' },
-  { value: 'autism_therapy',       label: 'Autism Therapy' },
-];
+interface ServiceOption {
+  _id: string;
+  name: string;
+  price: number;
+  unit: 'session' | 'month';
+}
 
 const GENDER_OPTIONS = [
   { value: 'male',   label: 'Male' },
@@ -62,14 +62,14 @@ function CustomSelect({
           'hover:border-primary/50'
         )}
       >
-        <span className={cn('flex items-center gap-2.5 text-sm font-medium', selected ? 'text-on-surface' : 'text-on-surface-variant/50')}>
+        <div className={cn('flex items-center gap-2.5 flex-1 min-w-0 text-sm font-medium', selected ? 'text-on-surface' : 'text-on-surface-variant/50')}>
           {selected ? (
             <>
-              {selected.icon && <span className="text-base leading-none">{selected.icon}</span>}
-              {selected.label}
+              {selected.icon && <span className="text-base leading-none shrink-0">{selected.icon}</span>}
+              <span className="truncate text-left block w-full">{selected.label}</span>
             </>
-          ) : placeholder}
-        </span>
+          ) : <span className="truncate text-left block w-full">{placeholder}</span>}
+        </div>
         <ChevronDown size={16} className={cn('text-on-surface-variant transition-transform shrink-0', open && 'rotate-180')} />
       </button>
 
@@ -113,12 +113,14 @@ interface PatientOnboardingProps {
 }
 
 export default function PatientOnboardingView({ onOnboard }: PatientOnboardingProps) {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     patientId: '',
     name: '',
     parentName: '',
     age: '',
     gender: '',
+    serviceId: '',
     therapyType: '',
     diagnosis: '',
     address: '',
@@ -126,19 +128,27 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
     phone: ''
   });
   const [branches, setBranches] = useState<{ _id: string; name: string }[]>([]);
+  const [services, setServices] = useState<ServiceOption[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lastOnboarded, setLastOnboarded] = useState<Patient | null>(null);
+
+  // Derived: selected service object
+  const selectedService = services.find(s => s._id === formData.serviceId) || null;
 
   useEffect(() => {
     api.get('/manager/branches').then(({ data }) => {
       if (data.success) setBranches(data.data);
     }).catch(() => {});
 
+    api.get('/manager/services').then(({ data }) => {
+      if (data.success) setServices(data.data);
+    }).catch(() => {});
+
     // Auto-generate patient ID
     const id = `RX-${Date.now().toString().slice(-6)}`;
-    setFormData(prev => ({ ...prev, patientId: id }));
-  }, []);
+    setFormData(prev => ({ ...prev, patientId: id, branchId: user?.branchId || prev.branchId }));
+  }, [user]);
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
@@ -146,7 +156,7 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
     if (!formData.parentName) newErrors.parentName = 'Parent name is required';
     if (!formData.age) newErrors.age = 'Age is required';
     if (!formData.gender) newErrors.gender = 'Gender is required';
-    if (!formData.therapyType) newErrors.therapyType = 'Therapy type is required';
+    if (!formData.serviceId) newErrors.serviceId = 'Service is required';
     if (!formData.address) newErrors.address = 'Address is required';
     if (!formData.branchId) newErrors.branchId = 'Branch is required';
     if (!formData.phone) {
@@ -169,7 +179,9 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
         parentName: formData.parentName,
         age: parseInt(formData.age),
         gender: formData.gender.toLowerCase(),
-        therapyType: [formData.therapyType],
+        therapyType: selectedService ? [selectedService.name.toLowerCase().replace(/ /g, '_')] : [],
+        serviceId: formData.serviceId || undefined,
+        totalFee: selectedService ? selectedService.price : 0,
         diagnosis: formData.diagnosis,
         address: formData.address,
         branchId: formData.branchId,
@@ -185,17 +197,19 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
         parentName: data.data.parentName,
         age: data.data.age ?? parseInt(formData.age),
         gender: formData.gender,
-        therapyType: formData.therapyType,
+        therapyType: selectedService?.name || formData.serviceId,
         condition: data.data.diagnosis ?? formData.diagnosis,
         address: data.data.address ?? formData.address,
         phone: data.data.parentPhone ?? `+91${formData.phone}`,
         onboardedAt: data.data.admissionDate || data.data.createdAt || new Date().toISOString(),
+        totalFee: data.data.totalFee ?? (selectedService ? selectedService.price : 0),
+        serviceId: formData.serviceId || undefined,
       };
 
       onOnboard(newPatient);
       setLastOnboarded(newPatient);
       const newId = `RX-${Date.now().toString().slice(-6)}`;
-      setFormData({ patientId: newId, name: '', parentName: '', age: '', gender: '', therapyType: '', diagnosis: '', address: '', branchId: '', phone: '' });
+      setFormData({ patientId: newId, name: '', parentName: '', age: '', gender: '', serviceId: '', therapyType: '', diagnosis: '', address: '', branchId: '', phone: '' });
 
       const doc = await generatePatientPDF(newPatient, 'Patient Onboarding Record');
       doc.save(`Onboarding_${newPatient.name.replace(/\s/g, '_')}.pdf`);
@@ -298,15 +312,21 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
               </div>
 
               <div className="space-y-2">
-                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Therapy Name</label>
+                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Service / Therapy</label>
                 <CustomSelect
-                  value={formData.therapyType}
-                  onChange={v => setFormData(prev => ({ ...prev, therapyType: v }))}
-                  options={THERAPY_OPTIONS}
-                  placeholder="Select therapy type"
-                  error={!!errors.therapyType}
+                  value={formData.serviceId}
+                  onChange={v => setFormData(prev => ({ ...prev, serviceId: v }))}
+                  options={services.map(s => ({ value: s._id, label: `${s.name} — ₹${s.price.toLocaleString()} / ${s.unit}` }))}
+                  placeholder={services.length === 0 ? 'No services available' : 'Select service'}
+                  error={!!errors.serviceId}
                 />
-                {errors.therapyType && <p className="text-[10px] text-error font-medium flex items-center gap-1 mt-1 px-1"><AlertCircle size={14} />{errors.therapyType}</p>}
+                {errors.serviceId && <p className="text-[10px] text-error font-medium flex items-center gap-1 mt-1 px-1"><AlertCircle size={14} />{errors.serviceId}</p>}
+                {selectedService && (
+                  <div className="mt-2 px-4 py-3 rounded-xl bg-secondary/8 border border-secondary/20 flex items-center justify-between">
+                    <span className="text-xs font-bold text-secondary">Total Fee</span>
+                    <span className="text-base font-black text-on-surface">₹{selectedService.price.toLocaleString()} <span className="text-xs font-normal text-on-surface-variant">/ {selectedService.unit}</span></span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -339,33 +359,19 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Branch</label>
-                <CustomSelect
-                  value={formData.branchId}
-                  onChange={v => setFormData(prev => ({ ...prev, branchId: v }))}
-                  options={branches.map(b => ({ value: b._id, label: b.name }))}
-                  placeholder="Select branch"
-                  error={!!errors.branchId}
-                />
-                {errors.branchId && <p className="text-[10px] text-error font-medium flex items-center gap-1 mt-1 px-1"><AlertCircle size={14} />{errors.branchId}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Address</label>
-                <input
-                  type="text"
-                  value={formData.address}
-                  onChange={e => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                  className={cn(
-                    "w-full bg-surface-container-lowest border rounded-2xl px-5 py-4 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all placeholder:text-on-surface-variant/40",
-                    errors.address ? "border-error" : "border-outline-variant/30"
-                  )}
-                  placeholder="e.g. 12, MG Road, Delhi"
-                />
-                {errors.address && <p className="text-[10px] text-error font-medium flex items-center gap-1 mt-1 px-1"><AlertCircle size={14} />{errors.address}</p>}
-              </div>
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Address</label>
+              <input
+                type="text"
+                value={formData.address}
+                onChange={e => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                className={cn(
+                  "w-full bg-surface-container-lowest border rounded-2xl px-5 py-4 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all placeholder:text-on-surface-variant/40",
+                  errors.address ? "border-error" : "border-outline-variant/30"
+                )}
+                placeholder="e.g. 12, MG Road, Delhi"
+              />
+              {errors.address && <p className="text-[10px] text-error font-medium flex items-center gap-1 mt-1 px-1"><AlertCircle size={14} />{errors.address}</p>}
             </div>
 
             <div className="space-y-2">

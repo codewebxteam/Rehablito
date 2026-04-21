@@ -13,6 +13,13 @@ interface Branch {
   name: string;
 }
 
+interface Patient {
+  _id: string;
+  name: string;
+  totalFee?: number;
+  branchId?: string | { _id: string };
+}
+
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
 const INPUT_CLASS =
@@ -21,34 +28,63 @@ const INPUT_CLASS =
 const LABEL_CLASS = 'block text-[11px] font-bold uppercase tracking-wider text-gray-500 mb-1.5';
 
 export function AddTransactionModal() {
-  const { isOpen, closeModal, onSaved, pushLiveFeedItem } = useAddTransaction();
+  const { isOpen, closeModal, onSaved, pushLiveFeedItem, initialPayload } = useAddTransaction();
 
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [fees, setFees] = useState<any[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   const [form, setForm] = useState({
     description: '',
     branchId: '',
+    patientId: '',
     method: 'cash' as 'cash' | 'upi' | 'bank_transfer' | 'card',
     date: todayIso(),
     amount: '',
+    dueAmount: '',
     status: 'pending' as 'paid' | 'partial' | 'overdue' | 'pending',
   });
 
-  // fetch branches once
+  // Derived: selected patient's total fee
+  const selectedPatient = patients.find(p => p._id === form.patientId) || null;
+  const initialBaseFee = selectedPatient?.totalFee ?? 0;
+  
+  const totalPaid = fees
+    .filter(f => {
+      const pId = typeof f.patientId === 'object' && f.patientId ? f.patientId._id : f.patientId;
+      return pId === form.patientId;
+    })
+    .reduce((sum, f) => sum + (Number(f.amount) || 0), 0);
+
+  const patientTotalFee = initialBaseFee > 0 ? Math.max(0, initialBaseFee - totalPaid) : 0;
+
+  // fetch branches, patients, and fees once
   useEffect(() => {
     if (!isOpen) return;
-    api.get('/admin/branches').then(res => {
-      if (res.data.success) setBranches(res.data.data || []);
+    Promise.all([
+      api.get('/admin/branches'),
+      api.get('/admin/patients'),
+      api.get('/admin/fees'),
+    ]).then(([bRes, pRes, fRes]) => {
+      if (bRes.data.success) setBranches(bRes.data.data || []);
+      if (pRes.data.success) setPatients(pRes.data.data || []);
+      if (fRes.data.success) setFees(fRes.data.data || []);
     }).catch(() => {});
   }, [isOpen]);
 
-  // reset on close
+  // reset on close or load initialPayload on open
   useEffect(() => {
     if (!isOpen) {
-      setForm({ description: '', branchId: '', method: 'cash', date: todayIso(), amount: '', status: 'pending' });
+      setForm({ description: '', branchId: '', patientId: '', method: 'cash', date: todayIso(), amount: '', dueAmount: '', status: 'pending' });
+    } else if (initialPayload) {
+      setForm(prev => ({
+        ...prev,
+        patientId: initialPayload.patientId || '',
+        branchId: initialPayload.branchId || ''
+      }));
     }
-  }, [isOpen]);
+  }, [isOpen, initialPayload]);
 
   const firstRef = useRef<HTMLInputElement>(null);
   useEffect(() => { if (isOpen) setTimeout(() => firstRef.current?.focus(), 80); }, [isOpen]);
@@ -62,6 +98,8 @@ export function AddTransactionModal() {
       setIsSaving(true);
       const payload = {
         amount: Number(form.amount),
+        dueAmount: Number(form.dueAmount) || 0,
+        patientId: form.patientId || undefined,
         branchId: form.branchId,
         method: form.method,
         paymentDate: form.date || todayIso(),
@@ -157,13 +195,16 @@ export function AddTransactionModal() {
                 </div>
 
                 {/* Branch + Method */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className={LABEL_CLASS}>Branch <span className="text-red-500">*</span></label>
                     <select
                       required
                       value={form.branchId}
-                      onChange={e => set('branchId', e.target.value)}
+                      onChange={e => {
+                        const bId = e.target.value;
+                        setForm(prev => ({ ...prev, branchId: bId }));
+                      }}
                       className={cn(INPUT_CLASS, 'appearance-none cursor-pointer')}
                     >
                       <option value="">Select branch</option>
@@ -173,7 +214,56 @@ export function AddTransactionModal() {
                     </select>
                   </div>
                   <div>
-                    <label className={LABEL_CLASS}>Method</label>
+                    <label className={LABEL_CLASS}>Patient</label>
+                    <select
+                      value={form.patientId}
+                      onChange={e => {
+                        const pId = e.target.value;
+                        const pat = patients.find(p => p._id === pId);
+                        const fee = pat?.totalFee ?? 0;
+                        const patPaid = fees
+                          .filter(f => (typeof f.patientId === 'object' ? f.patientId?._id : f.patientId) === pId)
+                          .reduce((sum, f) => sum + (Number(f.amount) || 0), 0);
+                        const currentDue = fee > 0 ? Math.max(0, fee - patPaid) : 0;
+
+                        setForm(prev => ({
+                          ...prev,
+                          patientId: pId,
+                          // Auto-fill due as currentDue when patient changes
+                          dueAmount: currentDue > 0 ? String(currentDue) : prev.dueAmount,
+                          // Auto-fill branch if patient has one
+                          branchId: pat?.branchId ? (typeof pat.branchId === 'string' ? pat.branchId : pat.branchId._id) : prev.branchId
+                        }));
+                      }}
+                      className={cn(INPUT_CLASS, 'appearance-none cursor-pointer')}
+                    >
+                      <option value="">Search patient...</option>
+                      {patients
+                        .filter(p => !form.branchId || (typeof p.branchId === 'string' ? p.branchId === form.branchId : p.branchId?._id === form.branchId))
+                        .map(p => (
+                          <option key={p._id} value={p._id}>{p.name}{p.totalFee ? ` — ₹${p.totalFee.toLocaleString()} total` : ''}</option>
+                        ))}
+                    </select>
+                  </div>
+                </div>
+
+                {patientTotalFee > 0 && (
+                  <div className="px-4 py-3 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-between mt-2">
+                    <div className="flex items-center gap-2">
+                       <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+                       <span className="text-[10px] font-black text-indigo-500 uppercase tracking-wider flex-shrink-0">Service Fee Ledger</span>
+                    </div>
+                    <div className="text-right">
+                       <span className="text-[11px] font-bold text-slate-500 block max-w-[150px] sm:max-w-none truncate">Total: ₹{initialBaseFee.toLocaleString()} • Paid: ₹{totalPaid.toLocaleString()}</span>
+                       <div className="text-sm font-black text-slate-800 uppercase">Outstanding: ₹{patientTotalFee.toLocaleString()}</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Method + Date */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className={LABEL_CLASS}>Payment Method</label>
                     <select
                       value={form.method}
                       onChange={e => set('method', e.target.value as typeof form.method)}
@@ -185,12 +275,8 @@ export function AddTransactionModal() {
                       <option value="bank_transfer">Bank Transfer</option>
                     </select>
                   </div>
-                </div>
-
-                {/* Date + Amount */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className={LABEL_CLASS}>Date</label>
+                    <label className={LABEL_CLASS}>Payment Date</label>
                     <input
                       type="date"
                       value={form.date}
@@ -198,16 +284,41 @@ export function AddTransactionModal() {
                       className={INPUT_CLASS}
                     />
                   </div>
+                </div>
+
+                {/* Amount + Due */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className={LABEL_CLASS}>Amount (₹) <span className="text-red-500">*</span></label>
+                    <label className={LABEL_CLASS}>Amount Paid (₹) <span className="text-red-500">*</span></label>
                     <input
                       type="number"
                       min={1}
                       placeholder="0.00"
                       value={form.amount}
-                      onChange={e => set('amount', e.target.value)}
+                      onChange={e => {
+                        const paid = parseFloat(e.target.value) || 0;
+                        const due = patientTotalFee > 0 ? Math.max(0, patientTotalFee - paid) : undefined;
+                        setForm(prev => ({
+                          ...prev,
+                          amount: e.target.value,
+                          dueAmount: due !== undefined ? String(due) : prev.dueAmount,
+                          // If due is 0, auto-set status to paid
+                          status: due === 0 ? 'paid' : (due && due > 0 ? 'partial' : prev.status)
+                        }));
+                      }}
                       className={INPUT_CLASS}
                       required
+                    />
+                  </div>
+                  <div>
+                    <label className={LABEL_CLASS}>Due Amount (₹)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      placeholder="0"
+                      value={form.dueAmount}
+                      onChange={e => set('dueAmount', e.target.value)}
+                      className={INPUT_CLASS}
                     />
                   </div>
                 </div>

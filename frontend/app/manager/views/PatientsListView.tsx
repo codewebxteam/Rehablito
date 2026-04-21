@@ -25,10 +25,11 @@ interface PatientsListViewProps {
   billing: BillingRecord[];
   onDelete: (id: string) => void;
   onUpdate: (patient: Patient) => void;
+  onAddPayment: (input: any) => Promise<any>;
 }
 
 // ── Dropdown Menu ──
-function CardMenu({ onView, onEdit, onDelete }: { onView: () => void; onEdit: () => void; onDelete: () => void }) {
+function CardMenu({ onView, onEdit, onDelete, onPay }: { onView: () => void; onEdit: () => void; onDelete: () => void; onPay: () => void }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -53,6 +54,7 @@ function CardMenu({ onView, onEdit, onDelete }: { onView: () => void; onEdit: ()
             className="absolute right-0 top-8 z-50 bg-white rounded-xl shadow-xl border border-outline-variant/20 w-40 overflow-hidden"
           >
             {[
+              { label: 'Add Payment', icon: CreditCard, action: onPay, cls: 'text-secondary' },
               { label: 'View', icon: Eye, action: onView, cls: 'text-primary' },
               { label: 'Edit', icon: Pencil, action: onEdit, cls: 'text-on-surface' },
               { label: 'Delete', icon: Trash2, action: onDelete, cls: 'text-error' },
@@ -188,6 +190,94 @@ function ViewModal({ patient, billing, onClose }: { patient: Patient; billing: B
             </button>
           </div>
         </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ── Quick Pay Modal ──
+function QuickPayModal({ patient, currentDue, currentPaid, onClose, onSave }: { patient: Patient; currentDue: number; currentPaid: number; onClose: () => void; onSave: (amount: number, due: number, method: string) => Promise<void> }) {
+  const [amount, setAmount] = useState('');
+  const [dueAmount, setDueAmount] = useState(String(currentDue));
+  const [method, setMethod] = useState('cash');
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const fee = patient.totalFee ?? 0;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!amount) return;
+    setIsProcessing(true);
+    try {
+      await onSave(parseFloat(amount), parseFloat(dueAmount || '0'), method);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 z-[100]">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-on-surface/40 backdrop-blur-sm" />
+      <motion.div initial={{ scale: 0.95, opacity: 0, y: 16 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.95, opacity: 0, y: 16 }}
+        className="relative bg-white w-full max-w-sm rounded-3xl shadow-2xl p-8 z-10">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <p className="text-[10px] font-bold text-secondary uppercase tracking-widest">Update Ledger</p>
+            <h2 className="text-xl font-extrabold text-on-surface mt-0.5">Quick Payment</h2>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-surface-container-low rounded-xl transition-colors">
+            <X size={18} className="text-on-surface-variant" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="p-4 bg-surface-container-lowest rounded-xl border border-outline-variant/20 shadow-sm">
+            <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Patient</p>
+            <p className="font-bold text-on-surface">{patient.name}</p>
+            {fee > 0 && (
+              <div className="mt-2 flex items-center justify-between text-sm py-1.5 px-3 bg-secondary/10 text-secondary rounded-lg font-bold border border-secondary/20">
+                <span className="text-[11px]">Total: ₹{fee} • Paid: ₹{currentPaid}</span>
+                <span className="uppercase text-xs font-black">Due: ₹{currentDue.toLocaleString()}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Amount Paid</label>
+              <input type="number" required min={0} value={amount}
+                onChange={e => {
+                  const paid = parseFloat(e.target.value) || 0;
+                  const newDue = currentDue > 0 ? Math.max(0, currentDue - paid) : undefined;
+                  setAmount(e.target.value);
+                  if (newDue !== undefined) setDueAmount(String(newDue));
+                }}
+                className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20" placeholder="0" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Due Amount</label>
+              <input type="number" min={0} value={dueAmount} onChange={e => setDueAmount(e.target.value)}
+                className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20" placeholder="0" />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Method</label>
+            <select value={method} onChange={e => setMethod(e.target.value)} className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 cursor-pointer appearance-none">
+              <option value="cash">Cash</option>
+              <option value="upi">UPI</option>
+              <option value="card">Card</option>
+              <option value="bank_transfer">Bank Transfer</option>
+            </select>
+          </div>
+
+          <div className="pt-4 flex gap-3">
+            <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl border border-outline-variant/30 text-on-surface-variant font-bold text-sm hover:bg-surface-container-low transition-colors">Cancel</button>
+            <button type="submit" disabled={isProcessing || !amount} className="flex-1 py-3 rounded-xl bg-secondary text-white font-bold text-sm hover:bg-secondary/90 disabled:opacity-50 transition-colors">
+              {isProcessing ? 'Saving...' : 'Record Payment'}
+            </button>
+          </div>
+        </form>
       </motion.div>
     </div>
   );
@@ -340,11 +430,25 @@ function DeleteConfirm({ name, onClose, onConfirm }: { name: string; onClose: ()
 }
 
 // ── Main View ──
-export default function PatientsListView({ patients, billing, onDelete, onUpdate }: PatientsListViewProps) {
+export default function PatientsListView({ patients, billing, onDelete, onUpdate, onAddPayment }: PatientsListViewProps) {
   const [search, setSearch] = useState('');
   const [viewPatient, setViewPatient] = useState<Patient | null>(null);
   const [editPatient, setEditPatient] = useState<Patient | null>(null);
+  const [payPatient, setPayPatient] = useState<Patient | null>(null);
   const [deleteId, setDeleteId] = useState<{ id: string; name: string } | null>(null);
+
+  const handleQuickPay = async (amount: number, dueAmount: number, method: string) => {
+    if (!payPatient) return;
+    await onAddPayment({
+      patientId: payPatient.id,
+      patientName: payPatient.name,
+      amount,
+      dueAmount,
+      description: 'Quick Payment',
+      method: method as any
+    });
+    setPayPatient(null);
+  };
 
   const filtered = patients.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -405,6 +509,7 @@ export default function PatientsListView({ patients, billing, onDelete, onUpdate
                     onView={() => setViewPatient(patient)}
                     onEdit={() => setEditPatient(patient)}
                     onDelete={() => setDeleteId({ id: patient.id, name: patient.name })}
+                    onPay={() => setPayPatient(patient)}
                   />
                 </div>
 
@@ -429,7 +534,13 @@ export default function PatientsListView({ patients, billing, onDelete, onUpdate
                   </div>
                 </div>
 
-                <div className="p-5 pt-4 border-t border-outline-variant/10 bg-surface-container-lowest grid grid-cols-2 gap-4">
+                <div className="p-5 pt-4 border-t border-outline-variant/10 bg-surface-container-lowest grid grid-cols-3 gap-2 sm:gap-4">
+                  <div className="space-y-1">
+                    <span className="flex items-center gap-1.5 text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
+                      <FileText size={12} className="text-on-surface-variant" /> Total
+                    </span>
+                    <p className="text-lg font-extrabold text-on-surface-variant">₹{(patient.totalFee || 0).toLocaleString()}</p>
+                  </div>
                   <div className="space-y-1">
                     <span className="flex items-center gap-1.5 text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
                       <CreditCard size={12} className="text-secondary" /> Paid
@@ -438,7 +549,7 @@ export default function PatientsListView({ patients, billing, onDelete, onUpdate
                   </div>
                   <div className="space-y-1">
                     <span className="flex items-center gap-1.5 text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
-                      <FileText size={12} className="text-error" /> Due
+                      <AlertCircle size={12} className="text-error" /> Due
                     </span>
                     <p className={cn('text-lg font-extrabold', stats.totalDue > 0 ? 'text-error' : 'text-on-surface-variant')}>
                       ₹{stats.totalDue.toLocaleString()}
@@ -453,6 +564,15 @@ export default function PatientsListView({ patients, billing, onDelete, onUpdate
 
       {/* Modals */}
       <AnimatePresence>
+        {payPatient && (
+          <QuickPayModal 
+            patient={payPatient} 
+            currentDue={getBillingStats(payPatient.id).totalDue}
+            currentPaid={getBillingStats(payPatient.id).totalPaid}
+            onClose={() => setPayPatient(null)} 
+            onSave={handleQuickPay} 
+          />
+        )}
         {viewPatient && <ViewModal patient={viewPatient} billing={billing} onClose={() => setViewPatient(null)} />}
         {editPatient && <EditModal patient={editPatient} onClose={() => setEditPatient(null)} onSave={onUpdate} />}
         {deleteId && <DeleteConfirm name={deleteId.name} onClose={() => setDeleteId(null)} onConfirm={() => onDelete(deleteId.id)} />}

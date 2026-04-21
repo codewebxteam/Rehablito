@@ -339,7 +339,7 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
                         {lead.source}
                       </span>
                       <div className="flex flex-col mt-1 space-y-0.5">
-                        <span className="text-xs text-on-surface-variant opacity-80">{maskPhoneNumber(lead.phone)}</span>
+                        <span className="text-xs text-on-surface-variant opacity-80">{lead.phone}</span>
                         {lead.email && <span className="text-[10px] text-on-surface-variant opacity-60 truncate max-w-[120px]">{lead.email}</span>}
                       </div>
                     </div>

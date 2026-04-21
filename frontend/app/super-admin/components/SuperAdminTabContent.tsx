@@ -26,6 +26,9 @@ const FinanceView = dynamic(() => import('../views/FinanceView').then(m => ({ de
 const BranchesView = dynamic(() => import('../views/BranchesView').then(m => ({ default: m.BranchesView })), {
   loading: () => <ViewSkeleton />,
 });
+const ServicesView = dynamic(() => import('../views/ServicesView').then(m => ({ default: m.ServicesView })), {
+  loading: () => <ViewSkeleton />,
+});
 const SettingsView = dynamic(() => import('../views/SettingsView').then(m => ({ default: m.SettingsView })), {
   loading: () => <ViewSkeleton />,
 });
@@ -57,6 +60,7 @@ const SuperAdminTabContent = React.memo(function SuperAdminTabContent({ tab, ini
   if (tab === 'attendance') return <AttendanceView initialData={initialData} />;
   if (tab === 'finance') return <FinanceView initialData={initialData} />;
   if (tab === 'branches') return <BranchesView initialData={initialData} />;
+  if (tab === 'services') return <ServicesView />;
   if (tab === 'settings') return <SettingsView />;
 
   return null;
