@@ -23,7 +23,7 @@ const getLogoBase64 = async (): Promise<string | null> => {
   }
 };
 
-export const generatePatientPDF = async (patient: Patient, title = 'Patient Registration Record') => {
+export const generatePatientPDF = async (patient: Patient & { branchName?: string }, title = 'Patient Registration Record') => {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = 210;
 
@@ -82,20 +82,32 @@ export const generatePatientPDF = async (patient: Patient, title = 'Patient Regi
   const labelColor: [number, number, number] = [100, 110, 130];
   const valueColor: [number, number, number] = [20, 25, 35];
 
-  const leftRows = [
-    ['Patient ID', patient.patientId || patient.id],
-    ['Patient Name', patient.name],
+  const isAdminView = !!patient.branchName;
+
+  const leftRows = isAdminView ? [
+    ['Patient ID',        patient.patientId || patient.id],
+    ['Child Name',        patient.name],
     ['Parent / Guardian', patient.parentName || '—'],
-    ['Age', `${patient.age} Years`],
-    ['Gender', patient.gender ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1) : '—'],
+    ['Phone Contact',     patient.phone || '—'],
+  ] : [
+    ['Patient ID',        patient.patientId || patient.id],
+    ['Patient Name',      patient.name],
+    ['Parent / Guardian', patient.parentName || '—'],
+    ['Age',               `${patient.age} Years`],
+    ['Gender',            patient.gender ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1) : '—'],
   ];
 
-  const rightRows = [
-    ['Contact No.', patient.phone || '—'],
-    ['Therapy Type', THERAPY_LABELS[patient.therapyType || ''] || patient.therapyType || '—'],
-    ['Onboarding Date', new Date(patient.onboardedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })],
-    ['Status', 'Active'],
-    ['Address', patient.address || '—'],
+  const rightRows = isAdminView ? [
+    ['Service / Therapy', THERAPY_LABELS[patient.therapyType || ''] || patient.therapyType || '—'],
+    ['Branch',            patient.branchName || '—'],
+    ['Address',           patient.address || '—'],
+    ['Onboarding Date',   new Date(patient.onboardedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })],
+  ] : [
+    ['Contact No.',       patient.phone || '—'],
+    ['Therapy Type',      THERAPY_LABELS[patient.therapyType || ''] || patient.therapyType || '—'],
+    ['Onboarding Date',   new Date(patient.onboardedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })],
+    ['Status',            'Active'],
+    ['Address',           patient.address || '—'],
   ];
 
   const rowH = 14;

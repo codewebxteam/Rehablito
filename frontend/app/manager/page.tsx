@@ -714,7 +714,7 @@ export default function ManagerDashboardApp() {
         </header>
 
         {/* Content Area */}
-        <div className="pt-28 md:pt-32 px-4 md:px-8 pb-12 max-w-7xl mx-auto w-full overflow-x-hidden">
+        <div className="pt-28 md:pt-32 px-4 md:px-8 pb-12 max-w-7xl mx-auto w-full">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentView}

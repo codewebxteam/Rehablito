@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Plus, Pencil, Trash2, X, Check, Stethoscope, Loader2, Building2 } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 import api from '@/lib/api';
 
@@ -22,6 +23,7 @@ export const ServicesView = () => {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [mounted, setMounted] = useState(false);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ ...EMPTY_FORM });
@@ -43,6 +45,7 @@ export const ServicesView = () => {
   }, []);
 
   useEffect(() => {
+    setMounted(true);
     fetchServices();
     api.get('/admin/branches').then(({ data }) => {
       if (data.success) setBranches(data.data);
@@ -166,80 +169,144 @@ export const ServicesView = () => {
       </div>
 
       {/* Table */}
-      <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden">
-        {/* Table header */}
-        <div className="hidden sm:grid grid-cols-12 px-6 py-4 bg-surface-container-low/30 border-b border-outline-variant/10">
-          <span className="col-span-1 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">#</span>
-          <span className="col-span-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Therapy / Service</span>
-          <span className="col-span-2 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Base Price (₹)</span>
-          <span className="col-span-3 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Branch</span>
-          <span className="col-span-2 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70 text-right">Actions</span>
+      <div className="bg-white rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden">
+        {/* Desktop header */}
+        <div className="hidden md:grid grid-cols-12 px-6 py-3.5 border-b border-outline-variant/10" style={{background:'linear-gradient(to right,#f0f5ff,#f8faff)'}}>
+          <span className="col-span-1 text-[10px] font-black text-[#004aad]/50 uppercase tracking-widest">#</span>
+          <span className="col-span-4 text-[10px] font-black text-[#004aad]/50 uppercase tracking-widest">Therapy / Service</span>
+          <span className="col-span-2 text-[10px] font-black text-[#004aad]/50 uppercase tracking-widest text-center">Price</span>
+          <span className="col-span-3 text-[10px] font-black text-[#004aad]/50 uppercase tracking-widest text-center">Branches</span>
+          <span className="col-span-2 text-[10px] font-black text-[#004aad]/50 uppercase tracking-widest text-right">Actions</span>
         </div>
 
         {loading ? (
-          <div className="py-16 flex items-center justify-center gap-3 text-on-surface-variant">
-            <Loader2 className="animate-spin" size={24} />
-            <span className="text-sm font-bold">Loading services...</span>
+          <div className="py-20 flex flex-col items-center justify-center gap-3">
+            <div className="w-10 h-10 rounded-full border-4 border-[#004aad]/20 border-t-[#004aad] animate-spin" />
+            <span className="text-sm font-medium text-on-surface-variant">Loading services...</span>
           </div>
         ) : error ? (
           <div className="py-16 text-center text-error text-sm font-bold">{error}</div>
         ) : services.length === 0 ? (
-          <div className="py-16 text-center">
-            <div className="w-16 h-16 rounded-full bg-surface-container-low mx-auto flex items-center justify-center mb-4">
-              <Stethoscope className="text-on-surface-variant opacity-50" size={32} />
+          <div className="py-20 text-center space-y-3">
+            <div className="w-16 h-16 rounded-2xl bg-[#004aad]/8 flex items-center justify-center mx-auto">
+              <Stethoscope size={28} className="text-[#004aad]/50" />
             </div>
-            <p className="text-on-surface-variant text-sm font-bold opacity-70">No services configured yet.</p>
+            <p className="text-on-surface-variant text-sm font-semibold">No services configured yet.</p>
+            <p className="text-on-surface-variant/50 text-xs">Click Add Service to get started.</p>
           </div>
         ) : (
-          <div className="divide-y divide-surface-container-low/50">
-            {services.map((service, idx) => (
-              <motion.div
-                key={service._id}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.04 }}
-                className="grid grid-cols-1 sm:grid-cols-12 items-center gap-4 sm:gap-0 px-6 py-5 hover:bg-surface-container-low/20 transition-colors group"
-              >
-                <span className="hidden sm:block col-span-1 text-sm font-black text-on-surface-variant opacity-40">{idx + 1}</span>
-                <div className="col-span-1 sm:col-span-4 flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                    <Stethoscope size={20} className="text-primary" />
+          <>
+            {/* Desktop rows */}
+            <div className="hidden md:block divide-y divide-outline-variant/8">
+              {services.map((service, idx) => (
+                <motion.div
+                  key={service._id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.05 }}
+                  className={cn(
+                    'grid grid-cols-12 items-center px-6 py-4 transition-colors group',
+                    idx % 2 === 0 ? 'bg-white' : 'bg-blue-50/30'
+                  )}
+                >
+                  <span className="col-span-1 text-sm font-black text-on-surface-variant/30">{String(idx + 1).padStart(2, '0')}</span>
+
+                  <div className="col-span-4 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm"
+                      style={{background:'linear-gradient(135deg,#004aad15,#004aad25)'}}>
+                      <Stethoscope size={15} className="text-[#004aad]" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-on-surface">{service.name}</p>
+                      {service.description && <p className="text-[10px] text-on-surface-variant/50 mt-0.5">{service.description}</p>}
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-base font-bold text-on-surface">{service.name}</span>
-                    {service.description && <p className="text-xs text-on-surface-variant/60 mt-0.5">{service.description}</p>}
+
+                  <div className="col-span-2 flex items-center justify-center">
+                    <span className="inline-flex items-baseline gap-1 bg-[#004aad]/8 px-3 py-1.5 rounded-xl">
+                      <span className="text-sm font-black text-[#004aad]">₹{service.price.toLocaleString()}</span>
+                      <span className="text-[9px] font-bold text-[#004aad]/50 uppercase">/{service.unit}</span>
+                    </span>
                   </div>
-                </div>
-                <div className="col-span-1 sm:col-span-2 flex items-baseline gap-1">
-                  <span className="text-sm font-medium text-on-surface-variant sm:hidden">Price:</span>
-                  <span className="text-base font-black text-on-surface">₹{service.price.toLocaleString()}</span>
-                  <span className="text-xs font-bold text-on-surface-variant opacity-60 uppercase">/ {service.unit}</span>
-                </div>
-                <div className="col-span-1 sm:col-span-3 flex flex-wrap gap-1">
-                  {branchLabel(service)}
-                </div>
-                <div className="col-span-1 sm:col-span-2 flex items-center justify-start sm:justify-end gap-2 mt-2 sm:mt-0">
-                  <button onClick={() => startEdit(service)}
-                    className="p-2.5 rounded-xl bg-surface-container text-on-surface-variant hover:text-primary hover:bg-primary/10 transition-colors border border-outline-variant/10">
-                    <Pencil size={18} />
-                  </button>
-                  <button onClick={() => deleteService(service._id)}
-                    className="p-2.5 rounded-xl bg-surface-container text-on-surface-variant hover:text-error hover:bg-error/10 transition-colors border border-outline-variant/10">
-                    <Trash2 size={18} />
-                  </button>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+
+                  <div className="col-span-3 flex flex-wrap gap-1 items-center justify-center">
+                    {service.branchIds.length === 0
+                      ? <span className="px-2.5 py-1 rounded-full bg-secondary/10 text-secondary text-[10px] font-bold border border-secondary/20">All Branches</span>
+                      : service.branchIds.slice(0, 2).map(b => (
+                          <span key={b._id} className="px-2.5 py-1 rounded-full bg-[#004aad]/8 text-[#004aad] text-[10px] font-bold border border-[#004aad]/15">{b.name}</span>
+                        ))
+                    }
+                    {service.branchIds.length > 2 && (
+                      <span className="px-2 py-1 rounded-full bg-surface-container-low text-on-surface-variant text-[10px] font-bold">+{service.branchIds.length - 2}</span>
+                    )}
+                  </div>
+
+                  <div className="col-span-2 flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => startEdit(service)}
+                      className="p-2 rounded-xl bg-[#004aad]/8 text-[#004aad] hover:bg-[#004aad]/15 transition-colors">
+                      <Pencil size={14} />
+                    </button>
+                    <button onClick={() => deleteService(service._id)}
+                      className="p-2 rounded-xl bg-error/8 text-error hover:bg-error/15 transition-colors">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Mobile cards */}
+            <div className="md:hidden divide-y divide-outline-variant/10">
+              {services.map((service, idx) => (
+                <motion.div key={service._id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.04 }} className="p-5 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                        style={{background:'linear-gradient(135deg,#004aad15,#004aad25)'}}>
+                        <Stethoscope size={16} className="text-[#004aad]" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-on-surface truncate">{service.name}</p>
+                        {service.description && <p className="text-xs text-on-surface-variant/50 truncate">{service.description}</p>}
+                      </div>
+                    </div>
+                    <span className="inline-flex items-baseline gap-1 bg-[#004aad]/8 px-3 py-1.5 rounded-xl shrink-0">
+                      <span className="text-sm font-black text-[#004aad]">₹{service.price.toLocaleString()}</span>
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {service.branchIds.length === 0
+                      ? <span className="px-2.5 py-1 rounded-full bg-secondary/10 text-secondary text-[10px] font-bold border border-secondary/20">All Branches</span>
+                      : service.branchIds.map(b => (
+                          <span key={b._id} className="px-2.5 py-1 rounded-full bg-[#004aad]/8 text-[#004aad] text-[10px] font-bold border border-[#004aad]/15">{b.name}</span>
+                        ))
+                    }
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => startEdit(service)}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#004aad]/8 text-[#004aad] font-semibold text-sm hover:bg-[#004aad]/15 transition-colors">
+                      <Pencil size={14} /> Edit
+                    </button>
+                    <button onClick={() => deleteService(service._id)}
+                      className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-error/8 text-error font-semibold text-sm hover:bg-error/15 transition-colors">
+                      <Trash2 size={14} /> Delete
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </>
         )}
 
-        {/* Footer summary */}
+        {/* Footer */}
         {!loading && services.length > 0 && (
-          <div className="px-6 py-4 bg-surface-container-low/20 border-t border-outline-variant/10 flex flex-wrap gap-4 items-center justify-between">
-            <span className="text-xs font-black text-on-surface-variant opacity-70 uppercase tracking-wider">{services.length} Total Services</span>
+          <div className="px-6 py-3 border-t border-outline-variant/10 flex flex-wrap gap-4 items-center justify-between"
+            style={{background:'linear-gradient(to right,#f0f5ff,#f8faff)'}}>
+            <span className="text-xs font-bold text-[#004aad]/60">{services.length} service{services.length !== 1 ? 's' : ''} configured</span>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-on-surface-variant">Average rate:</span>
-              <span className="text-sm font-black text-on-surface bg-white px-3 py-1 rounded-lg border border-outline-variant/10 shadow-sm">
+              <span className="text-[10px] font-bold text-on-surface-variant/50 uppercase tracking-wider">Avg rate</span>
+              <span className="text-sm font-black text-[#004aad] bg-[#004aad]/8 px-3 py-1 rounded-lg">
                 ₹{Math.round(services.reduce((s, x) => s + x.price, 0) / services.length).toLocaleString()}
               </span>
             </div>
@@ -248,136 +315,140 @@ export const ServicesView = () => {
       </div>
 
       {/* Edit Service Modal */}
-      <AnimatePresence>
-        {editingId && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setEditingId(null)} className="absolute inset-0 bg-on-surface/40 backdrop-blur-sm" />
-            <motion.div initial={{ scale: 0.95, opacity: 0, y: 16 }} animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 16 }}
-              className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 z-10 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Edit Entry</p>
-                  <h2 className="text-xl font-extrabold text-on-surface mt-0.5">Edit Service</h2>
-                </div>
-                <button onClick={() => setEditingId(null)} className="p-2 hover:bg-surface-container-low rounded-xl transition-colors">
-                  <X size={18} className="text-on-surface-variant" />
-                </button>
-              </div>
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Therapy Name</label>
-                  <input autoFocus type="text" value={editForm.name}
-                    onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))}
-                    className="w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-sm outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all bg-surface-container-lowest" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Description (optional)</label>
-                  <input type="text" value={editForm.description}
-                    onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))}
-                    placeholder="Brief description"
-                    className="w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-sm outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all bg-surface-container-lowest" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Price (₹)</label>
-                  <div className="flex items-center border border-outline-variant/30 rounded-xl overflow-hidden focus-within:ring-4 focus-within:ring-primary/10 focus-within:border-primary transition-all bg-surface-container-lowest">
-                    <span className="px-4 py-3 text-sm font-bold text-on-surface-variant border-r border-outline-variant/20">₹</span>
-                    <input type="number" value={editForm.price}
-                      onChange={e => setEditForm(p => ({ ...p, price: e.target.value }))}
-                      className="flex-1 px-4 py-3 text-sm outline-none bg-transparent" />
-                    <select value={editForm.unit}
-                      onChange={e => setEditForm(p => ({ ...p, unit: e.target.value as 'session' | 'month' }))}
-                      className="px-3 py-3 text-[13px] font-medium outline-none bg-surface-container-low/50 border-l border-outline-variant/20 appearance-none cursor-pointer">
-                      <option value="session">/ session</option>
-                      <option value="month">/ month</option>
-                    </select>
+      {mounted && createPortal(
+        <>
+          <AnimatePresence>
+            {editingId && (
+              <div className="fixed inset-0 z-[99999] flex items-start justify-center px-4 pb-8 pt-20 sm:pt-24 md:items-center md:pt-4 overflow-y-auto">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  onClick={() => setEditingId(null)} className="absolute inset-0 bg-on-surface/40 backdrop-blur-sm" />
+                <motion.div initial={{ scale: 0.95, opacity: 0, y: 16 }} animate={{ scale: 1, opacity: 1, y: 0 }}
+                  exit={{ scale: 0.95, opacity: 0, y: 16 }}
+                  className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 z-10 max-h-[90vh] overflow-y-auto">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Edit Entry</p>
+                      <h2 className="text-xl font-extrabold text-on-surface mt-0.5">Edit Service</h2>
+                    </div>
+                    <button onClick={() => setEditingId(null)} className="p-2 hover:bg-surface-container-low rounded-xl transition-colors">
+                      <X size={18} className="text-on-surface-variant" />
+                    </button>
                   </div>
-                </div>
-                <BranchSelector form={editForm} setForm={setEditForm} />
-                {editError && <p className="text-xs text-error font-medium">{editError}</p>}
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Therapy Name</label>
+                      <input autoFocus type="text" value={editForm.name}
+                        onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))}
+                        className="w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-sm outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all bg-surface-container-lowest" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Description (optional)</label>
+                      <input type="text" value={editForm.description}
+                        onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))}
+                        placeholder="Brief description"
+                        className="w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-sm outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all bg-surface-container-lowest" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Price (₹)</label>
+                      <div className="flex items-center border border-outline-variant/30 rounded-xl overflow-hidden focus-within:ring-4 focus-within:ring-primary/10 focus-within:border-primary transition-all bg-surface-container-lowest">
+                        <span className="px-4 py-3 text-sm font-bold text-on-surface-variant border-r border-outline-variant/20">₹</span>
+                        <input type="number" value={editForm.price}
+                          onChange={e => setEditForm(p => ({ ...p, price: e.target.value }))}
+                          className="flex-1 px-4 py-3 text-sm outline-none bg-transparent" />
+                        <select value={editForm.unit}
+                          onChange={e => setEditForm(p => ({ ...p, unit: e.target.value as 'session' | 'month' }))}
+                          className="px-3 py-3 text-[13px] font-medium outline-none bg-surface-container-low/50 border-l border-outline-variant/20 appearance-none cursor-pointer">
+                          <option value="session">/ session</option>
+                          <option value="month">/ month</option>
+                        </select>
+                      </div>
+                    </div>
+                    <BranchSelector form={editForm} setForm={setEditForm} />
+                    {editError && <p className="text-xs text-error font-medium">{editError}</p>}
+                  </div>
+                  <div className="flex gap-3 mt-6">
+                    <button onClick={() => setEditingId(null)}
+                      className="flex-1 py-3 rounded-xl border border-outline-variant/30 text-on-surface-variant font-bold text-sm hover:bg-surface-container-low transition-colors">
+                      Cancel
+                    </button>
+                    <button onClick={saveEdit} disabled={editSaving}
+                      className="flex-1 py-3 rounded-xl bg-primary text-white font-bold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-60">
+                      {editSaving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Save Changes
+                    </button>
+                  </div>
+                </motion.div>
               </div>
-              <div className="flex gap-3 mt-6">
-                <button onClick={() => setEditingId(null)}
-                  className="flex-1 py-3 rounded-xl border border-outline-variant/30 text-on-surface-variant font-bold text-sm hover:bg-surface-container-low transition-colors">
-                  Cancel
-                </button>
-                <button onClick={saveEdit} disabled={editSaving}
-                  className="flex-1 py-3 rounded-xl bg-primary text-white font-bold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-60">
-                  {editSaving ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Save Changes
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+            )}
+          </AnimatePresence>
 
-      {/* Add Service Modal */}
-      <AnimatePresence>
-        {showAdd && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setShowAdd(false)} className="absolute inset-0 bg-on-surface/40 backdrop-blur-sm" />
-            <motion.div initial={{ scale: 0.95, opacity: 0, y: 16 }} animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 16 }}
-              className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 z-10 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <p className="text-[10px] font-bold text-secondary uppercase tracking-widest">New Entry</p>
-                  <h2 className="text-xl font-extrabold text-on-surface mt-0.5">Add Service</h2>
-                </div>
-                <button onClick={() => setShowAdd(false)} className="p-2 hover:bg-surface-container-low rounded-xl transition-colors">
-                  <X size={18} className="text-on-surface-variant" />
-                </button>
-              </div>
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Therapy Name</label>
-                  <input type="text" value={addForm.name}
-                    onChange={e => { setAddForm(p => ({ ...p, name: e.target.value })); setAddError(''); }}
-                    placeholder="e.g. Physiotherapy"
-                    className="w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-sm outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all bg-surface-container-lowest" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Description (optional)</label>
-                  <input type="text" value={addForm.description}
-                    onChange={e => setAddForm(p => ({ ...p, description: e.target.value }))}
-                    placeholder="Brief description"
-                    className="w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-sm outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all bg-surface-container-lowest" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Price per Session (₹)</label>
-                  <div className="flex items-center border border-outline-variant/30 rounded-xl overflow-hidden focus-within:ring-4 focus-within:ring-primary/10 focus-within:border-primary transition-all bg-surface-container-lowest">
-                    <span className="px-4 py-3 text-sm font-bold text-on-surface-variant border-r border-outline-variant/20">₹</span>
-                    <input type="number" value={addForm.price}
-                      onChange={e => { setAddForm(p => ({ ...p, price: e.target.value })); setAddError(''); }}
-                      placeholder="0"
-                      className="flex-1 px-4 py-3 text-sm outline-none bg-transparent" />
-                    <select value={addForm.unit}
-                      onChange={e => setAddForm(p => ({ ...p, unit: e.target.value as 'session' | 'month' }))}
-                      className="px-3 py-3 text-[13px] font-medium outline-none bg-surface-container-low/50 border-l border-outline-variant/20 appearance-none cursor-pointer">
-                      <option value="session">/ session</option>
-                      <option value="month">/ month</option>
-                    </select>
+          <AnimatePresence>
+            {showAdd && (
+              <div className="fixed inset-0 z-[99999] flex items-start justify-center px-4 pb-8 pt-20 sm:pt-24 md:items-center md:pt-4 overflow-y-auto">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  onClick={() => setShowAdd(false)} className="absolute inset-0 bg-on-surface/40 backdrop-blur-sm" />
+                <motion.div initial={{ scale: 0.95, opacity: 0, y: 16 }} animate={{ scale: 1, opacity: 1, y: 0 }}
+                  exit={{ scale: 0.95, opacity: 0, y: 16 }}
+                  className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 z-10 max-h-[90vh] overflow-y-auto">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <p className="text-[10px] font-bold text-secondary uppercase tracking-widest">New Entry</p>
+                      <h2 className="text-xl font-extrabold text-on-surface mt-0.5">Add Service</h2>
+                    </div>
+                    <button onClick={() => setShowAdd(false)} className="p-2 hover:bg-surface-container-low rounded-xl transition-colors">
+                      <X size={18} className="text-on-surface-variant" />
+                    </button>
                   </div>
-                </div>
-                <BranchSelector form={addForm} setForm={setAddForm} />
-                {addError && <p className="text-xs text-error font-medium">{addError}</p>}
+                  <div className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Therapy Name</label>
+                      <input type="text" value={addForm.name}
+                        onChange={e => { setAddForm(p => ({ ...p, name: e.target.value })); setAddError(''); }}
+                        placeholder="e.g. Physiotherapy"
+                        className="w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-sm outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all bg-surface-container-lowest" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Description (optional)</label>
+                      <input type="text" value={addForm.description}
+                        onChange={e => setAddForm(p => ({ ...p, description: e.target.value }))}
+                        placeholder="Brief description"
+                        className="w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-sm outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all bg-surface-container-lowest" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Price per Session (₹)</label>
+                      <div className="flex items-center border border-outline-variant/30 rounded-xl overflow-hidden focus-within:ring-4 focus-within:ring-primary/10 focus-within:border-primary transition-all bg-surface-container-lowest">
+                        <span className="px-4 py-3 text-sm font-bold text-on-surface-variant border-r border-outline-variant/20">₹</span>
+                        <input type="number" value={addForm.price}
+                          onChange={e => { setAddForm(p => ({ ...p, price: e.target.value })); setAddError(''); }}
+                          placeholder="0"
+                          className="flex-1 px-4 py-3 text-sm outline-none bg-transparent" />
+                        <select value={addForm.unit}
+                          onChange={e => setAddForm(p => ({ ...p, unit: e.target.value as 'session' | 'month' }))}
+                          className="px-3 py-3 text-[13px] font-medium outline-none bg-surface-container-low/50 border-l border-outline-variant/20 appearance-none cursor-pointer">
+                          <option value="session">/ session</option>
+                          <option value="month">/ month</option>
+                        </select>
+                      </div>
+                    </div>
+                    <BranchSelector form={addForm} setForm={setAddForm} />
+                    {addError && <p className="text-xs text-error font-medium">{addError}</p>}
+                  </div>
+                  <div className="flex gap-3 mt-6">
+                    <button onClick={() => setShowAdd(false)}
+                      className="flex-1 py-3 rounded-xl border border-outline-variant/30 text-on-surface-variant font-bold text-sm hover:bg-surface-container-low transition-colors">
+                      Cancel
+                    </button>
+                    <button onClick={handleAdd} disabled={addSaving}
+                      className="flex-1 py-3 rounded-xl bg-primary text-white font-bold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-60">
+                      {addSaving ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Add Service
+                    </button>
+                  </div>
+                </motion.div>
               </div>
-              <div className="flex gap-3 mt-6">
-                <button onClick={() => setShowAdd(false)}
-                  className="flex-1 py-3 rounded-xl border border-outline-variant/30 text-on-surface-variant font-bold text-sm hover:bg-surface-container-low transition-colors">
-                  Cancel
-                </button>
-                <button onClick={handleAdd} disabled={addSaving}
-                  className="flex-1 py-3 rounded-xl bg-primary text-white font-bold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-60">
-                  {addSaving ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Add Service
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+            )}
+          </AnimatePresence>
+        </>,
+        document.body
+      )}
     </div>
   );
 };
