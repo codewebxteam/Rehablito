@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { Search, Plus, Filter, MoreVertical, FileText, X, Edit, CheckCircle2, Trash2, Eye, Download, Printer, CreditCard } from 'lucide-react';
+import { Search, Plus, Filter, MoreVertical, FileText, X, Edit, CheckCircle2, Trash2, Eye, Download, CreditCard, MapPin, User, Phone, Activity, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import api from '@/lib/api';
 import { toast } from 'sonner';
 import { AddPatientModal } from '../components/AddPatientModal';
 import { useBranch } from '../components/BranchContext';
 import { useAddTransaction } from '../components/AddTransactionContext';
+import { generatePatientPDF } from '@/app/manager/lib/generatePatientPDF';
 
 // --- Types ---
 interface Patient {
@@ -484,8 +485,8 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[99999] flex items-center justify-center p-4 overflow-y-auto"
-            style={{ backgroundColor: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(4px)' }}
+            className="fixed inset-0 z-[99999] flex items-center justify-center p-4"
+            style={{ backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
             onClick={() => setViewingPatient(null)}
           >
             <motion.div
@@ -493,167 +494,120 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 12, scale: 0.97 }}
               transition={{ duration: 0.2 }}
-              className="w-full max-w-2xl lg:max-w-3xl rounded-2xl my-4 sm:my-8 flex flex-col"
-              style={{ background: '#ffffff', border: '1px solid #eee', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}
+              className="w-full max-w-xl rounded-2xl flex flex-col overflow-hidden max-h-[92vh]"
+              style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}
               onClick={(e) => e.stopPropagation()}
-              role="dialog"
-              aria-modal="true"
             >
-              <div className="flex justify-between items-center px-4 py-3 bg-slate-100 border-b border-slate-200 no-print">
-                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest ml-2">Document Preview</p>
-                <button onClick={() => setViewingPatient(null)} className="p-1.5 rounded-lg transition-colors hover:bg-slate-200" style={{ color: '#666' }} aria-label="Close document">
-                  <X size={20} />
-                </button>
-              </div>
-
-              {/* Print Stylesheet */}
-              <style type="text/css" media="print">
-                {`
-                  body > *:not(#prescription-portal-root) {
-                    display: none !important;
-                  }
-                  body {
-                    background: white;
-                  }
-                  
-                  #prescription-portal-root, #prescription-portal-root > div {
-                    position: static !important;
-                    display: block !important;
-                    background: transparent !important;
-                    box-shadow: none !important;
-                    transform: none !important;
-                    width: 100% !important;
-                    height: auto !important;
-                  }
-
-                  /* Hide backdrop and centered spacing tricks */
-                  #prescription-portal-root > div > div {
-                    position: static !important;
-                    margin: 0 !important;
-                    transform: none !important;
-                    box-shadow: none !important;
-                    border: none !important;
-                  }
-
-                  #printable-prescription { 
-                    max-width: none !important; 
-                    margin: 0 !important; padding: 0 !important;
-                    border: none !important;
-                  }
-
-                  .no-print { display: none !important; }
-                  @page { margin: 1cm; size: A4 portrait; }
-                `}
-              </style>
-
-              {/* Printable Document Area */}
-              <div className="p-6 md:p-10 bg-white flex-1 relative rounded-b-2xl">
-                
-                <div id="printable-prescription" className="bg-white mx-auto flex flex-col w-full h-full max-w-[800px]">
-                  
-                  {/* Docket Header */}
-                  <div className="flex justify-between items-start border-b-[3px] border-slate-900 pb-5 mb-5 mt-2">
-                    <div className="flex gap-4 items-center">
-                      <div className="w-16 h-16 bg-transparent flex items-center justify-center shrink-0">
-                        <img src="/logo.jpeg" alt="Rehablito Logo" className="w-full h-full object-contain" />
-                      </div>
-                      <div className="flex flex-col">
-                         <h2 className="text-[26px] font-black text-slate-900 tracking-tight font-headline uppercase" style={{ lineHeight: 1 }}>REHABLITO</h2>
-                         <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-1.5">{branches.find(b => b._id === viewingPatient.branch)?.name || viewingPatient.branch || 'Clinic'}</p>
-                      </div>
-                    </div>
-                    <div className="text-right flex flex-col items-end pt-1">
-                      <span className="text-[10px] font-black bg-slate-100 px-2 py-1 rounded text-slate-600 uppercase tracking-widest border border-slate-200">
-                        PID: {viewingPatient._id?.slice(-8).toUpperCase() || viewingPatient.id}
-                      </span>
-                      <p className="text-[11px] font-bold text-slate-500 mt-2.5 uppercase tracking-widest">Date: {viewingPatient.lastVisit || new Date().toLocaleDateString('en-GB')}</p>
-                    </div>
+              {/* PDF-style header band */}
+              <div className="bg-[#004aad] px-6 py-5 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white rounded-xl overflow-hidden flex items-center justify-center shrink-0">
+                    <img src="/logo.jpeg" alt="Rehablito" className="w-full h-full object-contain" />
                   </div>
-
-                  {/* Patient Info Table */}
-                  <div className="border border-slate-300/80 rounded-xl overflow-hidden mb-8 shadow-sm">
-                    <div className="grid grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-slate-300/80">
-                      <div className="p-4 bg-slate-50/50">
-                         <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Child / Patient Name</p>
-                         <p className="text-[15px] font-black text-slate-800">{viewingPatient.name}</p>
-                      </div>
-                      <div className="p-4 bg-slate-50/50">
-                         <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Age / DOB</p>
-                         <p className="text-[15px] font-bold text-slate-800">{viewingPatient.age} Years</p>
-                      </div>
-                      <div className="p-4 bg-slate-50/50 sm:border-t mt-[-1px] sm:mt-0 border-slate-300/80">
-                         <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Parent / Guardian</p>
-                         <p className="text-[15px] font-bold text-slate-800">{viewingPatient.parentName || 'N/A'}</p>
-                      </div>
-                      <div className="p-4 bg-slate-50/50 sm:border-t mt-[-1px] sm:mt-0 border-slate-300/80">
-                         <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Emergency Contact</p>
-                         <p className="text-[15px] font-bold text-slate-800">{viewingPatient.parentPhone || 'N/A'}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Clinical Section */}
-                  <div className="flex-1 flex flex-col gap-6 mt-4">
-                    <div>
-                      <h4 className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-200 pb-2 mb-3">
-                        <span className="w-1 h-1 rounded-full bg-slate-400"></span>
-                        Therapy Program
-                      </h4>
-                      <div className="flex flex-col sm:flex-row gap-4">
-                        <div className="flex-1 bg-slate-50/80 p-4 rounded-xl border border-slate-100">
-                          <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Program Details</p>
-                          <p className="text-[14px] font-bold text-slate-700">
-                            {viewingPatient.therapyType && viewingPatient.therapyType.length > 0 
-                                ? viewingPatient.therapyType.map(t => t.replace(/_/g, ' ')).join(', ').toUpperCase()
-                                : (viewingPatient.condition?.toUpperCase() || 'UNSPECIFIED')}
-                          </p>
-                        </div>
-                        {viewingPatient.totalFee && (
-                          <div className="bg-slate-900 p-4 rounded-xl shadow-lg sm:min-w-[180px]">
-                            <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest mb-1.5">Prescribed Fee</p>
-                            <p className="text-[18px] font-black text-white">₹{viewingPatient.totalFee.toLocaleString()}</p>
-                            <p className="text-[9px] font-bold text-slate-500 mt-1 uppercase">Standard Rate</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Signatures */}
-                  <div className="mt-auto pt-16 flex justify-between items-end pb-3 border-b border-white">
-                    <div className="text-center w-40">
-                      <div className="border-t-2 border-slate-300"></div>
-                      <p className="mt-2 text-[9px] font-black text-slate-400 uppercase tracking-widest">Parent/Guardian Signature</p>
-                    </div>
-                    <div className="text-center w-48">
-                      <div className="border-t-2 border-slate-800"></div>
-                      <p className="mt-2 text-[9px] font-black text-slate-900 uppercase tracking-widest">Authorized Therapist</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 text-center">
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Rehablito Electronic Medical Record • generated automatically</p>
+                  <div>
+                    <p className="text-white font-extrabold text-base leading-tight">REHABLITO</p>
+                    <p className="text-blue-200 text-[10px] font-medium">Physio & Autism Center</p>
                   </div>
                 </div>
-
+                <div className="text-right">
+                  <p className="text-blue-200 text-[10px]">{new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                  <p className="text-blue-100 text-[10px] font-mono">{viewingPatient._id?.slice(-8).toUpperCase() || viewingPatient.id}</p>
+                </div>
+                <button onClick={() => setViewingPatient(null)} className="ml-4 p-1.5 hover:bg-white/20 rounded-lg transition-colors">
+                  <X size={18} className="text-white" />
+                </button>
               </div>
 
-              {/* Floating Action Bar (Hidden in Print) */}
-              <div className="bg-slate-50 border-t border-slate-200 p-4 sm:p-5 flex items-center justify-end gap-3 shrink-0 rounded-b-2xl no-print">
-                <button 
-                  onClick={() => window.print()} 
-                  className="flex justify-center items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black transition-all bg-white hover:bg-slate-100 text-slate-700 shadow-sm border border-slate-200" 
-                >
-                  <Download size={16} />
-                  Download PDF
-                </button>
-                <button 
-                  onClick={() => window.print()} 
-                  className="flex justify-center items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-black transition-all bg-slate-800 hover:bg-slate-900 text-white shadow-md shadow-slate-900/10" 
-                >
-                  <Printer size={16} />
-                  Print Docket
-                </button>
+              {/* Title strip */}
+              <div className="bg-blue-50 px-6 py-2.5 border-b border-blue-100 shrink-0">
+                <p className="text-[#004aad] font-extrabold text-xs uppercase tracking-widest text-center">Patient Registration Record</p>
+              </div>
+
+              {/* Body */}
+              <div className="overflow-y-auto flex-1 bg-white">
+                {/* Section header */}
+                <div className="bg-blue-50 border-b border-blue-100 px-6 py-2">
+                  <p className="text-[#004aad] font-bold text-[10px] uppercase tracking-widest">Patient Information</p>
+                </div>
+
+                {/* Info rows - only admin-relevant fields */}
+                {[
+                  { label: 'Patient ID',        value: viewingPatient._id?.slice(-8).toUpperCase() || viewingPatient.id || '—', mono: true },
+                  { label: 'Child Name',         value: viewingPatient.name },
+                  { label: 'Parent / Guardian',  value: viewingPatient.parentName || '—' },
+                  { label: 'Phone Contact',      value: viewingPatient.parentPhone || '—' },
+                  { label: 'Service / Therapy',  value: viewingPatient.therapyType?.map(t => t.replace(/_/g, ' ')).join(', ') || '—' },
+                  { label: 'Branch',             value: branches.find(b => b._id === viewingPatient.branch)?.name || '—' },
+                  { label: 'Address',            value: viewingPatient.address || '—' },
+                  { label: 'Onboarding Date',    value: viewingPatient.lastVisit || '—' },
+                  { label: 'Status',             value: viewingPatient.status, badge: true },
+                ].map((row, i) => (
+                  <div key={row.label} className={cn('grid grid-cols-2 px-6 py-2.5', i % 2 === 0 ? 'bg-blue-50/40' : 'bg-white')}>
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">{row.label}</span>
+                    {row.badge
+                      ? <span className={cn('text-xs font-bold px-2 py-0.5 rounded-full w-fit',
+                          viewingPatient.status === 'Active' ? 'bg-green-50 text-green-600' :
+                          viewingPatient.status === 'Discharged' ? 'bg-gray-100 text-gray-500' :
+                          'bg-red-50 text-red-500')}>{row.value}</span>
+                      : <span className={cn('text-xs font-semibold text-gray-800', row.mono && 'font-mono text-[#004aad]')}>{row.value}</span>
+                    }
+                  </div>
+                ))}
+
+                {/* Diagnosis */}
+                <div className="bg-blue-50 border-y border-blue-100 px-6 py-2">
+                  <p className="text-[#004aad] font-bold text-[10px] uppercase tracking-widest">Clinical Notes / Diagnosis</p>
+                </div>
+                <div className="px-6 py-3 bg-white">
+                  <p className="text-xs text-gray-700 leading-relaxed">{viewingPatient.condition || 'No diagnosis recorded.'}</p>
+                </div>
+
+                {/* Fee */}
+                {viewingPatient.totalFee !== undefined && (
+                  <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+                    <div className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm w-fit">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Total Fee</p>
+                      <p className="text-lg font-extrabold text-[#004aad]">₹{(viewingPatient.totalFee || 0).toLocaleString()}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* PDF-style footer */}
+              <div className="bg-[#004aad] px-6 py-3 flex items-center justify-between shrink-0">
+                <p className="text-blue-200 text-[9px]">Rehablito Physio & Autism Center — Confidential</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setViewingPatient(null)}
+                    className="px-4 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold transition-colors"
+                  >
+                    Close
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const p = viewingPatient;
+                      const branchName = branches.find(b => b._id === p.branch)?.name || '';
+                      const doc = await generatePatientPDF({
+                        id: p._id || p.id || '',
+                        patientId: p._id?.slice(-8).toUpperCase() || p.id || '',
+                        name: p.name,
+                        parentName: p.parentName,
+                        age: p.age,
+                        gender: '',
+                        therapyType: p.therapyType?.[0] || '',
+                        condition: p.condition || '',
+                        address: p.address,
+                        phone: p.parentPhone || '',
+                        onboardedAt: p.lastVisit || new Date().toISOString(),
+                        branchName,
+                      }, 'Patient Registration Record');
+                      doc.save(`Patient_${p.name.replace(/\s/g, '_')}.pdf`);
+                    }}
+                    className="px-4 py-1.5 rounded-lg bg-white text-[#004aad] text-xs font-bold flex items-center gap-1.5 hover:bg-blue-50 transition-colors"
+                  >
+                    <Download size={13} /> Download PDF
+                  </button>
+                </div>
               </div>
             </motion.div>
           </motion.div>
@@ -739,7 +693,7 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-start justify-center pt-20 sm:pt-24 pb-8 overflow-y-auto px-4"
+            className="fixed inset-0 z-[99999] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
             onClick={() => setEditingPatient(null)}
           >
             <motion.div
@@ -755,53 +709,35 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
                   <h4 className="text-lg font-extrabold text-on-surface">Edit Patient</h4>
                   <p className="text-sm text-on-surface-variant mt-1">Update patient details.</p>
                 </div>
-                <button
-                  onClick={() => setEditingPatient(null)}
-                  className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low"
-                  aria-label="Close edit patient modal"
-                >
+                <button onClick={() => setEditingPatient(null)} className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low">
                   <X size={16} />
                 </button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <input
-                  type="text"
-                  value={editingPatient.name}
+                <input type="text" value={editingPatient.name}
                   onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, name: e.target.value }) : prev)}
                   className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Full name"
-                />
-                <input
-                  type="number"
-                  min={1}
-                  value={editingPatient.age || ''}
+                  placeholder="Full name" />
+                <input type="number" min={1} value={editingPatient.age || ''}
                   onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, age: Number(e.target.value) || 0 }) : prev)}
                   className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Age"
-                />
-                <input
-                  type="text"
-                  value={editingPatient.condition}
+                  placeholder="Age" />
+                <input type="text" value={editingPatient.condition}
                   onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, condition: e.target.value }) : prev)}
                   className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Condition"
-                />
-                <select
-                  value={editingPatient.branch}
+                  placeholder="Condition" />
+                <select value={editingPatient.branch}
                   onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, branch: e.target.value }) : prev)}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                >
+                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25">
                   <option value="">Select Branch</option>
                   {branches.map(branch => (
                     <option key={branch._id} value={branch._id}>{branch.name}</option>
                   ))}
                 </select>
-                <select
-                  value={editingPatient.status}
+                <select value={editingPatient.status}
                   onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, status: e.target.value as Patient['status'] }) : prev)}
-                  className="sm:col-span-2 w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                >
+                  className="sm:col-span-2 w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25">
                   <option value="Active">Active</option>
                   <option value="Discharged">Discharged</option>
                   <option value="Critical">Critical</option>
@@ -809,16 +745,12 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
               </div>
 
               <div className="mt-6 flex justify-end gap-3">
-                <button
-                  onClick={() => setEditingPatient(null)}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold text-on-surface-variant border border-outline-variant/30 hover:text-on-surface hover:bg-surface-container-low transition-colors"
-                >
+                <button onClick={() => setEditingPatient(null)}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold text-on-surface-variant border border-outline-variant/30 hover:text-on-surface hover:bg-surface-container-low transition-colors">
                   Cancel
                 </button>
-                <button
-                  onClick={handleSaveEditedPatient}
-                  className="px-4 py-2 rounded-xl text-sm font-bold border border-primary/40 text-primary hover:bg-primary/10 transition-colors"
-                >
+                <button onClick={handleSaveEditedPatient}
+                  className="px-4 py-2 rounded-xl text-sm font-bold border border-primary/40 text-primary hover:bg-primary/10 transition-colors">
                   Save Changes
                 </button>
               </div>
