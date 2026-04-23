@@ -676,16 +676,6 @@ export default function ManagerDashboardApp() {
           </div>
 
           <div className="flex items-center gap-2 md:gap-6">
-            <div className="flex items-center gap-2 md:gap-4 text-on-surface-variant">
-              <button className="p-2 hover:text-primary transition-all relative">
-                <Bell size={20} />
-                <span className="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-white"></span>
-              </button>
-              <button className="hidden sm:block p-2 hover:text-primary transition-all">
-                <Calendar size={20} />
-              </button>
-            </div>
-            <div className="hidden sm:block h-8 w-px bg-outline-variant/30 mx-2"></div>
             <button
               onClick={handleCheckInOut}
               disabled={checkinLoading}

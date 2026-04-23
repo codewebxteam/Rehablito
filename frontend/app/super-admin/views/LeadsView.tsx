@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import api from '@/lib/api';
 import { toast } from 'sonner';
 import { useBranch } from '../components/BranchContext';
+import { Pagination } from '../components/Pagination';
 
 interface Lead {
   _id?: string;
@@ -92,6 +93,8 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const PER_PAGE = 10;
   const [newLead, setNewLead] = useState({
     childName: '',
     parentName: '',
@@ -192,6 +195,8 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
     return matchesSearch && matchesStatus;
   });
 
+  const pagedLeads = filteredLeads.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
   const stats = {
     total: leads.length,
     new: leads.filter(l => l.status === 'New').length,
@@ -248,8 +253,7 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
               type="text" 
               placeholder="Search leads..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full sm:w-64 bg-surface-container-low/50 border border-outline-variant/20 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all text-on-surface"
+              onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
             />
           </div>
           <div className="relative">
@@ -322,7 +326,7 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-container-low/50">
-                {filteredLeads.map((lead) => (
+                {pagedLeads.map((lead) => (
                 <tr key={lead.id} className="hover:bg-surface-container-low/20 transition-colors group">
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
@@ -404,6 +408,7 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
           </table>
           </div>
         )}
+        <Pagination total={filteredLeads.length} page={page} perPage={PER_PAGE} onChange={p => setPage(p)} />
       </div>
 
       <AnimatePresence>

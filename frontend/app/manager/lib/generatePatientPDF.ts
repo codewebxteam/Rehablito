@@ -23,6 +23,12 @@ const getLogoBase64 = async (): Promise<string | null> => {
   }
 };
 
+const maskPhone = (phone: string) => {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length < 4) return 'xxxx' + phone.slice(-4);
+  return 'x'.repeat(Math.max(digits.length - 4, 4)) + digits.slice(-4);
+};
+
 export const generatePatientPDF = async (patient: Patient & { branchName?: string }, title = 'Patient Registration Record') => {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = 210;
@@ -88,7 +94,7 @@ export const generatePatientPDF = async (patient: Patient & { branchName?: strin
     ['Patient ID',        patient.patientId || patient.id],
     ['Child Name',        patient.name],
     ['Parent / Guardian', patient.parentName || '—'],
-    ['Phone Contact',     patient.phone || '—'],
+    ['Phone Contact',     maskPhone(patient.phone || '')],
   ] : [
     ['Patient ID',        patient.patientId || patient.id],
     ['Patient Name',      patient.name],
@@ -103,7 +109,7 @@ export const generatePatientPDF = async (patient: Patient & { branchName?: strin
     ['Address',           patient.address || '—'],
     ['Onboarding Date',   new Date(patient.onboardedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })],
   ] : [
-    ['Contact No.',       patient.phone || '—'],
+    ['Contact No.',       maskPhone(patient.phone || '')],
     ['Therapy Type',      THERAPY_LABELS[patient.therapyType || ''] || patient.therapyType || '—'],
     ['Onboarding Date',   new Date(patient.onboardedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })],
     ['Status',            'Active'],

@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { AuthProvider, useAuth } from './context/AuthContext';
+import { usePathname } from 'next/navigation';
+import { AuthProvider } from './context/AuthContext';
 import { AttendanceProvider } from './context/AttendanceContext';
 import { SearchProvider } from './context/SearchContext';
 import { MainLayout } from './components/MainLayout';
@@ -22,15 +23,23 @@ function StaffWebLayoutContent({ children }: { children: React.ReactNode }) {
 }
 
 export default function StaffWebLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isAuthRoute = pathname === "/staff/login";
+
+  if (isAuthRoute) {
+    // Render auth screens outside the staff dashboard shell.
+    return <>{children}</>;
+  }
+
   return (
-    <RoleGuard allowedRoles={['super_admin', 'branch_manager', 'staff']}>
-      <AuthProvider>
-        <AttendanceProvider>
-          <SearchProvider>
+    <AuthProvider>
+      <AttendanceProvider>
+        <SearchProvider>
+          <RoleGuard allowedRoles={['super_admin', 'branch_manager', 'staff']}>
             <StaffWebLayoutContent>{children}</StaffWebLayoutContent>
-          </SearchProvider>
-        </AttendanceProvider>
-      </AuthProvider>
-    </RoleGuard>
+          </RoleGuard>
+        </SearchProvider>
+      </AttendanceProvider>
+    </AuthProvider>
   );
 }

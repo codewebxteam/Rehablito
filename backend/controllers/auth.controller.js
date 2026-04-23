@@ -67,21 +67,12 @@ const login = async (req, res) => {
     try {
         const { email, password, role } = req.body;
 
-        // Check for user email
         const user = await User.findOne({ email }).select('+password');
 
-        if (!user) {
+        if (!user || !(await user.matchPassword(password))) {
             return res.status(401).json({ success: false, message: 'Invalid credentials' });
         }
 
-        // Check password
-        const isMatch = await user.matchPassword(password);
-
-        if (!isMatch) {
-            return res.status(401).json({ success: false, message: 'Invalid credentials' });
-        }
-
-        // Validate role if provided
         if (role && user.role !== role) {
             return res.status(403).json({ 
                 success: false, 
@@ -92,15 +83,51 @@ const login = async (req, res) => {
         res.json({
             success: true,
             token: generateToken(user._id),
-            user: {
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                phone: user.mobileNumber,
-                branchId: user.branchId,
-                staffId: user.staffId
-            }
+            user: { id: user._id, name: user.name, email: user.email, role: user.role, phone: user.mobileNumber, branchId: user.branchId, staffId: user.staffId }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Admin-only login
+// @route   POST /api/auth/admin/login
+// @access  Public
+const adminLogin = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const user = await User.findOne({ email, role: 'super_admin' }).select('+password');
+
+        if (!user || !(await user.matchPassword(password))) {
+            return res.status(401).json({ success: false, message: 'Invalid admin credentials' });
+        }
+
+        res.json({
+            success: true,
+            token: generateToken(user._id),
+            user: { id: user._id, name: user.name, email: user.email, role: user.role, phone: user.mobileNumber, branchId: user.branchId }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// @desc    Manager-only login
+// @route   POST /api/auth/manager/login
+// @access  Public
+const managerLogin = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const user = await User.findOne({ email, role: 'branch_manager' }).select('+password');
+
+        if (!user || !(await user.matchPassword(password))) {
+            return res.status(401).json({ success: false, message: 'Invalid manager credentials' });
+        }
+
+        res.json({
+            success: true,
+            token: generateToken(user._id),
+            user: { id: user._id, name: user.name, email: user.email, role: user.role, phone: user.mobileNumber, branchId: user.branchId }
         });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
@@ -241,6 +268,8 @@ const changePassword = async (req, res) => {
 module.exports = {
     register,
     login,
+    adminLogin,
+    managerLogin,
     getMe,
     requestOtp,
     verifyOtp,

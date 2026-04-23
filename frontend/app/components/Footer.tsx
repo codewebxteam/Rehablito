@@ -71,6 +71,9 @@ const Footer = () => {
             <a href="#" className="hover:text-brand-sage transition-colors">Privacy</a>
             <a href="#" className="hover:text-brand-sage transition-colors">Terms</a>
             <a href="#" className="hover:text-brand-sage transition-colors">Accessibility</a>
+            <Link href="/admin/login" className="hover:text-brand-sage transition-colors">Admin</Link>
+            <Link href="/manager/login" className="hover:text-brand-sage transition-colors">Manager</Link>
+            <Link href="/staff/login" className="hover:text-brand-sage transition-colors">Staff</Link>
           </div>
         </div>
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'motion/react';
 import { Stethoscope } from 'lucide-react';
@@ -14,11 +14,14 @@ interface RoleGuardProps {
 export const RoleGuard = ({ children, allowedRoles }: RoleGuardProps) => {
   const { user, loading, isAuthenticated } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+
+  const isLoginPage = pathname.endsWith('/login');
 
   useEffect(() => {
-    if (!loading) {
+    if (!loading && !isLoginPage) {
       if (!isAuthenticated) {
-        router.push('/login');
+        router.push('/');
       } else if (user && !allowedRoles.includes(user.role)) {
         // Redirect to their own dashboard if they are in the wrong place
         switch (user.role) {
@@ -37,6 +40,10 @@ export const RoleGuard = ({ children, allowedRoles }: RoleGuardProps) => {
       }
     }
   }, [loading, isAuthenticated, user, allowedRoles, router]);
+
+  if (isLoginPage) {
+    return <>{children}</>;
+  }
 
   if (loading) {
     return (

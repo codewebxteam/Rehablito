@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import api from '@/lib/api';
 import { toast } from 'sonner';
 import { useBranch } from '../components/BranchContext';
+import { Pagination } from '../components/Pagination';
 
 type UiStatus = 'Present' | 'Absent' | 'On Leave' | 'Not Marked';
 
@@ -66,6 +67,8 @@ export const AttendanceView = ({ initialData }: { initialData?: any }) => {
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [pendingUser, setPendingUser] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const PER_PAGE = 10;
   const { selectedBranchId } = useBranch();
 
   useEffect(() => {
@@ -130,6 +133,8 @@ export const AttendanceView = ({ initialData }: { initialData?: any }) => {
     const branchName = branches.find(b => b._id === r.branchId)?.name || '';
     return r.name.toLowerCase().includes(q) || branchName.toLowerCase().includes(q);
   });
+
+  const pagedRows = filteredRows.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   const stats = {
     present: rows.filter(r => r.status === 'Present').length,
@@ -230,7 +235,7 @@ export const AttendanceView = ({ initialData }: { initialData?: any }) => {
                 type="text"
                 placeholder="Search staff or branch..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                 className="w-full bg-surface-container-low/50 border border-outline-variant/20 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all font-medium text-on-surface"
               />
             </div>
@@ -259,7 +264,7 @@ export const AttendanceView = ({ initialData }: { initialData?: any }) => {
               </thead>
               <tbody className="divide-y divide-surface-container-low/50">
                 <AnimatePresence>
-                  {filteredRows.map((row) => (
+                  {pagedRows.map((row) => (
                     <motion.tr
                       layout
                       initial={{ opacity: 0 }}
@@ -337,6 +342,7 @@ export const AttendanceView = ({ initialData }: { initialData?: any }) => {
             )}
           </div>
         )}
+        <Pagination total={filteredRows.length} page={page} perPage={PER_PAGE} onChange={p => { setPage(p); }} />
       </div>
     </div>
   );
