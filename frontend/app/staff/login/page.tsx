@@ -1,10 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { ArrowRight, Fingerprint, Phone, KeyRound, UserCheck, Stethoscope, ChevronLeft, Lock } from "lucide-react";
+import { ArrowRight, Fingerprint, Phone, KeyRound, UserCheck, Stethoscope, ChevronLeft, Lock, Download } from "lucide-react";
 import SplitLayout from "../../components/SplitLayout";
 import { useAuth } from "../../context/AuthContext";
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+};
 
 export default function StaffLoginPage() {
   const { requestOtp, verifyOtp, loading } = useAuth();
@@ -12,6 +17,28 @@ export default function StaffLoginPage() {
   const [mobile, setMobile] = useState("");
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+
+  useEffect(() => {
+    const onBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e as BeforeInstallPromptEvent);
+    };
+    const onInstalled = () => setInstallPrompt(null);
+    window.addEventListener("beforeinstallprompt", onBeforeInstall);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onBeforeInstall);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, []);
+
+  const handleInstall = async () => {
+    if (!installPrompt) return;
+    await installPrompt.prompt();
+    await installPrompt.userChoice;
+    setInstallPrompt(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,6 +145,17 @@ export default function StaffLoginPage() {
           </p>
         )}
       </form>
+
+      {installPrompt && (
+        <button
+          type="button"
+          onClick={handleInstall}
+          className="mt-6 w-full py-3 px-4 bg-surface-container-low border border-outline-variant/30 hover:border-brand-sage/50 hover:bg-brand-sage/5 rounded-xl transition-all flex items-center justify-center gap-2 text-sm font-bold text-brand-sage group"
+        >
+          <Download className="w-4 h-4" />
+          Install Rehablito as an app
+        </button>
+      )}
 
       <div className="mt-10 pt-8 border-t border-outline-variant/20">
         <p className="text-xs text-outline leading-relaxed text-center font-medium">
