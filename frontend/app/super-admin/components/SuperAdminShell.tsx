@@ -142,12 +142,12 @@ function ShellInner({ children }: SuperAdminShellProps) {
 
           <div className="flex items-center gap-2 sm:gap-3 ml-4">
             {/* Notification bell */}
-            <div className="relative group">
+            {/* <div className="relative group">
               <button className="text-on-surface-variant p-2.5 sm:p-3 bg-surface-container-lowest hover:bg-surface-container-low rounded-xl sm:rounded-2xl border border-outline-variant/20 transition-all shadow-sm">
                 <Bell size={18} />
               </button>
               <span className="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-white animate-pulse"></span>
-            </div>
+            </div> */}
           </div>
         </header>
 

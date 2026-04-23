@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import api from '@/lib/api';
 import { toast } from 'sonner';
 import { useBranch } from '../components/BranchContext';
+import { Pagination } from '../components/Pagination';
 
 type StaffRole = 'staff' | 'branch_manager';
 
@@ -89,6 +90,8 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
   const [editForm, setEditForm] = useState<NewStaffForm>(INITIAL_FORM);
   const [deletingStaff, setDeletingStaff] = useState<Staff | null>(null);
+  const [page, setPage] = useState(1);
+  const PER_PAGE = 10;
 
   const resetForm = () => setForm(INITIAL_FORM);
   const closeModal = () => {
@@ -260,6 +263,8 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
     return matchesSearch && matchesStatus && matchesRole;
   });
 
+  const pagedStaff = filteredStaff.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
   const totalStaff = staffList.length;
   const branchManagers = staffList.filter(s => s.role === 'branch_manager').length;
   const activeStaff = staffList.filter(s => s.status === 'Active').length;
@@ -401,7 +406,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
               type="text"
               placeholder="Search staff, email, ID..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
               className="w-full sm:w-64 bg-surface-container-low/50 border border-outline-variant/20 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all text-on-surface"
             />
           </div>
@@ -427,6 +432,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
                       key={option}
                       onClick={() => {
                         setStatusFilter(option);
+                        setPage(1);
                         setIsFilterMenuOpen(false);
                       }}
                       className={cn(
@@ -477,7 +483,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-container-low/50">
-                {filteredStaff.map((staff) => (
+                {pagedStaff.map((staff) => (
                   <motion.tr
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -541,6 +547,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
             </table>
           </div>
         )}
+        <Pagination total={filteredStaff.length} page={page} perPage={PER_PAGE} onChange={p => setPage(p)} />
       </div>
 
       <AnimatePresence>

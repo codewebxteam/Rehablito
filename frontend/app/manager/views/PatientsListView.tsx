@@ -4,8 +4,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Search, Filter, MoreVertical, Phone, Calendar,
   FileText, CreditCard, User, Eye, Pencil, Trash2,
-  X, Download, MapPin, Users, Activity, AlertCircle
+  X, Download, MapPin, Users, Activity, AlertCircle, CheckCircle, ShieldAlert
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { Patient, BillingRecord } from '../types';
 import { cn } from '../lib/utils';
 import { generatePatientPDF } from '../lib/generatePatientPDF';
@@ -29,7 +30,11 @@ interface PatientsListViewProps {
 }
 
 // ── Dropdown Menu ──
-function CardMenu({ onView, onEdit, onDelete, onPay }: { onView: () => void; onEdit: () => void; onDelete: () => void; onPay: () => void }) {
+function CardMenu({ 
+  onView, onEdit, onDelete, onPay, onDischarge, status 
+}: { 
+  onView: () => void; onEdit: () => void; onDelete: () => void; onPay: () => void; onDischarge: () => void; status?: string 
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -51,10 +56,11 @@ function CardMenu({ onView, onEdit, onDelete, onPay }: { onView: () => void; onE
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -4 }}
             transition={{ duration: 0.1 }}
-            className="absolute right-0 top-8 z-50 bg-white rounded-xl shadow-xl border border-outline-variant/20 w-40 overflow-hidden"
+            className="absolute right-0 top-8 z-50 bg-white rounded-xl shadow-xl border border-outline-variant/20 w-48 overflow-hidden"
           >
             {[
               { label: 'Add Payment', icon: CreditCard, action: onPay, cls: 'text-secondary' },
+              ...(status !== 'Discharged' ? [{ label: 'Mark Discharged', icon: CheckCircle, action: onDischarge, cls: 'text-green-600' }] : []),
               { label: 'View', icon: Eye, action: onView, cls: 'text-primary' },
               { label: 'Edit', icon: Pencil, action: onEdit, cls: 'text-on-surface' },
               { label: 'Delete', icon: Trash2, action: onDelete, cls: 'text-error' },
@@ -83,9 +89,9 @@ const maskPhone = (phone: string) => {
 
 // ── View Modal — PDF style ──
 function ViewModal({ patient, billing, onClose }: { patient: Patient; billing: BillingRecord[]; onClose: () => void }) {
-  const stats = billing.filter(b => b.patientName.toLowerCase() === patient.name.toLowerCase());
+  const stats = billing.filter(b => b.patientId === patient.id || b.patientName.toLowerCase() === patient.name.toLowerCase());
   const totalPaid = stats.reduce((s, b) => s + b.amountPaid, 0);
-  const totalDue = stats.reduce((s, b) => s + b.dueAmount, 0);
+  const totalDue = Math.max(0, (patient.totalFee || 0) - totalPaid);
 
   const downloadPDF = async () => {
     const doc = await generatePatientPDF(patient, 'Patient Registration Record');
@@ -102,7 +108,7 @@ function ViewModal({ patient, billing, onClose }: { patient: Patient; billing: B
     { label: 'Therapy Type',     value: THERAPY_LABELS[patient.therapyType || ''] || patient.therapyType || '—' },
     { label: 'Address',          value: patient.address || '—' },
     { label: 'Onboarding Date',  value: new Date(patient.onboardedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) },
-    { label: 'Status',           value: 'Active', badge: true },
+    { label: 'Status',           value: patient.status || 'Active', badge: true },
   ];
 
   return (
@@ -149,10 +155,18 @@ function ViewModal({ patient, billing, onClose }: { patient: Patient; billing: B
             {rows.map((row, i) => (
               <div key={row.label} className={cn('grid grid-cols-2 px-6 py-2.5', i % 2 === 0 ? 'bg-blue-50/40' : 'bg-white')}>
                 <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">{row.label}</span>
-                {row.badge
-                  ? <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full w-fit">Active</span>
-                  : <span className={cn('text-xs font-semibold text-gray-800', row.mono && 'font-mono text-[#004aad]')}>{row.value}</span>
-                }
+                {row.badge ? (
+                  <span className={cn(
+                    "text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-widest border w-fit inline-block",
+                    row.value === 'Discharged' 
+                      ? "bg-green-50 text-green-700 border-green-100" 
+                      : "bg-blue-50 text-blue-700 border-blue-100"
+                  )}>
+                    {row.value}
+                  </span>
+                ) : (
+                  <span className={cn('text-xs font-semibold text-gray-800', row.mono && 'font-mono text-[#004aad]')}>{row.value}</span>
+                )}
               </div>
             ))}
           </div>
@@ -248,9 +262,9 @@ function QuickPayModal({ patient, currentDue, currentPaid, onClose, onSave }: { 
               <input type="number" required min={0} value={amount}
                 onChange={e => {
                   const paid = parseFloat(e.target.value) || 0;
-                  const newDue = currentDue > 0 ? Math.max(0, currentDue - paid) : undefined;
+                  const newDue = Math.max(0, currentDue - paid);
                   setAmount(e.target.value);
-                  if (newDue !== undefined) setDueAmount(String(newDue));
+                  setDueAmount(String(newDue));
                 }}
                 className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20" placeholder="0" />
             </div>
@@ -284,9 +298,22 @@ function QuickPayModal({ patient, currentDue, currentPaid, onClose, onSave }: { 
 }
 
 // ── Edit Modal ──
-function EditModal({ patient, onClose, onSave }: { patient: Patient; onClose: () => void; onSave: (p: Patient) => void }) {
+function EditModal({ patient, billing, onClose, onSave }: { patient: Patient; billing: BillingRecord[]; onClose: () => void; onSave: (p: Patient) => void }) {
   const [form, setForm] = useState({ ...patient });
-  const set = (k: keyof Patient, v: string | number) => setForm(p => ({ ...p, [k]: v }));
+  const set = (k: keyof Patient, v: string | number) => {
+    if (k === 'status' && v === 'Discharged') {
+      const bills = billing.filter(b => b.patientId === patient.id || b.patientName.toLowerCase() === patient.name.toLowerCase());
+      const paid = bills.reduce((s, b) => s + b.amountPaid, 0);
+      const due = (patient.totalFee || 0) - paid;
+      if (due > 0) {
+        toast.error(`Note: Outstanding balance of ₹${due} must be cleared before saving as Discharged.`, {
+          duration: 4000,
+          icon: '⚠️'
+        });
+      }
+    }
+    setForm(p => ({ ...p, [k]: v }));
+  };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -358,6 +385,17 @@ function EditModal({ patient, onClose, onSave }: { patient: Patient; onClose: ()
                   )}
                 </div>
               ))}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Status</label>
+                <select 
+                  value={form.status || 'Active'} 
+                  onChange={e => set('status', e.target.value)}
+                  className="w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none appearance-none bg-surface-container-lowest"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Discharged">Discharged</option>
+                </select>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -399,7 +437,22 @@ function EditModal({ patient, onClose, onSave }: { patient: Patient; onClose: ()
             <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-outline-variant/30 text-on-surface-variant font-bold text-sm hover:bg-surface-container-low transition-colors">
               Cancel
             </button>
-            <button onClick={() => { onSave(form); onClose(); }}
+            <button onClick={() => { 
+                if (form.status === 'Discharged') {
+                  const bills = billing.filter(b => b.patientId === patient.id || b.patientName.toLowerCase() === patient.name.toLowerCase());
+                  const paid = bills.reduce((s, b) => s + b.amountPaid, 0);
+                  const due = (patient.totalFee || 0) - paid;
+                  if (due > 0) {
+                    toast.error(`Clear outstanding balance (₹${due}) before discharging.`, {
+                      duration: 5000,
+                      style: { background: '#fee2e2', color: '#991b1b', fontWeight: 'bold' }
+                    });
+                    return;
+                  }
+                }
+                onSave(form); 
+                onClose(); 
+              }}
               className="flex-1 py-3 rounded-xl bg-gradient-to-r from-secondary to-primary text-white font-bold text-sm hover:opacity-90 transition-opacity">
               Save Changes
             </button>
@@ -443,6 +496,24 @@ export default function PatientsListView({ patients, billing, onDelete, onUpdate
   const [payPatient, setPayPatient] = useState<Patient | null>(null);
   const [deleteId, setDeleteId] = useState<{ id: string; name: string } | null>(null);
 
+  const handleMarkDischarged = (patient: Patient) => {
+    const patientBills = billing.filter(b => b.patientId === patient.id || b.patientName.toLowerCase() === patient.name.toLowerCase());
+    const totalPaid = patientBills.reduce((s, b) => s + b.amountPaid, 0);
+    const due = (patient.totalFee || 0) - totalPaid;
+
+    if (due > 0) {
+      toast.error(`Patient cannot be discharged. Clear outstanding balance of ₹${due} first.`, {
+        duration: 4000,
+        position: 'top-center',
+        style: { borderRadius: '12px', background: '#333', color: '#fff' }
+      });
+      return;
+    }
+
+    onUpdate({ ...patient, status: 'Discharged' });
+    toast.success(`${patient.name} has been marked as Discharged.`, { icon: '✅' });
+  };
+
   const handleQuickPay = async (amount: number, dueAmount: number, method: string) => {
     if (!payPatient) return;
     await onAddPayment({
@@ -461,11 +532,15 @@ export default function PatientsListView({ patients, billing, onDelete, onUpdate
     (p.parentName || '').toLowerCase().includes(search.toLowerCase())
   );
 
-  const getBillingStats = (name: string) => {
-    const bills = billing.filter(b => b.patientName.toLowerCase() === name.toLowerCase());
+  const getBillingStats = (patient: Patient) => {
+    const bills = billing.filter(b => 
+      (b.patientId && b.patientId === patient.id) || 
+      (b.patientName.toLowerCase() === patient.name.toLowerCase())
+    );
+    const totalPaid = bills.reduce((s, b) => s + b.amountPaid, 0);
     return {
-      totalPaid: bills.reduce((s, b) => s + b.amountPaid, 0),
-      totalDue: bills.reduce((s, b) => s + b.dueAmount, 0),
+      totalPaid,
+      totalDue: Math.max(0, (patient.totalFee || 0) - totalPaid),
     };
   };
 
@@ -498,14 +573,26 @@ export default function PatientsListView({ patients, billing, onDelete, onUpdate
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {filtered.map((patient, idx) => {
-            const stats = getBillingStats(patient.name);
+            const stats = getBillingStats(patient);
             return (
               <motion.div key={patient.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.05 }}
-                className="bg-white rounded-2xl border border-outline-variant/20 overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col">
+                className="bg-white rounded-2xl border border-outline-variant/20 overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col relative">
+                
+
                 <div className="p-5 border-b border-outline-variant/10 flex justify-between items-start bg-secondary/5">
                   <div className="space-y-1">
-                    <h3 className="font-extrabold text-lg text-on-surface leading-tight">{patient.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-extrabold text-lg text-on-surface leading-tight">{patient.name}</h3>
+                      <span className={cn(
+                        "text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest border shrink-0",
+                        patient.status === 'Discharged' 
+                          ? "bg-green-50 text-green-700 border-green-100" 
+                          : "bg-blue-50 text-blue-700 border-blue-100"
+                      )}>
+                        {patient.status || 'Active'}
+                      </span>
+                    </div>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-on-surface-variant font-medium">
                       <span>{patient.age} yrs • {patient.gender}</span>
                       <span className="flex items-center gap-1"><Phone size={10} />{maskPhone(patient.phone || '')}</span>
@@ -516,6 +603,8 @@ export default function PatientsListView({ patients, billing, onDelete, onUpdate
                     onEdit={() => setEditPatient(patient)}
                     onDelete={() => setDeleteId({ id: patient.id, name: patient.name })}
                     onPay={() => setPayPatient(patient)}
+                    onDischarge={() => handleMarkDischarged(patient)}
+                    status={patient.status}
                   />
                 </div>
 
@@ -573,14 +662,14 @@ export default function PatientsListView({ patients, billing, onDelete, onUpdate
         {payPatient && (
           <QuickPayModal 
             patient={payPatient} 
-            currentDue={getBillingStats(payPatient.id).totalDue}
-            currentPaid={getBillingStats(payPatient.id).totalPaid}
+            currentDue={getBillingStats(payPatient).totalDue}
+            currentPaid={getBillingStats(payPatient).totalPaid}
             onClose={() => setPayPatient(null)} 
             onSave={handleQuickPay} 
           />
         )}
         {viewPatient && <ViewModal patient={viewPatient} billing={billing} onClose={() => setViewPatient(null)} />}
-        {editPatient && <EditModal patient={editPatient} onClose={() => setEditPatient(null)} onSave={onUpdate} />}
+        {editPatient && <EditModal patient={editPatient} billing={billing} onClose={() => setEditPatient(null)} onSave={onUpdate} />}
         {deleteId && <DeleteConfirm name={deleteId.name} onClose={() => setDeleteId(null)} onConfirm={() => onDelete(deleteId.id)} />}
       </AnimatePresence>
     </div>

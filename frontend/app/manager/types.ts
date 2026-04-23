@@ -12,6 +12,7 @@ export interface Patient {
   onboardedAt: string;
   totalFee?: number;
   serviceId?: string;
+  status?: string;
 }
 
 export interface Lead {

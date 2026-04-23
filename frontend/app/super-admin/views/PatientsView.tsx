@@ -7,7 +7,7 @@ import api from '@/lib/api';
 import { toast } from 'sonner';
 import { AddPatientModal } from '../components/AddPatientModal';
 import { useBranch } from '../components/BranchContext';
-import { useAddTransaction } from '../components/AddTransactionContext';
+import { useAddTransaction, NewTransaction } from '../components/AddTransactionContext';
 import { generatePatientPDF } from '@/app/manager/lib/generatePatientPDF';
 
 // --- Types ---
@@ -79,7 +79,22 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
   const [branches, setBranches] = useState<Branch[]>(initialData?.branches || []);
   const [isLoading, setIsLoading] = useState(!hasServerData);
   const { selectedBranchId } = useBranch();
-  const { openModal } = useAddTransaction();
+  const { openModal, registerSavedHandler } = useAddTransaction();
+  const [fees, setFees] = useState<any[]>([]);
+
+  // Listen for new transactions to update local fees state
+  useEffect(() => {
+    registerSavedHandler((tx: NewTransaction) => {
+      setFees(prev => [tx, ...prev]);
+    });
+  }, [registerSavedHandler]);
+
+  // Fetch fees once on mount
+  useEffect(() => {
+    api.get('/admin/fees').then(res => {
+      if (res.data.success) setFees(res.data.data || []);
+    }).catch(() => {});
+  }, []);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -158,7 +173,7 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
   }, [selectedBranchId]);
 
   const handleAddPatient = async () => {
-    if (!newPatient.name.trim() || !newPatient.condition.trim() || !newPatient.branch.trim() || newPatient.age <= 0) {
+    if (!(newPatient.name || "").trim() || !(newPatient.condition || "").trim() || !(newPatient.branch || "").trim() || newPatient.age <= 0) {
       return;
     }
 
@@ -201,7 +216,29 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
     }
   };
 
+  const calculateDueAmount = (patientId: string, totalFee: number) => {
+    const patPaid = fees
+      .filter(f => {
+        const pId = typeof f.patientId === 'object' && f.patientId ? f.patientId._id : f.patientId;
+        return pId === patientId;
+      })
+      .reduce((sum, f) => sum + (Number(f.amount) || 0), 0);
+    return Math.max(0, (totalFee || 0) - patPaid);
+  };
+
   const handleMarkDischarged = async (id: string) => {
+    const patient = patients.find(p => p._id === id);
+    if (patient) {
+      const due = calculateDueAmount(id, patient.totalFee || 0);
+      if (due > 0) {
+        toast.error(`Clear outstanding balance (₹${due.toLocaleString()}) before discharging.`, {
+          description: "All fees must be settled to proceed with discharge.",
+          duration: 4000
+        });
+        return;
+      }
+    }
+
     try {
       const { data } = await api.put(`/admin/patients/${id}`, { status: 'discharged' });
       if (data.success) {
@@ -218,9 +255,20 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
 
   const handleSaveEditedPatient = async () => {
     if (!editingPatient || !editingPatient._id) return;
-    if (!editingPatient.name.trim() || !editingPatient.condition.trim() || !editingPatient.branch.trim() || editingPatient.age <= 0) {
+    if (!(editingPatient.name || "").trim() || !(editingPatient.condition || "").trim() || !(editingPatient.branch || "").trim() || editingPatient.age <= 0) {
       return;
     }
+    if (editingPatient.status === 'Discharged') {
+      const due = calculateDueAmount(editingPatient._id, editingPatient.totalFee || 0);
+      if (due > 0) {
+        toast.error(`Clear outstanding balance (₹${due.toLocaleString()}) before discharging.`, {
+          description: "All fees must be settled to proceed with discharge.",
+          duration: 4000
+        });
+        return;
+      }
+    }
+
     try {
       const payload = {
         name: editingPatient.name,
@@ -736,7 +784,16 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
                   ))}
                 </select>
                 <select value={editingPatient.status}
-                  onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, status: e.target.value as Patient['status'] }) : prev)}
+                  onChange={(e) => {
+                    const newStatus = e.target.value as Patient['status'];
+                    if (newStatus === 'Discharged') {
+                      const due = calculateDueAmount(editingPatient._id || '', editingPatient.totalFee || 0);
+                      if (due > 0) {
+                        toast.warning(`Note: Outstanding balance of ₹${due.toLocaleString()} must be cleared before saving as Discharged.`);
+                      }
+                    }
+                    setEditingPatient(prev => prev ? ({ ...prev, status: newStatus }) : prev);
+                  }}
                   className="sm:col-span-2 w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25">
                   <option value="Active">Active</option>
                   <option value="Discharged">Discharged</option>

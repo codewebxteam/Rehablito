@@ -28,6 +28,38 @@ interface BillingManagementProps {
 
 export default function BillingManagementView({ billing, patients, onAddPayment, onDeleteBilling, onUpdateBilling }: BillingManagementProps) {
   const [selectedInvoice, setSelectedInvoice] = useState<BillingRecord | null>(billing[0] || null);
+  
+  const selectedPatientContext = useMemo(() => {
+    if (!selectedInvoice) return null;
+    const p = patients.find(pat => (pat.id && pat.id === selectedInvoice.patientId) || pat.name.toLowerCase() === selectedInvoice.patientName.toLowerCase());
+    if (!p) return null;
+    const allPatientBills = billing
+      .filter(b => (b.id && b.id === p.id) || b.patientName?.toLowerCase() === p.name.toLowerCase());
+      
+    // Filter to only show bills that happened BEFORE or AT the same time as the selected one
+    const patientBills = allPatientBills.filter(b => {
+      const bDate = new Date(b.date).getTime();
+      const sDate = new Date(selectedInvoice.date).getTime();
+      if (bDate < sDate) return true;
+      if (bDate === sDate) {
+        // If same day, we assume the one with HIGHER dueAmount came earlier (or is the current one)
+        return b.dueAmount >= selectedInvoice.dueAmount;
+      }
+      return false;
+    }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      
+    const totalFee = p.totalFee || 0;
+    const paidAtTime = Math.max(0, totalFee - selectedInvoice.dueAmount);
+    
+    return {
+      patient: p,
+      totalFee,
+      totalPaidAtTime: paidAtTime,
+      outstandingAtTime: selectedInvoice.dueAmount,
+      allPayments: patientBills
+    };
+  }, [selectedInvoice, patients, billing]);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -44,12 +76,24 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
   const formatINR = (amount: number | string) => `\u20B9${amount}`;
 
   // Derived: selected patient's total fee
-  const selectedPatient = patients.find(p => p.id === newPayment.patientId) || null;
-  const patientTotalFee = selectedPatient?.totalFee ?? 0;
+  // Derived: selected patient's current due
+  const currentDueForSelected = useMemo(() => {
+    const p = patients.find(p => p.id === newPayment.patientId);
+    if (!p) return 0;
+    const alreadyPaid = billing
+      .filter(b => b.patientId === p.id || b.patientName.toLowerCase() === p.name.toLowerCase())
+      .reduce((s, b) => s + b.amountPaid, 0);
+    return Math.max(0, (p.totalFee || 0) - alreadyPaid);
+  }, [patients, newPayment.patientId, billing]);
 
   const stats = useMemo(() => {
     const total = billing.reduce((acc, curr) => acc + curr.amountPaid, 0);
-    const pending = billing.reduce((acc, curr) => acc + curr.dueAmount, 0);
+    const pending = patients.reduce((acc, p) => {
+      const patientPaid = billing
+        .filter(b => (b.patientId && b.patientId === p.id) || b.patientName.toLowerCase() === p.name.toLowerCase())
+        .reduce((sum, b) => sum + b.amountPaid, 0);
+      return acc + Math.max(0, (p.totalFee || 0) - patientPaid);
+    }, 0);
     const overdueCount = billing.filter(b => (b.dueAmount ?? 0) > 0).length;
     const activePlans = new Set(
       billing.map(b => b.patientId).filter((id): id is string => Boolean(id))
@@ -390,6 +434,36 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                     </div>
                   ))}
 
+                  {/* History section */}
+                  {selectedPatientContext?.allPayments && selectedPatientContext.allPayments.length > 0 && (
+                    <>
+                      <div className="bg-blue-50 border-y border-blue-100 px-5 py-2">
+                        <p className="text-[#004aad] font-bold text-[10px] uppercase tracking-widest">Payment History Breakdown</p>
+                      </div>
+                      <div className="px-5 py-3 space-y-1.5 bg-white">
+                        {selectedPatientContext.allPayments.map((p, idx) => {
+                          const isCurrent = p.id === selectedInvoice.id;
+                          return (
+                            <div key={p.id} className={cn(
+                              "flex justify-between text-[11px] p-2 rounded-lg border transition-colors",
+                              isCurrent ? "bg-blue-50 border-blue-200" : "bg-gray-50 border-gray-100"
+                            )}>
+                              <div className="flex flex-col">
+                                <span className={cn("font-bold", isCurrent ? "text-blue-700" : "text-gray-700")}>
+                                  {isCurrent ? "Current Payment" : `Payment #${idx + 1}`}
+                                </span>
+                                <span className="text-[9px] text-gray-400">{p.date}</span>
+                              </div>
+                              <span className={cn("font-black", isCurrent ? "text-blue-700" : "text-gray-900")}>
+                                {formatINR(p.amountPaid.toLocaleString())}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+
                   {/* Amount section */}
                   <div className="bg-blue-50 border-y border-blue-100 px-5 py-2">
                     <p className="text-[#004aad] font-bold text-[10px] uppercase tracking-widest">Payment Summary</p>
@@ -402,13 +476,21 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                       </div>
                     ))}
                     <div className="flex justify-between text-xs pt-1 border-t border-gray-100">
-                      <span className="font-bold text-gray-500">Amount Paid</span>
+                      <span className="font-bold text-gray-500">Total Service Fee</span>
+                      <span className="font-bold text-gray-800">{formatINR((selectedPatientContext?.totalFee || 0).toLocaleString())}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="font-bold text-gray-500">Amount Paid (This Tx)</span>
                       <span className="font-black text-[#004aad] text-sm">{formatINR(selectedInvoice.amountPaid.toLocaleString())}</span>
                     </div>
-                    {selectedInvoice.dueAmount > 0 && (
+                    <div className="flex justify-between text-xs">
+                      <span className="font-bold text-gray-500">Total Paid to Date</span>
+                      <span className="font-bold text-gray-800">{formatINR((selectedPatientContext?.totalPaidAtTime || 0).toLocaleString())}</span>
+                    </div>
+                    {(selectedPatientContext?.outstandingAtTime || 0) > 0 && (
                       <div className="flex justify-between text-xs">
-                        <span className="font-bold text-gray-500">Due Amount</span>
-                        <span className="font-black text-red-500">{formatINR(selectedInvoice.dueAmount.toLocaleString())}</span>
+                        <span className="font-bold text-gray-500">Remaining Balance</span>
+                        <span className="font-black text-red-500">{formatINR((selectedPatientContext?.outstandingAtTime || 0).toLocaleString())}</span>
                       </div>
                     )}
                   </div>
@@ -474,7 +556,32 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                         doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...lc); doc.text(label,14,ry+4);
                         doc.setFont('helvetica','normal'); doc.setTextColor(...vc); doc.text(String(val),80,ry+4);
                       });
-                      y += rows.length * 14 + 8;
+                      y += rows.length * 14;
+
+                      // Payment history breakdown
+                      if (selectedPatientContext?.allPayments && selectedPatientContext.allPayments.length > 0) {
+                        doc.setFillColor(248,250,255); doc.setDrawColor(210,220,240);
+                        doc.roundedRect(10,y,W-20,10,2,2,'FD');
+                        doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(0,74,173);
+                        doc.text('PAYMENT HISTORY BREAKDOWN',14,y+7); y+=14;
+
+                        selectedPatientContext.allPayments.forEach((p, idx) => {
+                          const isCurrent = p.id === inv.id;
+                          if (isCurrent) { doc.setFillColor(240,247,255); doc.setDrawColor(200,220,255); }
+                          else { doc.setFillColor(255,255,255); doc.setDrawColor(235,240,250); }
+                          
+                          doc.roundedRect(10,y,W-20,12,2,2,'FD');
+                          doc.setFont('helvetica', isCurrent ? 'bold' : 'normal');
+                          doc.setFontSize(9); doc.setTextColor(isCurrent ? 0 : 80);
+                          doc.text(isCurrent ? 'Current Payment' : `Payment #${idx+1}`, 14, y+8);
+                          doc.setFontSize(8); doc.setTextColor(140);
+                          doc.text(p.date, 60, y+8);
+                          doc.setFontSize(9); doc.setTextColor(isCurrent ? 0 : 50);
+                          doc.text(`Rs. ${p.amountPaid.toLocaleString()}`, W-14, y+8, { align:'right' });
+                          y += 14;
+                        });
+                        y += 4;
+                      }
 
                       // Payment summary
                       doc.setFillColor(248,250,255); doc.setDrawColor(210,220,240);
@@ -482,16 +589,24 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                       doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(0,74,173);
                       doc.text('PAYMENT SUMMARY',14,y+7); y+=14;
 
-                      const boxH = inv.dueAmount > 0 ? 28 : 18;
+                      const boxH = (selectedPatientContext?.outstandingAtTime || 0) > 0 ? 40 : 30;
                       doc.setFillColor(255,255,255); doc.setDrawColor(220,228,245);
                       doc.roundedRect(10,y,W-20,boxH,2,2,'FD');
-                      doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...lc);
-                      doc.text('Amount Paid',14,y+10);
-                      doc.setTextColor(0,74,173);
-                      doc.text(`Rs. ${inv.amountPaid.toLocaleString()}`, W-14, y+10, { align:'right' });
-                      if (inv.dueAmount > 0) {
-                        doc.setFont('helvetica','bold'); doc.setTextColor(...lc); doc.text('Due Amount',14,y+22);
-                        doc.setTextColor(200,0,0); doc.text(`Rs. ${inv.dueAmount.toLocaleString()}`, W-14, y+22, { align:'right' });
+                      
+                      doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...lc);
+                      doc.text('Total Service Fee',14,y+8);
+                      doc.setTextColor(20,25,35); doc.text(`Rs. ${(selectedPatientContext?.totalFee || 0).toLocaleString()}`, W-14, y+8, { align:'right' });
+                      
+                      doc.setTextColor(...lc); doc.text('Amount Paid (This Transaction)',14,y+16);
+                      doc.setTextColor(0,74,173); doc.setFontSize(10);
+                      doc.text(`Rs. ${inv.amountPaid.toLocaleString()}`, W-14, y+16, { align:'right' });
+                      
+                      doc.setFontSize(9); doc.setTextColor(...lc); doc.text('Total Paid to Date',14,y+24);
+                      doc.setTextColor(20,25,35); doc.text(`Rs. ${(selectedPatientContext?.totalPaidAtTime || 0).toLocaleString()}`, W-14, y+24, { align:'right' });
+
+                      if ((selectedPatientContext?.outstandingAtTime || 0) > 0) {
+                        doc.setFont('helvetica','bold'); doc.setTextColor(...lc); doc.text('Remaining Balance',14,y+32);
+                        doc.setTextColor(200,0,0); doc.text(`Rs. ${(selectedPatientContext?.outstandingAtTime || 0).toLocaleString()}`, W-14, y+32, { align:'right' });
                       }
                       y += boxH + 10;
 
@@ -550,10 +665,27 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                         + '<span style="color:#6b7280;font-weight:700;font-size:10px;letter-spacing:.5px;text-transform:uppercase;align-self:center">'+r[0]+'</span>'
                         + valHtml + '</div>';
                     }).join('');
-                    const dueRow = inv.dueAmount > 0
+                    const historyHtml = (selectedPatientContext?.allPayments || []).map((p, idx) => {
+                        const isCurrent = p.id === inv.id;
+                        const bg = isCurrent ? '#eff6ff' : '#f9fafb';
+                        const border = isCurrent ? '1px solid #bfdbfe' : '1px solid #f3f4f6';
+                        return '<div style="display:flex;justify-content:space-between;padding:8px 16px;background:'+bg+';border:'+border+';border-radius:8px;margin-bottom:6px">'
+                          + '<div style="display:flex;flex-direction:column">'
+                          + '<span style="font-size:11px;font-weight:800;color:'+(isCurrent?'#1d4ed8':'#4b5563')+'">'+(isCurrent?'Current Payment':'Payment #'+(idx+1))+'</span>'
+                          + '<span style="font-size:9px;color:#9ca3af">'+p.date+'</span></div>'
+                          + '<span style="font-size:12px;font-weight:800;color:'+(isCurrent?'#1d4ed8':'#374151')+'">Rs. '+p.amountPaid.toLocaleString()+'</span></div>';
+                    }).join('');
+
+                    const totalFeeRow = '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0">'
+                        + '<span style="color:#6b7280;font-weight:700;font-size:13px">Total Service Fee</span>'
+                        + '<span style="color:#111827;font-weight:800;font-size:14px">Rs. '+(selectedPatientContext?.totalFee || 0).toLocaleString()+'</span></div>';
+                    const paidDateRow = '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0">'
+                        + '<span style="color:#6b7280;font-weight:700;font-size:13px">Total Paid to Date</span>'
+                        + '<span style="color:#111827;font-weight:800;font-size:14px">Rs. '+(selectedPatientContext?.totalPaidAtTime || 0).toLocaleString()+'</span></div>';
+                    const dueRow = (selectedPatientContext?.outstandingAtTime || 0) > 0
                       ? '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid #fee2e2;margin-top:6px">'
-                        + '<span style="color:#6b7280;font-weight:700;font-size:13px">Due Amount</span>'
-                        + '<span style="color:#dc2626;font-weight:800;font-size:15px">Rs. '+inv.dueAmount.toLocaleString()+'</span></div>'
+                        + '<span style="color:#6b7280;font-weight:700;font-size:13px">Remaining Balance</span>'
+                        + '<span style="color:#dc2626;font-weight:800;font-size:15px">Rs. '+(selectedPatientContext?.outstandingAtTime || 0).toLocaleString()+'</span></div>'
                       : '';
                     const html = '<!DOCTYPE html><html><head><title>Receipt - '+receiptNo+'</title>'
                       + '<meta charset="utf-8">'
@@ -585,12 +717,19 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                       // Transaction details section
                       + '<div style="background:#eff6ff;padding:9px 24px;color:#004aad;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid #bfdbfe">Transaction Details</div>'
                       + rowsHtml
+                      // History section
+                      + '<div style="background:#eff6ff;padding:9px 24px;color:#004aad;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid #bfdbfe">Payment History Breakdown</div>'
+                      + '<div style="background:#fff;padding:16px 24px">'
+                      + historyHtml
+                      + '</div>'
                       // Payment summary section
                       + '<div style="background:#eff6ff;padding:9px 24px;color:#004aad;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid #bfdbfe">Payment Summary</div>'
                       + '<div style="background:#fff;padding:16px 24px">'
+                      + totalFeeRow
                       + '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0">'
-                      + '<span style="color:#6b7280;font-weight:700;font-size:13px">Amount Paid</span>'
+                      + '<span style="color:#6b7280;font-weight:700;font-size:13px">Amount Paid (This Tx)</span>'
                       + '<span style="color:#004aad;font-weight:800;font-size:17px">Rs. '+inv.amountPaid.toLocaleString()+'</span></div>'
+                      + paidDateRow
                       + dueRow
                       + '</div>'
                       // Signature boxes
@@ -646,13 +785,19 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                     onChange={e => {
                       const pid = e.target.value;
                       const pat = patients.find(p => p.id === pid);
-                      const fee = pat?.totalFee ?? 0;
-                      setNewPayment(prev => ({
-                        ...prev,
-                        patientId: pid,
-                        // Auto-fill due as totalFee when patient changes
-                        dueAmount: fee > 0 ? String(fee) : prev.dueAmount,
-                      }));
+                      if (pat) {
+                        const alreadyPaid = billing
+                          .filter(b => (b.patientId && b.patientId === pat.id) || b.patientName.toLowerCase() === pat.name.toLowerCase())
+                          .reduce((s, b) => s + b.amountPaid, 0);
+                        const currentDue = Math.max(0, (pat.totalFee || 0) - alreadyPaid);
+                        setNewPayment(prev => ({
+                          ...prev,
+                          patientId: pid,
+                          dueAmount: String(currentDue),
+                        }));
+                      } else {
+                        setNewPayment(prev => ({ ...prev, patientId: pid, dueAmount: '' }));
+                      }
                     }}
                     className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"
                   >
@@ -661,10 +806,10 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                       <option key={p.id} value={p.id}>{p.name}{p.totalFee ? ` — ₹${p.totalFee.toLocaleString()} total` : ''}</option>
                     ))}
                   </select>
-                  {patientTotalFee > 0 && (
+                  {currentDueForSelected > 0 && (
                     <div className="mt-1.5 flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/8 border border-secondary/20">
-                      <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">Service Fee (Reference)</span>
-                      <span className="text-sm font-black text-on-surface">₹{patientTotalFee.toLocaleString()}</span>
+                      <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">Current Outstanding</span>
+                      <span className="text-sm font-black text-on-surface">₹{currentDueForSelected.toLocaleString()}</span>
                     </div>
                   )}
                 </div>
@@ -678,11 +823,11 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                       value={newPayment.amount}
                       onChange={e => {
                         const paid = parseFloat(e.target.value) || 0;
-                        const due = patientTotalFee > 0 ? Math.max(0, patientTotalFee - paid) : undefined;
+                        const due = Math.max(0, currentDueForSelected - paid);
                         setNewPayment(prev => ({
                           ...prev,
                           amount: e.target.value,
-                          dueAmount: due !== undefined ? String(due) : prev.dueAmount,
+                          dueAmount: String(due),
                         }));
                       }}
                       className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"

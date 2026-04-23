@@ -179,7 +179,7 @@ export default function DashboardView({ leads, onNavigate }: DashboardProps) {
           <h1 className="text-3xl md:text-4xl font-black text-on-surface tracking-tight leading-none">Good Morning, Team</h1>
           <p className="text-on-surface-variant mt-2 text-sm md:text-base font-medium">Here is what&apos;s happening at Rehablito today.</p>
         </div>
-        <Button 
+        {/* <Button 
           variant="surface"
           isLoading={isExporting}
           onClick={() => {
@@ -190,7 +190,7 @@ export default function DashboardView({ leads, onNavigate }: DashboardProps) {
         >
           <Download size={16} />
           Export Report
-        </Button>
+        </Button> */}
       </div>
 
       {/* KPI Grid */}

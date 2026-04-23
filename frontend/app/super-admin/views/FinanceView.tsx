@@ -565,6 +565,7 @@ export const FinanceView = ({ initialData }: { initialData?: any }) => {
                 placeholder="Search patient, branch..."
                 value={searchTerm}
                 onChange={(e) => { setSearchTerm(e.target.value); setFeePage(1); }}
+                className="w-full md:w-64 bg-slate-50 border border-slate-100 rounded-xl py-2 pl-10 pr-4 text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 transition-all placeholder:text-slate-300"
               />
             </div>
 

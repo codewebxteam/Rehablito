@@ -125,6 +125,7 @@ interface ApiPatient {
   createdAt?: string;
   totalFee?: number;
   serviceId?: string;
+  status?: string;
 }
 
 const capitalize = (s?: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
@@ -143,6 +144,7 @@ const apiPatientToUi = (p: ApiPatient): Patient => ({
   onboardedAt: p.admissionDate || p.createdAt || new Date().toISOString(),
   totalFee: p.totalFee ?? 0,
   serviceId: p.serviceId,
+  status: p.status,
 });
 
 // ── Billing API types & mappers ──

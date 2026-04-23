@@ -57,7 +57,23 @@ export function AddTransactionModal() {
     })
     .reduce((sum, f) => sum + (Number(f.amount) || 0), 0);
 
-  const patientTotalFee = initialBaseFee > 0 ? Math.max(0, initialBaseFee - totalPaid) : 0;
+  const currentOutstanding = initialBaseFee > 0 ? Math.max(0, initialBaseFee - totalPaid) : 0;
+
+  // Auto-calculate dueAmount and status reactively
+  useEffect(() => {
+    if (!isOpen) return;
+    const paid = parseFloat(form.amount) || 0;
+    const due = Math.max(0, currentOutstanding - paid);
+    
+    // Update dueAmount if it differs (to avoid infinite loops)
+    if (String(due) !== form.dueAmount) {
+      setForm(prev => ({
+        ...prev,
+        dueAmount: String(due),
+        status: due === 0 ? 'paid' : (due > 0 ? 'partial' : prev.status)
+      }));
+    }
+  }, [form.amount, currentOutstanding, isOpen, form.dueAmount]);
 
   // fetch branches, patients, and fees once
   useEffect(() => {
@@ -229,8 +245,6 @@ export function AddTransactionModal() {
                         setForm(prev => ({
                           ...prev,
                           patientId: pId,
-                          // Auto-fill due as currentDue when patient changes
-                          dueAmount: currentDue > 0 ? String(currentDue) : prev.dueAmount,
                           // Auto-fill branch if patient has one
                           branchId: pat?.branchId ? (typeof pat.branchId === 'string' ? pat.branchId : pat.branchId._id) : prev.branchId
                         }));
@@ -247,7 +261,7 @@ export function AddTransactionModal() {
                   </div>
                 </div>
 
-                {patientTotalFee > 0 && (
+                {currentOutstanding > 0 && (
                   <div className="px-4 py-3 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-between mt-2">
                     <div className="flex items-center gap-2">
                        <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
@@ -255,7 +269,7 @@ export function AddTransactionModal() {
                     </div>
                     <div className="text-right">
                        <span className="text-[11px] font-bold text-slate-500 block max-w-[150px] sm:max-w-none truncate">Total: ₹{initialBaseFee.toLocaleString()} • Paid: ₹{totalPaid.toLocaleString()}</span>
-                       <div className="text-sm font-black text-slate-800 uppercase">Outstanding: ₹{patientTotalFee.toLocaleString()}</div>
+                       <div className="text-sm font-black text-slate-800 uppercase">Outstanding: ₹{currentOutstanding.toLocaleString()}</div>
                     </div>
                   </div>
                 )}
@@ -296,14 +310,9 @@ export function AddTransactionModal() {
                       placeholder="0.00"
                       value={form.amount}
                       onChange={e => {
-                        const paid = parseFloat(e.target.value) || 0;
-                        const due = patientTotalFee > 0 ? Math.max(0, patientTotalFee - paid) : undefined;
                         setForm(prev => ({
                           ...prev,
-                          amount: e.target.value,
-                          dueAmount: due !== undefined ? String(due) : prev.dueAmount,
-                          // If due is 0, auto-set status to paid
-                          status: due === 0 ? 'paid' : (due && due > 0 ? 'partial' : prev.status)
+                          amount: e.target.value
                         }));
                       }}
                       className={INPUT_CLASS}

@@ -254,6 +254,7 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
               placeholder="Search leads..."
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+              className="w-full sm:w-64 bg-surface-container-low/50 border border-outline-variant/20 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all font-medium text-on-surface"
             />
           </div>
           <div className="relative">

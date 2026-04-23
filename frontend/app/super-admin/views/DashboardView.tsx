@@ -426,7 +426,7 @@ const LiveFeed = React.memo(({ items, isLoading = false, liveItems = [] }: { ite
           <h4 className="text-base font-black font-headline text-on-surface">Live Feed</h4>
           <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
         </div>
-        <button onClick={() => router.push('/super-admin/leads')} className="text-[10px] font-black text-primary/60 hover:text-primary uppercase tracking-widest transition-colors">
+        <button onClick={() => router.push('/super-admin/finance')} className="text-[10px] font-black text-primary/60 hover:text-primary uppercase tracking-widest transition-colors">
           View All
         </button>
       </div>

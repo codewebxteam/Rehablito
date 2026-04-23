@@ -193,12 +193,12 @@ export default function ServicesView() {
       ].map(({ open, title, badge, badgeColor, form, setForm, error: formError, saving, onSubmit, onClose, submitLabel, submitIcon }) => (
         <AnimatePresence key={title}>
           {open && (
-            <div className="fixed inset-0 lg:left-64 z-[100] flex items-center justify-center p-4">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 onClick={onClose} className="fixed inset-0 bg-on-surface/40 backdrop-blur-sm" />
               <motion.div initial={{ scale: 0.95, opacity: 0, y: 16 }} animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.95, opacity: 0, y: 16 }}
-                className="relative bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 sm:p-8 z-10 mt-20 lg:mt-0 lg:ml-16">
+                className="relative bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 sm:p-8 z-10">
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <p className={cn('text-[10px] font-bold uppercase tracking-widest', badgeColor)}>{badge}</p>
