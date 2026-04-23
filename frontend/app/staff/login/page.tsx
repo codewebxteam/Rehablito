@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "motion/react";
-import { ArrowRight, Fingerprint, Phone, KeyRound, UserCheck, Stethoscope, ChevronLeft, Lock, Download } from "lucide-react";
+import { ArrowRight, UserCheck, Stethoscope, Lock, Download, Eye, EyeOff } from "lucide-react";
 import SplitLayout from "../../components/SplitLayout";
 import { useAuth } from "../../context/AuthContext";
 
@@ -12,11 +12,10 @@ type BeforeInstallPromptEvent = Event & {
 };
 
 export default function StaffLoginPage() {
-  const { requestOtp, verifyOtp, loading } = useAuth();
-  const [staffId, setStaffId] = useState("");
-  const [mobile, setMobile] = useState("");
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
+  const { login, loading } = useAuth();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => {
@@ -42,12 +41,7 @@ export default function StaffLoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otpSent) {
-      const ok = await requestOtp(staffId, mobile);
-      if (ok) setOtpSent(true);
-    } else {
-      await verifyOtp(staffId, otp);
-    }
+    await login(email, password);
   };
 
   const leftContent = (
@@ -86,45 +80,34 @@ export default function StaffLoginPage() {
       </div>
 
       <form className="space-y-5" onSubmit={handleSubmit}>
-        <div className={otpSent ? "hidden" : "space-y-2"}>
-          <label className="block text-sm font-bold text-on-background ml-1">Staff ID</label>
+        <div className="space-y-2">
+          <label className="block text-sm font-bold text-on-background ml-1">Email Address</label>
           <div className="relative group">
-            <Fingerprint className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-outline group-focus-within:text-brand-sage transition-colors" />
+            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-outline group-focus-within:text-brand-sage transition-colors" />
             <input
               className="block w-full pl-12 pr-4 py-4 bg-surface-container-low border border-outline-variant/30 rounded-xl focus:ring-4 focus:ring-brand-sage/10 focus:border-brand-sage transition-all outline-none text-on-background placeholder:text-outline/50"
-              type="text" placeholder="ST-001" value={staffId}
-              onChange={e => setStaffId(e.target.value)} required={!otpSent} disabled={loading}
+              type="email" placeholder="staff@rehablito.com" value={email}
+              onChange={e => setEmail(e.target.value)} required disabled={loading}
             />
           </div>
         </div>
 
-        <div className={otpSent ? "hidden" : "space-y-2"}>
-          <label className="block text-sm font-bold text-on-background ml-1">Mobile Number</label>
+        <div className="space-y-2">
+          <label className="block text-sm font-bold text-on-background ml-1">Password</label>
           <div className="relative group">
-            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-outline group-focus-within:text-brand-sage transition-colors" />
+            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-outline group-focus-within:text-brand-sage transition-colors" />
             <input
-              className="block w-full pl-12 pr-4 py-4 bg-surface-container-low border border-outline-variant/30 rounded-xl focus:ring-4 focus:ring-brand-sage/10 focus:border-brand-sage transition-all outline-none text-on-background placeholder:text-outline/50"
-              type="tel" placeholder="9876543210" value={mobile}
-              onChange={e => setMobile(e.target.value)} required={!otpSent} disabled={loading}
+              className="block w-full pl-12 pr-12 py-4 bg-surface-container-low border border-outline-variant/30 rounded-xl focus:ring-4 focus:ring-brand-sage/10 focus:border-brand-sage transition-all outline-none text-on-background placeholder:text-outline/50"
+              type={showPassword ? "text" : "password"} placeholder="••••••••" value={password}
+              onChange={e => setPassword(e.target.value)} required disabled={loading}
             />
-          </div>
-        </div>
-
-        <div className={otpSent ? "space-y-2" : "hidden"}>
-          <div className="flex items-center justify-between ml-1">
-            <label className="block text-sm font-bold text-on-background">Access Code</label>
-            <button type="button" onClick={() => { setOtpSent(false); setOtp(""); }}
-              className="flex items-center gap-1 text-xs font-bold text-brand-sage hover:underline">
-              <ChevronLeft className="w-3 h-3" />Change
+            <button
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface-variant transition-colors"
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
-          </div>
-          <div className="relative group">
-            <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-outline group-focus-within:text-brand-sage transition-colors" />
-            <input
-              className="block w-full pl-12 pr-4 py-4 bg-surface-container-low border border-outline-variant/30 rounded-xl focus:ring-4 focus:ring-brand-sage/10 focus:border-brand-sage transition-all outline-none text-on-background placeholder:text-outline/50 tracking-[0.5em] text-lg font-black"
-              type="text" maxLength={6} placeholder="000000" value={otp}
-              onChange={e => setOtp(e.target.value)} required={otpSent} disabled={loading}
-            />
           </div>
         </div>
 
@@ -132,19 +115,12 @@ export default function StaffLoginPage() {
           className="w-full py-4 px-6 bg-brand-sage text-white font-bold rounded-xl shadow-lg shadow-brand-sage/25 hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-2 group disabled:opacity-50"
           type="submit" disabled={loading}
         >
-          {loading ? (otpSent ? "Verifying..." : "Sending...") : (otpSent ? "Access Portal" : "Sign In")}
+          {loading ? "Authenticating..." : "Sign In"}
           <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
         </button>
-
-        {otpSent && (
-          <p className="text-center text-xs text-outline font-medium">
-            Didn&apos;t receive?{" "}
-            <button type="button" onClick={() => requestOtp(staffId, mobile)} className="text-brand-sage font-bold hover:underline">
-              Resend
-            </button>
-          </p>
-        )}
       </form>
+
+
 
       {installPrompt && (
         <button

@@ -342,6 +342,110 @@ const getAttendanceStats = async (req, res) => {
     }
 };
 
+// ─────────────────────────────────────────────
+// POST /api/manager/staff
+// Create a new staff member in the manager's branch
+// ─────────────────────────────────────────────
+const createStaff = async (req, res) => {
+    try {
+        const { name, email, password, staffId, mobileNumber } = req.body;
+        const branchId = getManagerBranchId(req);
+
+        if (!branchId) {
+            return res.status(400).json({ success: false, message: 'Manager branch ID not found' });
+        }
+
+        const existing = await User.findOne({ email });
+        if (existing) {
+            return res.status(400).json({ success: false, message: 'User with this email already exists' });
+        }
+
+        const user = await User.create({
+            name,
+            email,
+            password,
+            role: 'staff', // Managers can only create staff
+            branchId,
+            staffId,
+            mobileNumber
+        });
+
+        const populated = await User.findById(user._id)
+            .select('-password -otp -otpExpires')
+            .populate('branchId', 'name');
+
+        res.status(201).json({ success: true, data: populated });
+    } catch (err) {
+        res.status(400).json({ success: false, message: err.message });
+    }
+};
+
+// ─────────────────────────────────────────────
+// PUT /api/manager/staff/:id
+// Update a staff member (branch-scoped)
+// ─────────────────────────────────────────────
+const updateStaff = async (req, res) => {
+    try {
+        const { name, email, staffId, mobileNumber, password } = req.body;
+        const branchId = getManagerBranchId(req);
+
+        const user = await User.findOne({
+            _id: req.params.id,
+            branchId,
+            role: 'staff' // Managers can only edit staff
+        });
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'Staff member not found in your branch' });
+        }
+
+        if (email && email !== user.email) {
+            const duplicate = await User.findOne({ email, _id: { $ne: user._id } });
+            if (duplicate) return res.status(400).json({ success: false, message: 'Email already in use' });
+            user.email = email;
+        }
+
+        if (name !== undefined) user.name = name;
+        if (staffId !== undefined) user.staffId = staffId;
+        if (mobileNumber !== undefined) user.mobileNumber = mobileNumber;
+        if (password) user.password = password;
+
+        await user.save();
+
+        const updated = await User.findById(user._id)
+            .select('-password -otp -otpExpires')
+            .populate('branchId', 'name');
+
+        res.json({ success: true, data: updated });
+    } catch (err) {
+        res.status(400).json({ success: false, message: err.message });
+    }
+};
+
+// ─────────────────────────────────────────────
+// DELETE /api/manager/staff/:id
+// Delete a staff member (branch-scoped)
+// ─────────────────────────────────────────────
+const deleteStaff = async (req, res) => {
+    try {
+        const branchId = getManagerBranchId(req);
+
+        const user = await User.findOneAndDelete({
+            _id: req.params.id,
+            branchId,
+            role: 'staff' // Managers can only delete staff
+        });
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'Staff member not found in your branch' });
+        }
+
+        res.json({ success: true, message: 'Staff deleted' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
 module.exports = {
     getStaff,
     getStaffDetail,
@@ -349,4 +453,7 @@ module.exports = {
     getBranchAttendance,
     markAttendance,
     getAttendanceStats,
+    createStaff,
+    updateStaff,
+    deleteStaff,
 };

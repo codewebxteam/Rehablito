@@ -104,6 +104,8 @@ const apiStaffToUi = (s: ApiStaff): Staff => ({
   id: s._id,
   name: s.name,
   email: s.email,
+  staffId: s.staffId,
+  mobileNumber: s.mobileNumber,
   role: s.role === 'branch_manager' ? 'Admin' : 'Physio',
   status: s.todayStatus && s.todayStatus !== 'not_marked' && s.todayStatus !== 'absent' ? 'Active' : 'Inactive',
   attendance: [],
@@ -408,19 +410,65 @@ export default function ManagerDashboardApp() {
   };
 
   const toggleStaffStatus = (id: string) => {
+    // Note: status toggling is not directly supported by current backend staff API
+    // but we can simulate it or wait for actual backend field.
+    // For now, let's keep local toggle or use update API if status is added.
     setStaff(prev => prev.map(s => s.id === id ? { ...s, status: s.status === 'Active' ? 'Inactive' : 'Active' } : s));
     const member = staff.find(s => s.id === id);
-    addNotification(`Staff ${member?.name} is now ${member?.status === 'Active' ? 'Inactive' : 'Active'}`);
+    addNotification(`Staff ${member?.name} status toggled locally`);
   };
 
-  const deleteStaff = (id: string) => {
-    setStaff(prev => prev.filter(s => s.id !== id));
-    addNotification(`Staff member removed`, 'error');
+  const addStaff = async (input: Partial<Staff> & { password?: string }) => {
+    try {
+      const payload = {
+        name: input.name,
+        email: input.email,
+        password: input.password,
+        staffId: input.staffId,
+        mobileNumber: input.mobileNumber,
+      };
+      const { data } = await api.post('/manager/staff', payload);
+      if (data.success) {
+        setStaff(prev => [apiStaffToUi(data.data as ApiStaff), ...prev]);
+        addNotification(`Staff member ${input.name} added successfully`);
+      }
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      addNotification(axiosErr?.response?.data?.message || 'Failed to add staff', 'error');
+    }
   };
 
-  const updateStaff = (updatedStaff: Staff) => {
-    setStaff(prev => prev.map(s => s.id === updatedStaff.id ? updatedStaff : s));
-    addNotification(`Staff member ${updatedStaff.name} updated`);
+  const deleteStaff = async (id: string) => {
+    try {
+      const { data } = await api.delete(`/manager/staff/${id}`);
+      if (data.success) {
+        setStaff(prev => prev.filter(s => s.id !== id));
+        addNotification(`Staff member removed`, 'success');
+      }
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      addNotification(axiosErr?.response?.data?.message || 'Failed to delete staff', 'error');
+    }
+  };
+
+  const updateStaff = async (updatedStaff: Staff & { password?: string }) => {
+    try {
+      const payload = {
+        name: updatedStaff.name,
+        email: updatedStaff.email,
+        staffId: updatedStaff.staffId,
+        mobileNumber: updatedStaff.mobileNumber,
+        password: updatedStaff.password || undefined,
+      };
+      const { data } = await api.put(`/manager/staff/${updatedStaff.id}`, payload);
+      if (data.success) {
+        setStaff(prev => prev.map(s => s.id === updatedStaff.id ? apiStaffToUi(data.data as ApiStaff) : s));
+        addNotification(`Staff member ${updatedStaff.name} updated`);
+      }
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      addNotification(axiosErr?.response?.data?.message || 'Failed to update staff', 'error');
+    }
   };
 
   const addBilling = async (input: NewPaymentInput): Promise<BillingRecord | null> => {
@@ -745,6 +793,7 @@ export default function ManagerDashboardApp() {
                   onToggleStatus={toggleStaffStatus}
                   onDeleteStaff={deleteStaff}
                   onUpdateStaff={updateStaff}
+                  onAddStaff={addStaff}
                 />
               )}
               {currentView === 'services' && <ServicesView />}

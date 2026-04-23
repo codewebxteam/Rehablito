@@ -33,6 +33,9 @@ const {
     getBranchAttendance,
     markAttendance,
     getAttendanceStats,
+    createStaff,
+    updateStaff,
+    deleteStaff,
 } = require('../controllers/manager.staff.controller');
 
 const {
@@ -121,10 +124,13 @@ router.put('/leads/:id/convert', convertLeadToPatient);
 router.get('/attendance/stats', getAttendanceStats);
 
 // GET    /api/manager/staff             → List branch staff with attendance summary
-router.get('/staff', getStaff);
+// POST   /api/manager/staff             → Create new staff member
+router.route('/staff').get(getStaff).post(createStaff);
 
 // GET    /api/manager/staff/:id         → Get staff member details
-router.get('/staff/:id', getStaffDetail);
+// PUT    /api/manager/staff/:id         → Update staff member
+// DELETE /api/manager/staff/:id         → Delete staff member
+router.route('/staff/:id').get(getStaffDetail).put(updateStaff).delete(deleteStaff);
 
 // GET    /api/manager/staff/:id/attendance → Staff attendance history
 router.get('/staff/:id/attendance', getStaffAttendanceHistory);

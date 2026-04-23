@@ -4,7 +4,7 @@ import api from '@/lib/api';
 import {
   History, CheckCircle2, MapPin, MoreVertical,
   Activity, Clock, AlertCircle, XCircle,
-  Eye, Edit, Trash2, Download
+  Eye, Edit, Trash2, Download, Plus
 } from 'lucide-react';
 import { Staff } from '../types';
 import { cn } from '../lib/utils';
@@ -16,7 +16,8 @@ interface StaffManagementProps {
   staff: Staff[];
   onToggleStatus: (id: string) => void;
   onDeleteStaff: (id: string) => void;
-  onUpdateStaff: (staff: Staff) => void;
+  onUpdateStaff: (staff: Staff & { password?: string }) => void;
+  onAddStaff: (staff: Partial<Staff> & { password?: string }) => void;
 }
 
 interface AttendanceStats {
@@ -62,10 +63,11 @@ function RowMenu({ memberId, onView, onEdit, onDelete }: { memberId: string; onV
   );
 }
 
-export default function StaffManagementView({ staff, onToggleStatus, onDeleteStaff, onUpdateStaff }: StaffManagementProps) {
+export default function StaffManagementView({ staff, onToggleStatus, onDeleteStaff, onUpdateStaff, onAddStaff }: StaffManagementProps) {
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newStaff, setNewStaff] = useState({ name: '', email: '', password: '', staffId: '', mobileNumber: '' });
+  const [editingStaff, setEditingStaff] = useState<(Staff & { password?: string }) | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [attendanceStats, setAttendanceStats] = useState<AttendanceStats | null>(null);
   const [attendanceLoading, setAttendanceLoading] = useState(true);
@@ -91,13 +93,13 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
           <p className="text-on-surface-variant text-sm mt-0.5">Manage roles, monitor attendance and GPS tracking.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button onClick={() => { setIsProcessing(true); setTimeout(() => setIsProcessing(false), 1500); }}
+          {/* <button onClick={() => { setIsProcessing(true); setTimeout(() => setIsProcessing(false), 1500); }}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-outline-variant/30 bg-white text-sm font-semibold text-on-surface hover:bg-surface-container-low transition-colors">
             <Download size={15} /> Export Report
-          </button>
-          <button onClick={() => { setIsProcessing(true); setTimeout(() => setIsProcessing(false), 800); }}
+          </button> */}
+          <button onClick={() => setIsAddModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:opacity-90 transition-opacity">
-            <Clock size={15} /> Check-in
+            <Plus size={15} /> Add Staff
           </button>
         </div>
       </div>
@@ -168,8 +170,8 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
                           <td className="px-5 py-3">
                             <RowMenu memberId={member.id}
                               onView={() => setSelectedStaff(member)}
-                              onEdit={() => { setEditingStaff(member); setIsEditModalOpen(true); }}
-                              onDelete={() => { if (window.confirm('Delete this staff member?')) onDeleteStaff(member.id); }} />
+                              onEdit={() => { setEditingStaff(member); }}
+                              onDelete={() => { if (window.confirm('Are you sure you want to delete this staff member? This will remove their record from your branch.')) onDeleteStaff(member.id); }} />
                           </td>
                         </tr>
                       ))}
@@ -193,8 +195,8 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
                         </div>
                         <RowMenu memberId={member.id}
                           onView={() => setSelectedStaff(member)}
-                          onEdit={() => { setEditingStaff(member); setIsEditModalOpen(true); }}
-                          onDelete={() => { if (window.confirm('Delete this staff member?')) onDeleteStaff(member.id); }} />
+                          onEdit={() => { setEditingStaff(member); }}
+                          onDelete={() => { if (window.confirm('Delete this staff member? This will remove their record from your branch.')) onDeleteStaff(member.id); }} />
                       </div>
                       <div className="flex flex-wrap items-center gap-3">
                         <span className={cn('px-2 py-1 rounded-md text-[11px] font-bold uppercase',
@@ -392,15 +394,83 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
         )}
       </AnimatePresence>
 
+      {/* ── Add Modal ── */}
+      <AnimatePresence>
+        {isAddModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl">
+              <h3 className="text-lg font-bold mb-5">Add New Staff</h3>
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                setIsProcessing(true);
+                await onAddStaff(newStaff);
+                setIsAddModalOpen(false);
+                setNewStaff({ name: '', email: '', password: '', staffId: '', mobileNumber: '' });
+                setIsProcessing(false);
+              }} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Full Name *</label>
+                  <input type="text" required value={newStaff.name}
+                    onChange={e => setNewStaff(p => ({ ...p, name: e.target.value }))}
+                    className="w-full bg-surface-container-low rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" placeholder="John Doe" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Email *</label>
+                  <input type="email" required value={newStaff.email}
+                    onChange={e => setNewStaff(p => ({ ...p, email: e.target.value }))}
+                    className="w-full bg-surface-container-low rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" placeholder="john@example.com" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Password *</label>
+                  <input type="password" required value={newStaff.password}
+                    onChange={e => setNewStaff(p => ({ ...p, password: e.target.value }))}
+                    className="w-full bg-surface-container-low rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" placeholder="Min 6 characters" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                   <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Staff ID</label>
+                    <input type="text" value={newStaff.staffId}
+                      onChange={e => setNewStaff(p => ({ ...p, staffId: e.target.value }))}
+                      className="w-full bg-surface-container-low rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" placeholder="RHB-STF-001" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Mobile</label>
+                    <input type="tel" value={newStaff.mobileNumber}
+                      onChange={e => setNewStaff(p => ({ ...p, mobileNumber: e.target.value }))}
+                      className="w-full bg-surface-container-low rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" placeholder="+91..." />
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <button type="button" onClick={() => setIsAddModalOpen(false)}
+                    className="flex-1 py-3 rounded-xl border border-outline-variant/30 text-sm font-semibold text-on-surface-variant hover:bg-surface-container-low transition-colors">
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={isProcessing}
+                    className="flex-1 py-3 rounded-xl bg-primary text-white text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-60">
+                    {isProcessing ? 'Adding...' : 'Add Staff'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* ── Edit Modal ── */}
       <AnimatePresence>
-        {isEditModalOpen && editingStaff && (
+        {editingStaff && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
               className="bg-white rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl">
               <h3 className="text-lg font-bold mb-5">Edit Staff Member</h3>
-              <form onSubmit={e => { e.preventDefault(); setIsProcessing(true); setTimeout(() => { onUpdateStaff(editingStaff); setIsEditModalOpen(false); setIsProcessing(false); }, 800); }}
-                className="space-y-4">
+              <form onSubmit={async (e) => {
+                e.preventDefault();
+                setIsProcessing(true);
+                await onUpdateStaff(editingStaff);
+                setEditingStaff(null);
+                setIsProcessing(false);
+              }} className="space-y-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Full Name</label>
                   <input type="text" required value={editingStaff.name}
@@ -414,16 +484,27 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
                     className="w-full bg-surface-container-low rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Role</label>
-                  <select value={editingStaff.role} onChange={e => setEditingStaff(p => p ? { ...p, role: e.target.value as Staff['role'] } : null)}
-                    className="w-full bg-surface-container-low rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20 appearance-none">
-                    <option value="Physio">Physio</option>
-                    <option value="Admin">Admin</option>
-                    <option value="Support">Support</option>
-                  </select>
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">New Password</label>
+                  <input type="password" value={editingStaff.password || ''}
+                    onChange={e => setEditingStaff(p => p ? { ...p, password: e.target.value } : null)}
+                    className="w-full bg-surface-container-low rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" placeholder="Leave blank to keep current" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Staff ID</label>
+                    <input type="text" value={editingStaff.staffId || ''}
+                      onChange={e => setEditingStaff(p => p ? { ...p, staffId: e.target.value } : null)}
+                      className="w-full bg-surface-container-low rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Mobile</label>
+                    <input type="tel" value={editingStaff.mobileNumber || ''}
+                      onChange={e => setEditingStaff(p => p ? { ...p, mobileNumber: e.target.value } : null)}
+                      className="w-full bg-surface-container-low rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
+                  </div>
                 </div>
                 <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={() => setIsEditModalOpen(false)}
+                  <button type="button" onClick={() => setEditingStaff(null)}
                     className="flex-1 py-3 rounded-xl border border-outline-variant/30 text-sm font-semibold text-on-surface-variant hover:bg-surface-container-low transition-colors">
                     Cancel
                   </button>

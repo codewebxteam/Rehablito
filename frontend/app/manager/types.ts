@@ -34,6 +34,8 @@ export interface Staff {
   role: 'Physio' | 'Admin' | 'Support';
   status: 'Active' | 'Inactive';
   email: string;
+  staffId?: string;
+  mobileNumber?: string;
   attendance: AttendanceRecord[];
 }
 

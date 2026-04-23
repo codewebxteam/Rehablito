@@ -12,8 +12,6 @@ import {
   Timer as TimerIcon, 
   LogOut, 
   HelpCircle, 
-  Bell, 
-  Moon, 
   Search, 
   LogIn,
   ClipboardList,
@@ -179,18 +177,6 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
           </div>
 
           <div className="flex items-center gap-2 lg:gap-6">
-            <div className="flex items-center gap-1 md:gap-2">
-              <button className="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-xl transition-all relative">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-primary rounded-full ring-2 ring-surface-container-lowest"></span>
-              </button>
-              <button className="hidden sm:flex p-2 text-on-surface-variant hover:bg-surface-container-low rounded-xl transition-all">
-                <Moon className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="h-6 w-px bg-outline-variant/20 mx-1"></div>
-
             <div className="flex items-center gap-3 pl-1 lg:pl-2">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-bold text-on-surface">{user?.name}</p>
