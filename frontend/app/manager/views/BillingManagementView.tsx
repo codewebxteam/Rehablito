@@ -517,28 +517,28 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                       const desc = inv.description || inv.items?.[0]?.description || 'General Consultation';
 
                       // Header band
-                      doc.setFillColor(0,74,173); doc.rect(0,0,W,38,'F');
-                      if (logo) doc.addImage(logo,'PNG',8,4,15,30);
-                      doc.setFont('helvetica','bold'); doc.setFontSize(20); doc.setTextColor(255,255,255);
-                      doc.text('REHABLITO',27,16);
-                      doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(180,210,255);
-                      doc.text('Physio & Autism Center',27,22);
-                      doc.text('Everyone Deserves Trusted Hands',27,27);
+                      doc.setFillColor(0,74,173); doc.rect(0,0,W,32,'F');
+                      if (logo) doc.addImage(logo,'PNG',8,3,13,26);
+                      doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(255,255,255);
+                      doc.text('REHABLITO',25,13);
+                      doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(180,210,255);
+                      doc.text('Physio & Autism Center',25,19);
+                      doc.text('Everyone Deserves Trusted Hands',25,24);
                       doc.setTextColor(200,225,255);
-                      doc.text(`Date: ${inv.date}`, W-14, 16, { align:'right' });
-                      doc.text(`Ref: ${inv.receiptNumber || inv.id.slice(-8).toUpperCase()}`, W-14, 22, { align:'right' });
+                      doc.text(`Date: ${inv.date}`, W-12, 13, { align:'right' });
+                      doc.text(`Ref: ${inv.receiptNumber || inv.id.slice(-8).toUpperCase()}`, W-12, 19, { align:'right' });
 
                       // Title strip
-                      doc.setFillColor(232,240,255); doc.rect(0,38,W,12,'F');
-                      doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(0,74,173);
-                      doc.text('PAYMENT RECEIPT', W/2, 46, { align:'center' });
+                      doc.setFillColor(232,240,255); doc.rect(0,32,W,9,'F');
+                      doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(0,74,173);
+                      doc.text('PAYMENT RECEIPT', W/2, 38, { align:'center' });
 
-                      // Transaction details
-                      let y = 60;
+                      // Transaction details section
+                      let y = 46;
                       doc.setFillColor(248,250,255); doc.setDrawColor(210,220,240);
-                      doc.roundedRect(10,y,W-20,10,2,2,'FD');
-                      doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(0,74,173);
-                      doc.text('TRANSACTION DETAILS',14,y+7); y+=16;
+                      doc.roundedRect(10,y,W-20,8,1,1,'FD');
+                      doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(0,74,173);
+                      doc.text('TRANSACTION DETAILS',14,y+5.5); y+=10;
 
                       const lc: [number,number,number] = [100,110,130];
                       const vc: [number,number,number] = [20,25,35];
@@ -550,79 +550,76 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                         ['Description', desc],
                         ['Status', inv.dueAmount === 0 ? 'Paid' : 'Partial Payment'],
                       ];
+                      const RH = 11; // row height
                       rows.forEach(([label, val], i) => {
-                        const ry = y + i * 14;
-                        if (i % 2 === 0) { doc.setFillColor(240,245,255); doc.rect(10,ry-4,W-20,14,'F'); }
-                        doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...lc); doc.text(label,14,ry+4);
-                        doc.setFont('helvetica','normal'); doc.setTextColor(...vc); doc.text(String(val),80,ry+4);
+                        const ry = y + i * RH;
+                        if (i % 2 === 0) { doc.setFillColor(240,245,255); doc.rect(10,ry-2,W-20,RH,'F'); }
+                        doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...lc); doc.text(label,14,ry+4);
+                        doc.setFont('helvetica','normal'); doc.setTextColor(...vc); doc.text(String(val),75,ry+4);
                       });
-                      y += rows.length * 14;
+                      y += rows.length * RH + 4;
 
-                      // Payment history breakdown
+                      // Payment history
                       if (selectedPatientContext?.allPayments && selectedPatientContext.allPayments.length > 0) {
                         doc.setFillColor(248,250,255); doc.setDrawColor(210,220,240);
-                        doc.roundedRect(10,y,W-20,10,2,2,'FD');
-                        doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(0,74,173);
-                        doc.text('PAYMENT HISTORY BREAKDOWN',14,y+7); y+=14;
-
+                        doc.roundedRect(10,y,W-20,8,1,1,'FD');
+                        doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(0,74,173);
+                        doc.text('PAYMENT HISTORY',14,y+5.5); y+=10;
                         selectedPatientContext.allPayments.forEach((p, idx) => {
                           const isCurrent = p.id === inv.id;
-                          if (isCurrent) { doc.setFillColor(240,247,255); doc.setDrawColor(200,220,255); }
-                          else { doc.setFillColor(255,255,255); doc.setDrawColor(235,240,250); }
-                          
-                          doc.roundedRect(10,y,W-20,12,2,2,'FD');
+                          if (isCurrent) { doc.setFillColor(235,245,255); } else { doc.setFillColor(250,250,252); }
+                          doc.rect(10,y-1,W-20,8,'F');
                           doc.setFont('helvetica', isCurrent ? 'bold' : 'normal');
-                          doc.setFontSize(9); doc.setTextColor(isCurrent ? 0 : 80);
-                          doc.text(isCurrent ? 'Current Payment' : `Payment #${idx+1}`, 14, y+8);
-                          doc.setFontSize(8); doc.setTextColor(140);
-                          doc.text(p.date, 60, y+8);
-                          doc.setFontSize(9); doc.setTextColor(isCurrent ? 0 : 50);
-                          doc.text(`Rs. ${p.amountPaid.toLocaleString()}`, W-14, y+8, { align:'right' });
-                          y += 14;
+                          doc.setFontSize(7.5); doc.setTextColor(isCurrent ? 0 : 80);
+                          doc.text(isCurrent ? 'Current Payment' : `Payment #${idx+1}`, 14, y+4.5);
+                          doc.setTextColor(140); doc.text(p.date, 70, y+4.5);
+                          doc.setTextColor(isCurrent ? 0 : 50);
+                          doc.text(`Rs. ${p.amountPaid.toLocaleString()}`, W-12, y+4.5, { align:'right' });
+                          y += 11;
                         });
-                        y += 4;
+                        y += 3;
                       }
 
                       // Payment summary
                       doc.setFillColor(248,250,255); doc.setDrawColor(210,220,240);
-                      doc.roundedRect(10,y,W-20,10,2,2,'FD');
-                      doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(0,74,173);
-                      doc.text('PAYMENT SUMMARY',14,y+7); y+=14;
+                      doc.roundedRect(10,y,W-20,8,1,1,'FD');
+                      doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(0,74,173);
+                      doc.text('PAYMENT SUMMARY',14,y+5.5); y+=10;
 
-                      const boxH = (selectedPatientContext?.outstandingAtTime || 0) > 0 ? 40 : 30;
+                      const hasBalance = (selectedPatientContext?.outstandingAtTime || 0) > 0;
+                      const summaryRows = [
+                        ['Total Service Fee', `Rs. ${(selectedPatientContext?.totalFee || 0).toLocaleString()}`, false],
+                        ['Amount Paid (This Tx)', `Rs. ${inv.amountPaid.toLocaleString()}`, true],
+                        ['Total Paid to Date', `Rs. ${(selectedPatientContext?.totalPaidAtTime || 0).toLocaleString()}`, false],
+                        ...(hasBalance ? [['Remaining Balance', `Rs. ${(selectedPatientContext?.outstandingAtTime || 0).toLocaleString()}`, false, true]] : []),
+                      ];
+                      const sumBoxH = summaryRows.length * 11 + 4;
                       doc.setFillColor(255,255,255); doc.setDrawColor(220,228,245);
-                      doc.roundedRect(10,y,W-20,boxH,2,2,'FD');
-                      
-                      doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(...lc);
-                      doc.text('Total Service Fee',14,y+8);
-                      doc.setTextColor(20,25,35); doc.text(`Rs. ${(selectedPatientContext?.totalFee || 0).toLocaleString()}`, W-14, y+8, { align:'right' });
-                      
-                      doc.setTextColor(...lc); doc.text('Amount Paid (This Transaction)',14,y+16);
-                      doc.setTextColor(0,74,173); doc.setFontSize(10);
-                      doc.text(`Rs. ${inv.amountPaid.toLocaleString()}`, W-14, y+16, { align:'right' });
-                      
-                      doc.setFontSize(9); doc.setTextColor(...lc); doc.text('Total Paid to Date',14,y+24);
-                      doc.setTextColor(20,25,35); doc.text(`Rs. ${(selectedPatientContext?.totalPaidAtTime || 0).toLocaleString()}`, W-14, y+24, { align:'right' });
-
-                      if ((selectedPatientContext?.outstandingAtTime || 0) > 0) {
-                        doc.setFont('helvetica','bold'); doc.setTextColor(...lc); doc.text('Remaining Balance',14,y+32);
-                        doc.setTextColor(200,0,0); doc.text(`Rs. ${(selectedPatientContext?.outstandingAtTime || 0).toLocaleString()}`, W-14, y+32, { align:'right' });
-                      }
-                      y += boxH + 10;
+                      doc.roundedRect(10,y,W-20,sumBoxH,1,1,'FD');
+                      summaryRows.forEach(([label, val, highlight, red], i) => {
+                        const sy = y + 4 + i * 11;
+                        doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...lc);
+                        doc.text(String(label),14,sy+4);
+                        doc.setTextColor(red ? 200 : highlight ? 0 : 20, red ? 0 : highlight ? 74 : 25, red ? 0 : highlight ? 173 : 35);
+                        doc.setFontSize(highlight ? 9 : 8);
+                        doc.text(String(val), W-12, sy+4, { align:'right' });
+                      });
+                      y += sumBoxH + 5;
 
                       // Signatures
                       doc.setDrawColor(200,210,230); doc.setFillColor(250,252,255);
-                      doc.roundedRect(10,y,85,24,2,2,'FD');
-                      doc.roundedRect(W-95,y,85,24,2,2,'FD');
-                      doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(130,140,160);
-                      doc.text('Patient / Guardian Signature',52,y+18,{align:'center'});
-                      doc.text('Authorized Signatory',W-52,y+18,{align:'center'});
+                      doc.roundedRect(10,y,85,18,1,1,'FD');
+                      doc.roundedRect(W-95,y,85,18,1,1,'FD');
+                      doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(130,140,160);
+                      doc.text('Patient / Guardian Signature',52,y+13,{align:'center'});
+                      doc.text('Authorized Signatory',W-52,y+13,{align:'center'});
                       doc.setDrawColor(180,190,210);
-                      doc.line(18,y+14,87,y+14); doc.line(W-87,y+14,W-18,y+14);
+                      doc.line(18,y+10,87,y+10); doc.line(W-87,y+10,W-18,y+10);
+                      y += 22;
 
-                      // Footer
+                      // Footer - pinned to bottom of page
                       doc.setFillColor(0,74,173); doc.rect(0,282,W,15,'F');
-                      doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(180,210,255);
+                      doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(180,210,255);
                       doc.text('Rehablito Physio & Autism Center  |  Official Payment Receipt  |  Not valid without official stamp', W/2, 291, { align:'center' });
 
                       doc.save(`Receipt_${inv.receiptNumber || inv.id.slice(-8)}.pdf`);
@@ -639,109 +636,115 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                     if (!inv) return;
                     const method = inv.method ? inv.method.replace(/_/g,' ').toUpperCase() : 'CASH';
                     const desc = inv.description || (inv.items && inv.items[0] && inv.items[0].description) || 'General Consultation';
-                    const statusColor = inv.dueAmount === 0 ? '#16a34a' : '#d97706';
-                    const statusBg = inv.dueAmount === 0 ? '#f0fdf4' : '#fffbeb';
                     const statusText = inv.dueAmount === 0 ? 'Paid' : 'Partial Payment';
                     const receiptNo = inv.receiptNumber || inv.id.slice(-8).toUpperCase();
-                    const detailData = [
-                      ['Receipt No.', receiptNo, true, false],
-                      ['Patient Name', inv.patientName, false, false],
-                      ['Date', inv.date, false, false],
-                      ['Method', method, false, false],
-                      ['Description', desc, false, false],
-                      ['Status', statusText, false, true],
+                    const RH = 11;
+
+                    // Build detail rows HTML - mirrors PDF alternating rows
+                    const detailRows = [
+                      ['Receipt No.', receiptNo, true],
+                      ['Patient Name', inv.patientName, false],
+                      ['Date', inv.date, false],
+                      ['Method', method, false],
+                      ['Description', desc, false],
+                      ['Status', statusText, false],
                     ];
-                    const rowsHtml = detailData.map(function(r, i) {
-                      const bg = i%2===0 ? '#eff6ff55' : '#ffffff';
-                      let valHtml;
-                      if (r[3]) {
-                        valHtml = '<span style="display:inline-block;padding:2px 10px;border-radius:999px;font-size:10px;font-weight:700;background:'+statusBg+';color:'+statusColor+'">'+r[1]+'</span>';
-                      } else if (r[2]) {
-                        valHtml = '<span style="font-family:monospace;color:#004aad;font-weight:700;font-size:12px">'+r[1]+'</span>';
-                      } else {
-                        valHtml = '<span style="color:#111827;font-weight:600;font-size:12px">'+r[1]+'</span>';
-                      }
-                      return '<div style="display:grid;grid-template-columns:1fr 1fr;padding:10px 24px;background:'+bg+'">'
-                        + '<span style="color:#6b7280;font-weight:700;font-size:10px;letter-spacing:.5px;text-transform:uppercase;align-self:center">'+r[0]+'</span>'
-                        + valHtml + '</div>';
-                    }).join('');
-                    const historyHtml = (selectedPatientContext?.allPayments || []).map((p, idx) => {
-                        const isCurrent = p.id === inv.id;
-                        const bg = isCurrent ? '#eff6ff' : '#f9fafb';
-                        const border = isCurrent ? '1px solid #bfdbfe' : '1px solid #f3f4f6';
-                        return '<div style="display:flex;justify-content:space-between;padding:8px 16px;background:'+bg+';border:'+border+';border-radius:8px;margin-bottom:6px">'
-                          + '<div style="display:flex;flex-direction:column">'
-                          + '<span style="font-size:11px;font-weight:800;color:'+(isCurrent?'#1d4ed8':'#4b5563')+'">'+(isCurrent?'Current Payment':'Payment #'+(idx+1))+'</span>'
-                          + '<span style="font-size:9px;color:#9ca3af">'+p.date+'</span></div>'
-                          + '<span style="font-size:12px;font-weight:800;color:'+(isCurrent?'#1d4ed8':'#374151')+'">Rs. '+p.amountPaid.toLocaleString()+'</span></div>';
+                    const detailHtml = detailRows.map(function(r, i) {
+                      const bg = i%2===0 ? '#f0f5ff' : '#ffffff';
+                      const valStyle = r[2]
+                        ? 'font-family:monospace;color:#004aad;font-weight:700'
+                        : r[0]==='Status'
+                          ? 'color:'+(inv.dueAmount===0?'#16a34a':'#d97706')+';font-weight:700;background:'+(inv.dueAmount===0?'#f0fdf4':'#fffbeb')+';padding:2px 8px;border-radius:999px;font-size:11px'
+                          : 'color:#141919;font-weight:600;font-size:14px';
+                      return '<div style="display:grid;grid-template-columns:1fr 1fr;padding:13px 20px;background:'+bg+';border-bottom:1px solid #e8f0ff">'
+                        + '<span style="color:#6b7280;font-weight:700;font-size:12px;letter-spacing:.5px;text-transform:uppercase;align-self:center">'+r[0]+'</span>'
+                        + '<span style="'+valStyle+'">'+r[1]+'</span>'
+                        + '</div>';
                     }).join('');
 
-                    const totalFeeRow = '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0">'
-                        + '<span style="color:#6b7280;font-weight:700;font-size:13px">Total Service Fee</span>'
-                        + '<span style="color:#111827;font-weight:800;font-size:14px">Rs. '+(selectedPatientContext?.totalFee || 0).toLocaleString()+'</span></div>';
-                    const paidDateRow = '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0">'
-                        + '<span style="color:#6b7280;font-weight:700;font-size:13px">Total Paid to Date</span>'
-                        + '<span style="color:#111827;font-weight:800;font-size:14px">Rs. '+(selectedPatientContext?.totalPaidAtTime || 0).toLocaleString()+'</span></div>';
-                    const dueRow = (selectedPatientContext?.outstandingAtTime || 0) > 0
-                      ? '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid #fee2e2;margin-top:6px">'
-                        + '<span style="color:#6b7280;font-weight:700;font-size:13px">Remaining Balance</span>'
-                        + '<span style="color:#dc2626;font-weight:800;font-size:15px">Rs. '+(selectedPatientContext?.outstandingAtTime || 0).toLocaleString()+'</span></div>'
+                    // Payment history
+                    const payments = (selectedPatientContext && selectedPatientContext.allPayments) || [];
+                    const historyHtml = payments.length > 0
+                      ? '<div style="background:#eff6ff;padding:7px 16px;color:#004aad;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid #bfdbfe">Payment History</div>'
+                        + payments.map(function(p, idx) {
+                            const isCurrent = p.id === inv.id;
+                            const bg = isCurrent ? '#eff6ff' : (idx%2===0 ? '#f9fafb' : '#ffffff');
+                            return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:'+bg+';border-bottom:1px solid #f0f0f0">'
+                              + '<div><div style="font-size:11px;font-weight:'+(isCurrent?'800':'600')+';color:'+(isCurrent?'#1d4ed8':'#4b5563')+'">'+(isCurrent?'Current Payment':'Payment #'+(idx+1))+'</div>'
+                              + '<div style="font-size:9px;color:#9ca3af">'+p.date+'</div></div>'
+                              + '<span style="font-size:12px;font-weight:800;color:'+(isCurrent?'#004aad':'#374151')+'">Rs. '+p.amountPaid.toLocaleString()+'</span>'
+                              + '</div>';
+                          }).join('')
                       : '';
-                    const html = '<!DOCTYPE html><html><head><title>Receipt - '+receiptNo+'</title>'
-                      + '<meta charset="utf-8">'
-                      + '<style>'
-                      + '*{box-sizing:border-box;margin:0;padding:0;}'
-                      + 'body{font-family:Arial,Helvetica,sans-serif;background:#e8f0ff;display:flex;justify-content:center;align-items:flex-start;min-height:100vh;padding:32px 16px;}'
-                      + '.card{width:100%;max-width:600px;border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.25);}'
+
+                    // Summary rows
+                    const hasBalance = (selectedPatientContext && (selectedPatientContext.outstandingAtTime || 0) > 0);
+                    const summaryRows = [
+                      ['Total Service Fee', 'Rs. '+((selectedPatientContext && selectedPatientContext.totalFee) || 0).toLocaleString(), false, false],
+                      ['Amount Paid (This Tx)', 'Rs. '+inv.amountPaid.toLocaleString(), true, false],
+                      ['Total Paid to Date', 'Rs. '+((selectedPatientContext && selectedPatientContext.totalPaidAtTime) || 0).toLocaleString(), false, false],
+                    ];
+                    if (hasBalance) summaryRows.push(['Remaining Balance', 'Rs. '+((selectedPatientContext && selectedPatientContext.outstandingAtTime) || 0).toLocaleString(), false, true]);
+                    const summaryHtml = summaryRows.map(function(r, i) {
+                      const bg = i%2===0 ? '#f0f5ff' : '#ffffff';
+                      const valColor = r[3] ? '#dc2626' : r[2] ? '#004aad' : '#141919';
+                      const valSize = r[2] ? '18px' : '15px';
+                      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:13px 20px;background:'+bg+';border-bottom:1px solid #e8f0ff">'
+                        + '<span style="color:#6b7280;font-weight:700;font-size:13px">'+r[0]+'</span>'
+                        + '<span style="color:'+valColor+';font-weight:800;font-size:'+valSize+'">'+r[1]+'</span>'
+                        + '</div>';
+                    }).join('');
+
+                    const html = '<!DOCTYPE html><html><head><title>Receipt - '+receiptNo+'</title><meta charset="utf-8">'
+                      + '<style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important;}'
+                      + 'body{font-family:Arial,Helvetica,sans-serif;background:#e8f0ff;display:flex;justify-content:center;padding:24px 16px;}'
+                      + '.card{width:100%;max-width:580px;border-radius:12px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.2);display:flex;flex-direction:column;}'
+                      + '.spacer{flex:1;background:#fff;}'
                       + '@media print{'
-                      + '  @page{size:A4;margin:10mm;}'
-                      + '  body{background:#fff;padding:0;display:block;}'
-                      + '  .card{max-width:100%;width:100%;border-radius:0;box-shadow:none;}'
+                      + '@page{size:A4 portrait;margin:0;}'
+                      + 'html,body{width:210mm;margin:0;padding:0;background:#fff !important;display:block;}'
+                      + '.card{width:210mm !important;max-width:210mm !important;min-height:297mm !important;border-radius:0 !important;box-shadow:none !important;margin:0;padding:0;display:flex;flex-direction:column;}'
+                      + '.spacer{flex:1 !important;background:#fff !important;}'
                       + '}'
-                      + '</style></head><body>'
-                      + '<div class="card">'
-                      // Header band
-                      + '<div style="background:#004aad;padding:18px 24px;display:flex;align-items:center;justify-content:space-between">'
-                      + '<div style="display:flex;align-items:center;gap:12px">'
-                      + '<div style="width:42px;height:42px;background:#fff;border-radius:10px;overflow:hidden;flex-shrink:0">'
-                      + '<img src="http://localhost:3000/logo.jpeg" style="width:100%;height:100%;object-fit:contain"/></div>'
-                      + '<div><div style="color:#fff;font-size:18px;font-weight:800;line-height:1.2">REHABLITO</div>'
-                      + '<div style="color:#bfdbfe;font-size:10px">Physio &amp; Autism Center</div>'
-                      + '<div style="color:#93c5fd;font-size:9px">Everyone Deserves Trusted Hands</div></div></div>'
-                      + '<div style="text-align:right">'
-                      + '<div style="color:#bfdbfe;font-size:10px">'+inv.date+'</div>'
-                      + '<div style="color:#e0f2fe;font-size:10px;font-family:monospace">'+receiptNo+'</div></div>'
+                      + '</style></head><body><div class="card">'                      // Header - same as PDF
+                      + '<div style="background:#004aad;padding:14px 18px;display:flex;align-items:center;justify-content:space-between">'
+                      + '<div style="display:flex;align-items:center;gap:10px">'
+                      + '<div style="width:36px;height:36px;background:#fff;border-radius:8px;overflow:hidden;flex-shrink:0"><img src="http://localhost:3000/logo.jpeg" style="width:100%;height:100%;object-fit:contain"/></div>'
+                      + '<div><div style="color:#fff;font-size:16px;font-weight:800">REHABLITO</div>'
+                      + '<div style="color:#bfdbfe;font-size:9px">Physio &amp; Autism Center</div>'
+                      + '<div style="color:#93c5fd;font-size:8px">Everyone Deserves Trusted Hands</div></div></div>'
+                      + '<div style="text-align:right"><div style="color:#bfdbfe;font-size:9px">'+inv.date+'</div>'
+                      + '<div style="color:#e0f2fe;font-size:9px;font-family:monospace">'+receiptNo+'</div></div>'
                       + '</div>'
+
                       // Title strip
-                      + '<div style="background:#eff6ff;padding:10px;text-align:center;color:#004aad;font-size:12px;font-weight:800;letter-spacing:3px;border-bottom:1px solid #bfdbfe">PAYMENT RECEIPT</div>'
-                      // Transaction details section
-                      + '<div style="background:#eff6ff;padding:9px 24px;color:#004aad;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid #bfdbfe">Transaction Details</div>'
-                      + rowsHtml
-                      // History section
-                      + '<div style="background:#eff6ff;padding:9px 24px;color:#004aad;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid #bfdbfe">Payment History Breakdown</div>'
-                      + '<div style="background:#fff;padding:16px 24px">'
+                      + '<div style="background:#eff6ff;padding:12px;text-align:center;color:#004aad;font-size:14px;font-weight:800;letter-spacing:2px;border-bottom:1px solid #bfdbfe">PAYMENT RECEIPT</div>'
+
+                      // Transaction details
+                      + '<div style="background:#eff6ff;padding:10px 20px;color:#004aad;font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid #bfdbfe">Transaction Details</div>'
+                      + detailHtml
+
+                      // History
                       + historyHtml
+
+                      // Payment summary
+                      + '<div style="background:#eff6ff;padding:10px 20px;color:#004aad;font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid #bfdbfe">Payment Summary</div>'
+                      + summaryHtml
+
+                      // Signatures
+                      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:24px 24px;background:#f8faff">'
+                      + '<div style="border-top:1.5px solid #94a3b8;padding-top:10px;text-align:center;color:#94a3b8;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase">Patient / Guardian Signature</div>'
+                      + '<div style="border-top:1.5px solid #94a3b8;padding-top:10px;text-align:center;color:#94a3b8;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase">Authorized Signatory</div>'
                       + '</div>'
-                      // Payment summary section
-                      + '<div style="background:#eff6ff;padding:9px 24px;color:#004aad;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid #bfdbfe">Payment Summary</div>'
-                      + '<div style="background:#fff;padding:16px 24px">'
-                      + totalFeeRow
-                      + '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0">'
-                      + '<span style="color:#6b7280;font-weight:700;font-size:13px">Amount Paid (This Tx)</span>'
-                      + '<span style="color:#004aad;font-weight:800;font-size:17px">Rs. '+inv.amountPaid.toLocaleString()+'</span></div>'
-                      + paidDateRow
-                      + dueRow
-                      + '</div>'
-                      // Signature boxes
-                      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:20px 24px;background:#f8faff">'
-                      + '<div style="border-top:1.5px solid #94a3b8;padding-top:8px;text-align:center;color:#94a3b8;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase">Patient / Guardian Signature</div>'
-                      + '<div style="border-top:1.5px solid #94a3b8;padding-top:8px;text-align:center;color:#94a3b8;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase">Authorized Signatory</div>'
-                      + '</div>'
+
+                      // Spacer fills remaining page height
+                      + '<div class="spacer"></div>'
+
                       // Footer
-                      + '<div style="background:#004aad;padding:11px;text-align:center;color:#bfdbfe;font-size:9px">Rehablito Physio &amp; Autism Center &mdash; Official Payment Receipt &mdash; Not valid without official stamp</div>'
-                      + '</div>'
-                      + '</body></html>';
-                    const win = window.open('','_blank','width=680,height=960');
+                      + '<div style="background:#004aad;padding:9px;text-align:center;color:#bfdbfe;font-size:8px">Rehablito Physio &amp; Autism Center &mdash; Official Payment Receipt &mdash; Not valid without official stamp</div>'
+                      + '</div></body></html>';
+
+                    const win = window.open('','_blank','width=1,height=1,left=-1000,top=-1000');
                     if (!win) return;
                     win.document.open();
                     win.document.write(html);
