@@ -48,9 +48,11 @@ const Navbar = () => {
         </div>
 
         <div className="flex items-center gap-4">
-          <Link href={isDonation ? "/donation" : "/login"} className="hidden sm:block bg-brand-sage text-white px-8 py-3 rounded-full font-display font-bold text-sm hover:bg-brand-sage/90 transition-all ambient-shadow active:scale-95">
-            {isDonation ? "Donate Now" : "Begin Your Journey"}
-          </Link>
+          {isDonation && (
+            <Link href="/donation" className="hidden sm:block bg-brand-sage text-white px-8 py-3 rounded-full font-display font-bold text-sm hover:bg-brand-sage/90 transition-all ambient-shadow active:scale-95">
+              Donate Now
+            </Link>
+          )}
 
           <button
             className="md:hidden p-2 text-brand-sage"
@@ -89,9 +91,11 @@ const Navbar = () => {
               </Link>
             )
           )}
-          <Link href={isDonation ? "/donation" : "/login"} className="w-full bg-brand-sage text-white py-4 rounded-2xl font-display font-bold text-md text-center" onClick={() => setIsMobileMenuOpen(false)}>
-            {isDonation ? "Donate Now" : "Begin Your Journey"}
-          </Link>
+          {isDonation && (
+            <Link href="/donation" className="w-full bg-brand-sage text-white py-4 rounded-2xl font-display font-bold text-md text-center" onClick={() => setIsMobileMenuOpen(false)}>
+              Donate Now
+            </Link>
+          )}
         </div>
       </motion.div>
     </nav>

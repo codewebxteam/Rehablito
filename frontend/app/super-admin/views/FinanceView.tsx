@@ -9,6 +9,7 @@ import {
   BarChart3, Receipt
 } from 'lucide-react';
 import { useAddTransaction } from '../components/AddTransactionContext';
+import { Pagination } from '../components/Pagination';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
@@ -352,6 +353,8 @@ export const FinanceView = ({ initialData }: { initialData?: any }) => {
   const [activeFilter, setActiveFilter] = useState<StatusFilter>('All');
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+  const [feePage, setFeePage] = useState(1);
+  const FEE_PER_PAGE = 10;
   const { selectedBranchId } = useBranch();
 
   const { registerSavedHandler } = useAddTransaction();
@@ -412,6 +415,8 @@ export const FinanceView = ({ initialData }: { initialData?: any }) => {
     const matchesFilter = activeFilter === 'All' || f.status === activeFilter;
     return matchesSearch && matchesFilter;
   });
+
+  const pagedFees = filteredFees.slice((feePage - 1) * FEE_PER_PAGE, feePage * FEE_PER_PAGE);
 
   return (
     <div className="w-full space-y-6 pb-10">
@@ -559,8 +564,7 @@ export const FinanceView = ({ initialData }: { initialData?: any }) => {
                 type="text"
                 placeholder="Search patient, branch..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full md:w-56 bg-slate-50 border border-slate-100 rounded-xl py-2 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-300 transition-all font-medium text-slate-700"
+                onChange={(e) => { setSearchTerm(e.target.value); setFeePage(1); }}
               />
             </div>
 
@@ -602,8 +606,34 @@ export const FinanceView = ({ initialData }: { initialData?: any }) => {
               </AnimatePresence>
             </div>
 
-            {/* Download */}
-            <button className="p-2 rounded-xl border border-slate-100 text-slate-400 hover:bg-slate-50 transition-colors">
+            {/* Download CSV */}
+            <button
+              onClick={() => {
+                const headers = ['Receipt No', 'Patient', 'Branch', 'Method', 'Date', 'Amount', 'Due Amount', 'Status'];
+                const rows = filteredFees.map(fee => [
+                  fee.receiptNumber || fee._id.slice(-8),
+                  fee.patientId?.name || 'Unknown',
+                  fee.branchId?.name || '—',
+                  METHOD_LABEL[fee.method || 'cash'] || fee.method || '—',
+                  formatDate(fee.paymentDate || fee.createdAt),
+                  fee.amount,
+                  fee.dueAmount ?? 0,
+                  STATUS_LABEL[fee.status],
+                ]);
+                const csv = [headers, ...rows]
+                  .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
+                  .join('\n');
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `transactions_${new Date().toISOString().slice(0, 10)}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="p-2 rounded-xl border border-slate-100 text-slate-400 hover:bg-slate-50 hover:text-indigo-500 transition-colors"
+              title="Download CSV"
+            >
               <Download size={16} />
             </button>
 
@@ -641,7 +671,7 @@ export const FinanceView = ({ initialData }: { initialData?: any }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filteredFees.map(fee => (
+                {pagedFees.map(fee => (
                   <motion.tr
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -699,6 +729,7 @@ export const FinanceView = ({ initialData }: { initialData?: any }) => {
             )}
           </div>
         )}
+        <Pagination total={filteredFees.length} page={feePage} perPage={FEE_PER_PAGE} onChange={p => setFeePage(p)} />
       </div>
 
       {/* Add Expense Modal */}

@@ -20,6 +20,8 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  adminLogin: (email: string, password: string) => Promise<void>;
+  managerLogin: (email: string, password: string) => Promise<void>;
   requestOtp: (staffId: string, mobileNumber: string) => Promise<boolean>;
   verifyOtp: (staffId: string, otp: string) => Promise<void>;
   logout: () => void;
@@ -72,7 +74,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       setLoading(true);
       const { data } = await api.post('/auth/login', { email, password });
-      
       if (data.success) {
         Cookies.set('rehablito_token', data.token, { expires: 30 });
         setUser(data.user);
@@ -81,6 +82,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     } catch (error: any) {
       const message = error.response?.data?.message || 'Login failed. Please check your credentials.';
+      toast.error(message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const adminLogin = async (email: string, password: string) => {
+    try {
+      setLoading(true);
+      const { data } = await api.post('/auth/admin/login', { email, password });
+      if (data.success) {
+        Cookies.set('rehablito_token', data.token, { expires: 30 });
+        setUser(data.user);
+        toast.success(`Welcome back, ${data.user.name}!`);
+        router.push('/super-admin');
+      }
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'Invalid admin credentials.';
+      toast.error(message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const managerLogin = async (email: string, password: string) => {
+    try {
+      setLoading(true);
+      const { data } = await api.post('/auth/manager/login', { email, password });
+      if (data.success) {
+        Cookies.set('rehablito_token', data.token, { expires: 30 });
+        setUser(data.user);
+        toast.success(`Welcome back, ${data.user.name}!`);
+        router.push('/manager');
+      }
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'Invalid manager credentials.';
       toast.error(message);
       throw error;
     } finally {
@@ -131,7 +170,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, requestOtp, verifyOtp, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, loading, login, adminLogin, managerLogin, requestOtp, verifyOtp, logout, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );

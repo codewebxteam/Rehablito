@@ -98,7 +98,7 @@ function ViewModal({ patient, billing, onClose }: { patient: Patient; billing: B
     { label: 'Parent / Guardian',value: patient.parentName || '—' },
     { label: 'Age',              value: `${patient.age} Years` },
     { label: 'Gender',           value: patient.gender ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1) : '—' },
-    { label: 'Contact No.',      value: patient.phone || '—' },
+    { label: 'Contact No.',      value: maskPhone(patient.phone || '') },
     { label: 'Therapy Type',     value: THERAPY_LABELS[patient.therapyType || ''] || patient.therapyType || '—' },
     { label: 'Address',          value: patient.address || '—' },
     { label: 'Onboarding Date',  value: new Date(patient.onboardedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) },
@@ -341,15 +341,21 @@ function EditModal({ patient, onClose, onSave }: { patient: Patient; onClose: ()
               {[
                 { label: 'Patient Name', key: 'name', type: 'text', placeholder: 'Patient name' },
                 { label: 'Parent Name', key: 'parentName', type: 'text', placeholder: 'Parent name' },
-                { label: 'Phone Number', key: 'phone', type: 'tel', placeholder: '+91XXXXXXXXXX' },
+                { label: 'Phone Number', key: 'phone', type: 'tel', placeholder: '+91XXXXXXXXXX', masked: true },
                 { label: 'Age', key: 'age', type: 'number', placeholder: 'Age' },
-              ].map(({ label, key, type, placeholder }) => (
+              ].map(({ label, key, type, placeholder, masked }) => (
                 <div key={key} className="space-y-1.5">
                   <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">{label}</label>
-                  <input type={type} value={String((form as Record<string, unknown>)[key] ?? '')}
-                    onChange={e => set(key as keyof Patient, type === 'number' ? parseInt(e.target.value) || 0 : e.target.value)}
-                    placeholder={placeholder}
-                    className="w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all bg-surface-container-lowest" />
+                  {masked ? (
+                    <input type="text" readOnly
+                      value={maskPhone(String((form as Record<string, unknown>)[key] ?? ''))}
+                      className="w-full border border-outline-variant/20 rounded-xl px-4 py-3 text-sm bg-surface-container-low text-on-surface-variant cursor-not-allowed font-mono" />
+                  ) : (
+                    <input type={type} value={String((form as Record<string, unknown>)[key] ?? '')}
+                      onChange={e => set(key as keyof Patient, type === 'number' ? parseInt(e.target.value) || 0 : e.target.value)}
+                      placeholder={placeholder}
+                      className="w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all bg-surface-container-lowest" />
+                  )}
                 </div>
               ))}
             </div>

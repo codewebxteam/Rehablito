@@ -11,9 +11,7 @@ import {
   Plus,
   Filter
 } from 'lucide-react';
-import { jsPDF } from 'jspdf';
 import { BillingRecord, NewPaymentInput, Patient } from '../types';
-import api from '@/lib/api';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import React from 'react';
@@ -34,6 +32,8 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [editingRecord, setEditingRecord] = useState<BillingRecord | null>(null);
+  const [txPage, setTxPage] = useState(1);
+  const TX_PER_PAGE = 10;
   const [newPayment, setNewPayment] = useState({
     patientId: '',
     amount: '',
@@ -62,70 +62,6 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
       activePlans,
     };
   }, [billing]);
-
-  const generateInvoicePDF = (record: BillingRecord) => {
-    const doc = new jsPDF();
-    
-    // Header
-    doc.setFontSize(20);
-    doc.setTextColor(0, 74, 198);
-    doc.text('Rehablito RMS INVOICE', 20, 20);
-    
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text('Anisabad - Jagdeo Path Rd, Federal Colony,', 20, 30);
-    doc.text('Haroon Colony Sector-II, Phulwari Sharif, Patna, Bihar 800002', 20, 35);
-    doc.text('rehablito@gmail.com', 20, 40);
-    
-    doc.setFontSize(14);
-    doc.setTextColor(0);
-    doc.text(`Invoice #${record.id}`, 140, 20);
-    doc.setFontSize(10);
-    doc.text(`Date: ${record.date}`, 140, 28);
-    
-    // Bill To
-    doc.setFontSize(12);
-    doc.text('Bill To:', 20, 60);
-    doc.setFontSize(14);
-    doc.text(record.patientName, 20, 68);
-    
-    // Items Table
-    doc.setDrawColor(200);
-    doc.line(20, 80, 190, 80);
-    doc.setFontSize(10);
-    doc.text('Description', 20, 88);
-    doc.text('Sessions', 120, 88);
-    doc.text('Price', 160, 88);
-    doc.line(20, 92, 190, 92);
-    
-    let y = 102;
-    if (record.items.length > 0) {
-      record.items.forEach(item => {
-        doc.text(item.description, 20, y);
-        doc.text(item.sessions.toString(), 125, y);
-        doc.text(`$${item.price.toFixed(2)}`, 160, y);
-        y += 10;
-      });
-    } else {
-      doc.text('General Medical Services', 20, y);
-      doc.text('1', 125, y);
-      doc.text(`$${record.amountPaid.toFixed(2)}`, 160, y);
-      y += 10;
-    }
-    
-    // Totals
-    doc.line(20, y, 190, y);
-    y += 10;
-    doc.setFontSize(12);
-    doc.text('Total Paid:', 130, y);
-    doc.text(`$${record.amountPaid.toFixed(2)}`, 160, y);
-    y += 8;
-    doc.text('Due Amount:', 130, y);
-    doc.setTextColor(200, 0, 0);
-    doc.text(`$${record.dueAmount.toFixed(2)}`, 160, y);
-    
-    doc.save(`Invoice_${record.id}.pdf`);
-  };
 
   const handleAddPayment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -257,10 +193,7 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
           <div className="bg-surface-container-low rounded-xl overflow-hidden shadow-sm">
             <div className="p-6 flex justify-between items-center bg-surface-container-high/50">
               <h4 className="font-bold text-lg">Transaction History</h4>
-              <button className="text-primary text-sm font-bold flex items-center gap-1">
-                Filter
-                <Filter size={14} />
-              </button>
+              <span className="text-xs font-bold text-on-surface-variant">{billing.length} records</span>
             </div>
             
             {/* Desktop/Tablet Table View (> 640px) */}
@@ -269,14 +202,14 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                 <thead className="bg-surface-container-low">
                   <tr>
                     <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant/60">Patient</th>
-                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant/60 text-right">Amount Paid</th>
-                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant/60 text-right">Due Amount</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant/60">Amount Paid</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant/60">Due Amount</th>
                     <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant/60">Date</th>
                     <th className="px-6 py-4 text-xs font-bold uppercase tracking-widest text-on-surface-variant/60">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant/10">
-                  {billing.map((record) => (
+                  {billing.slice((txPage - 1) * TX_PER_PAGE, txPage * TX_PER_PAGE).map((record) => (
                     <tr 
                       key={record.id} 
                       onClick={() => setSelectedInvoice(record)}
@@ -286,16 +219,20 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                       )}
                     >
                       <td className="px-6 py-5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-primary-fixed flex items-center justify-center text-primary font-bold text-xs">
-                            {record.patientName.split(' ').map(n => n[0]).join('')}
-                          </div>
-                          <span className="font-semibold text-on-surface">{record.patientName}</span>
-                        </div>
+                        <span className="font-semibold text-on-surface">{record.patientName}</span>
                       </td>
-                      <td className="px-6 py-5 text-right font-bold text-on-surface">{formatINR(record.amountPaid.toLocaleString())}</td>
-                      <td className={cn("px-6 py-5 text-right font-bold", record.dueAmount > 0 ? "text-error" : "text-on-surface-variant/40")}>
-                        {formatINR(record.dueAmount.toLocaleString())}
+                      <td className="px-6 py-5">
+                        <span className="inline-flex items-center gap-1 bg-secondary/10 text-secondary font-bold text-sm px-3 py-1.5 rounded-xl">
+                          {formatINR(record.amountPaid.toLocaleString())}
+                        </span>
+                      </td>
+                      <td className="px-6 py-5">
+                        <span className={cn(
+                          "inline-flex items-center gap-1 font-bold text-sm px-3 py-1.5 rounded-xl",
+                          record.dueAmount > 0 ? "bg-error/10 text-error" : "bg-surface-container-low text-on-surface-variant/40"
+                        )}>
+                          {formatINR(record.dueAmount.toLocaleString())}
+                        </span>
                       </td>
                       <td className="px-6 py-5 text-on-surface-variant text-sm">{record.date}</td>
                       <td className="px-6 py-5">
@@ -314,7 +251,7 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
 
             {/* Mobile Card View (< 640px) */}
             <div className="sm:hidden divide-y divide-outline-variant/10">
-              {billing.map((record) => (
+              {billing.slice((txPage - 1) * TX_PER_PAGE, txPage * TX_PER_PAGE).map((record) => (
                 <div 
                   key={record.id} 
                   onClick={() => setSelectedInvoice(record)}
@@ -356,171 +293,333 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                 </div>
               ))}
             </div>
+
+            {/* Pagination */}
+            {billing.length > TX_PER_PAGE && (
+              <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-3.5 border-t border-outline-variant/10 bg-surface-container-lowest">
+                <p className="text-xs font-medium text-on-surface-variant">
+                  Showing <span className="font-bold text-on-surface">{(txPage - 1) * TX_PER_PAGE + 1}–{Math.min(txPage * TX_PER_PAGE, billing.length)}</span> of <span className="font-bold text-on-surface">{billing.length}</span>
+                </p>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setTxPage(p => Math.max(1, p - 1))} disabled={txPage === 1}
+                    className="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                    ‹
+                  </button>
+                  {Array.from({ length: Math.ceil(billing.length / TX_PER_PAGE) }, (_, i) => i + 1).map(p => (
+                    <button key={p} onClick={() => setTxPage(p)}
+                      className={cn('w-8 h-8 rounded-lg text-xs font-bold transition-colors',
+                        txPage === p ? 'bg-primary text-white' : 'text-on-surface-variant hover:bg-surface-container-low'
+                      )}>{p}</button>
+                  ))}
+                  <button onClick={() => setTxPage(p => Math.min(Math.ceil(billing.length / TX_PER_PAGE), p + 1))} disabled={txPage === Math.ceil(billing.length / TX_PER_PAGE)}
+                    className="p-1.5 rounded-lg text-on-surface-variant hover:bg-surface-container-low disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                    ›
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Right Column: Preview */}
+        {/* Right Column: Receipt Preview */}
         <div className="col-span-12 md:col-span-5 md:sticky md:top-24">
           {selectedInvoice ? (
-            <div className="space-y-6">
+            <div className="space-y-4">
+              {/* Action bar */}
               <div className="flex items-center justify-between">
-                <h4 className="font-bold text-lg text-on-surface">Invoice Preview</h4>
+                <h4 className="font-bold text-base text-on-surface">Receipt Preview</h4>
                 <div className="flex gap-2">
-                  <button 
-                    onClick={() => {
-                      setEditingRecord(selectedInvoice);
-                      setIsEditModalOpen(true);
-                    }}
-                    className="bg-surface-container-high p-2 rounded-lg text-on-surface-variant hover:text-primary transition-all"
-                  >
-                    <Edit size={18} />
+                  <button onClick={() => { setEditingRecord(selectedInvoice); setIsEditModalOpen(true); }}
+                    className="bg-surface-container-high p-2 rounded-lg text-on-surface-variant hover:text-primary transition-all">
+                    <Edit size={16} />
                   </button>
-                  <button 
-                    onClick={() => handleDeleteBilling(selectedInvoice.id)}
-                    className="bg-surface-container-high p-2 rounded-lg text-on-surface-variant hover:text-error transition-all"
-                  >
-                    <Trash2 size={18} />
+                  <button onClick={() => handleDeleteBilling(selectedInvoice.id)}
+                    className="bg-surface-container-high p-2 rounded-lg text-on-surface-variant hover:text-error transition-all">
+                    <Trash2 size={16} />
                   </button>
                 </div>
               </div>
 
-              <div className="bg-white p-6 md:p-10 rounded-sm shadow-xl relative overflow-hidden invoice-paper">
-                <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-primary via-secondary to-primary-container"></div>
-                
-                <div className="flex flex-col sm:flex-row justify-between items-start gap-8 mb-12">
-                  <div>
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="w-10 h-10 bg-primary flex items-center justify-center rounded-lg">
-                        <FileText className="text-white" size={24} />
+              {/* PDF-style receipt card */}
+              <div id="receipt-print-area" className="rounded-2xl overflow-hidden shadow-xl border border-outline-variant/10">
+
+                {/* Blue header band */}
+                <div className="bg-[#004aad] px-5 py-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 bg-white rounded-xl overflow-hidden flex items-center justify-center shrink-0">
+                      <img src="/logo.jpeg" alt="Rehablito" className="w-full h-full object-contain" />
+                    </div>
+                    <div>
+                      <p className="text-white font-extrabold text-sm leading-tight">REHABLITO</p>
+                      <p className="text-blue-200 text-[10px]">Physio & Autism Center</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-blue-200 text-[10px]">{selectedInvoice.date}</p>
+                    <p className="text-blue-100 text-[10px] font-mono">{selectedInvoice.receiptNumber || selectedInvoice.id.slice(-8).toUpperCase()}</p>
+                  </div>
+                </div>
+
+                {/* Title strip */}
+                <div className="bg-blue-50 px-5 py-2 border-b border-blue-100">
+                  <p className="text-[#004aad] font-extrabold text-xs uppercase tracking-widest text-center">Payment Receipt</p>
+                </div>
+
+                {/* Info rows */}
+                <div className="bg-white">
+                  <div className="bg-blue-50 border-b border-blue-100 px-5 py-2">
+                    <p className="text-[#004aad] font-bold text-[10px] uppercase tracking-widest">Transaction Details</p>
+                  </div>
+                  {[
+                    { label: 'Receipt No.',   value: selectedInvoice.receiptNumber || selectedInvoice.id.slice(-8).toUpperCase(), mono: true },
+                    { label: 'Patient Name',  value: selectedInvoice.patientName },
+                    { label: 'Date',          value: selectedInvoice.date },
+                    { label: 'Method',        value: selectedInvoice.method ? selectedInvoice.method.replace('_', ' ').toUpperCase() : 'CASH' },
+                    { label: 'Description',   value: selectedInvoice.description || selectedInvoice.items?.[0]?.description || 'General Consultation' },
+                    { label: 'Status',        value: selectedInvoice.dueAmount === 0 ? 'Paid' : 'Partial', badge: true },
+                  ].map((row, i) => (
+                    <div key={row.label} className={cn('grid grid-cols-2 px-5 py-2.5', i % 2 === 0 ? 'bg-blue-50/40' : 'bg-white')}>
+                      <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">{row.label}</span>
+                      {row.badge
+                        ? <span className={cn('text-xs font-bold px-2 py-0.5 rounded-full w-fit',
+                            selectedInvoice.dueAmount === 0 ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600')}>
+                            {row.value}
+                          </span>
+                        : <span className={cn('text-xs font-semibold text-gray-800', row.mono && 'font-mono text-[#004aad]')}>{row.value}</span>
+                      }
+                    </div>
+                  ))}
+
+                  {/* Amount section */}
+                  <div className="bg-blue-50 border-y border-blue-100 px-5 py-2">
+                    <p className="text-[#004aad] font-bold text-[10px] uppercase tracking-widest">Payment Summary</p>
+                  </div>
+                  <div className="px-5 py-3 bg-white space-y-2">
+                    {selectedInvoice.items.length > 0 && selectedInvoice.items.map((item, i) => (
+                      <div key={i} className="flex justify-between text-xs">
+                        <span className="text-gray-500">{item.description} × {item.sessions}</span>
+                        <span className="font-bold text-gray-800">{formatINR(item.price.toLocaleString())}</span>
                       </div>
-                      <span className="text-xl font-bold tracking-tighter text-primary">Rehablito RMS</span>
+                    ))}
+                    <div className="flex justify-between text-xs pt-1 border-t border-gray-100">
+                      <span className="font-bold text-gray-500">Amount Paid</span>
+                      <span className="font-black text-[#004aad] text-sm">{formatINR(selectedInvoice.amountPaid.toLocaleString())}</span>
                     </div>
-                    <p className="text-xs text-on-surface-variant max-w-[180px]">
-                      Anisabad - Jagdeo Path Rd, Federal Colony,<br/>
-                      Haroon Colony Sector-II, Phulwari Sharif,<br/>
-                      Patna, Bihar 800002<br/>
-                      rehablito@gmail.com
-                    </p>
-                  </div>
-                  <div className="text-left sm:text-right">
-                    <h1 className="text-3xl font-extrabold text-on-surface-variant/20 uppercase tracking-tighter leading-none mb-4">Invoice</h1>
-                    <p className="text-sm font-bold text-on-surface">#{selectedInvoice.id}</p>
-                    <p className="text-xs text-on-surface-variant/60">Date: {selectedInvoice.date}</p>
+                    {selectedInvoice.dueAmount > 0 && (
+                      <div className="flex justify-between text-xs">
+                        <span className="font-bold text-gray-500">Due Amount</span>
+                        <span className="font-black text-red-500">{formatINR(selectedInvoice.dueAmount.toLocaleString())}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-12">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/60 mb-2">Patient Details</p>
-                    <h5 className="font-bold text-on-surface">{selectedInvoice.patientName}</h5>
-                    <p className="text-xs text-on-surface-variant leading-relaxed">
-                      Patient ID: P-{selectedInvoice.id.slice(-5)}<br/>
-                      Physical Therapy Wing<br/>
-                      Recovery Phase: 2
-                    </p>
-                  </div>
-                  <div className="text-left sm:text-right">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/60 mb-2">Payment Status</p>
-                    <div className={cn(
-                      "inline-flex items-center gap-2 font-bold text-sm",
-                      selectedInvoice.dueAmount === 0 ? "text-secondary" : "text-error"
-                    )}>
-                      <span className={cn("w-2 h-2 rounded-full", selectedInvoice.dueAmount === 0 ? "bg-secondary" : "bg-error")}></span>
-                      {selectedInvoice.dueAmount === 0 ? 'FULLY SETTLED' : 'PARTIAL PAYMENT'}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full mb-12 min-w-[300px]">
-                    <thead>
-                      <tr className="border-b border-outline-variant/10">
-                        <th className="py-3 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/60 text-left">Description</th>
-                        <th className="py-3 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/60 text-center">Sessions</th>
-                        <th className="py-3 text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/60 text-right">Price</th>
-                      </tr>
-                    </thead>
-                    <tbody className="text-sm">
-                      {selectedInvoice.items.length > 0 ? selectedInvoice.items.map((item, i) => (
-                        <tr key={i} className="border-b border-outline-variant/5">
-                          <td className="py-4 font-medium text-on-surface">{item.description}</td>
-                          <td className="py-4 text-center">{item.sessions}</td>
-                          <td className="py-4 text-right font-bold">{formatINR(item.price.toLocaleString())}</td>
-                        </tr>
-                      )) : (
-                        <tr className="border-b border-outline-variant/5">
-                          <td className="py-4 font-medium text-on-surface">General Medical Services</td>
-                          <td className="py-4 text-center">1</td>
-                          <td className="py-4 text-right font-bold">{formatINR(selectedInvoice.amountPaid.toLocaleString())}</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="flex justify-end">
-                  <div className="w-full max-w-[200px] space-y-3">
-                    <div className="flex justify-between text-sm text-on-surface-variant">
-                      <span>Subtotal</span>
-                      <span>{formatINR(selectedInvoice.amountPaid.toLocaleString())}</span>
-                    </div>
-                    <div className="flex justify-between text-sm text-on-surface-variant">
-                      <span>Tax (0%)</span>
-                      <span>{formatINR('0.00')}</span>
-                    </div>
-                    <div className="pt-3 border-t border-outline-variant/20 flex justify-between font-bold text-on-surface">
-                      <span className="text-lg">Total</span>
-                      <span className="text-lg">{formatINR(selectedInvoice.amountPaid.toLocaleString())}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-16 pt-8 border-t border-outline-variant/10 text-center">
-                  <p className="text-[10px] text-on-surface-variant/60 italic">Thank you for choosing Rehablito. Your health is our primary capital.</p>
+                {/* Blue footer */}
+                <div className="bg-[#004aad] px-5 py-2.5">
+                  <p className="text-blue-200 text-[9px] text-center">Rehablito Physio & Autism Center — Official Receipt</p>
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button
+              {/* Action buttons */}
+              <div className="grid grid-cols-2 gap-3">
+                <button
                   onClick={async () => {
                     setIsProcessing(true);
                     try {
-                      const res = await api.get(`/manager/billing/${selectedInvoice.id}/invoice`, { responseType: 'blob' });
-                      const url = window.URL.createObjectURL(res.data);
-                      const link = document.createElement('a');
-                      link.href = url;
-                      link.download = `Invoice_${selectedInvoice.receiptNumber || selectedInvoice.id}.pdf`;
-                      document.body.appendChild(link);
-                      link.click();
-                      link.remove();
-                      window.URL.revokeObjectURL(url);
-                    } catch (err) {
-                      console.error('Invoice download failed, falling back to local PDF:', err);
-                      generateInvoicePDF(selectedInvoice);
-                    } finally {
-                      setIsProcessing(false);
-                    }
+                      const { jsPDF } = await import('jspdf');
+                      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+                      const W = 210;
+                      const logo = await fetch('/logo.jpeg').then(r => r.blob()).then(b => new Promise<string>(res => { const fr = new FileReader(); fr.onloadend = () => res(fr.result as string); fr.readAsDataURL(b); })).catch(() => null);
+                      const inv = selectedInvoice;
+                      const method = inv.method ? inv.method.replace(/_/g,' ').toUpperCase() : 'CASH';
+                      const desc = inv.description || inv.items?.[0]?.description || 'General Consultation';
+
+                      // Header band
+                      doc.setFillColor(0,74,173); doc.rect(0,0,W,38,'F');
+                      if (logo) doc.addImage(logo,'PNG',8,4,15,30);
+                      doc.setFont('helvetica','bold'); doc.setFontSize(20); doc.setTextColor(255,255,255);
+                      doc.text('REHABLITO',27,16);
+                      doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(180,210,255);
+                      doc.text('Physio & Autism Center',27,22);
+                      doc.text('Everyone Deserves Trusted Hands',27,27);
+                      doc.setTextColor(200,225,255);
+                      doc.text(`Date: ${inv.date}`, W-14, 16, { align:'right' });
+                      doc.text(`Ref: ${inv.receiptNumber || inv.id.slice(-8).toUpperCase()}`, W-14, 22, { align:'right' });
+
+                      // Title strip
+                      doc.setFillColor(232,240,255); doc.rect(0,38,W,12,'F');
+                      doc.setFont('helvetica','bold'); doc.setFontSize(11); doc.setTextColor(0,74,173);
+                      doc.text('PAYMENT RECEIPT', W/2, 46, { align:'center' });
+
+                      // Transaction details
+                      let y = 60;
+                      doc.setFillColor(248,250,255); doc.setDrawColor(210,220,240);
+                      doc.roundedRect(10,y,W-20,10,2,2,'FD');
+                      doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(0,74,173);
+                      doc.text('TRANSACTION DETAILS',14,y+7); y+=16;
+
+                      const lc: [number,number,number] = [100,110,130];
+                      const vc: [number,number,number] = [20,25,35];
+                      const rows = [
+                        ['Receipt No.', inv.receiptNumber || inv.id.slice(-8).toUpperCase()],
+                        ['Patient Name', inv.patientName],
+                        ['Date', inv.date],
+                        ['Method', method],
+                        ['Description', desc],
+                        ['Status', inv.dueAmount === 0 ? 'Paid' : 'Partial Payment'],
+                      ];
+                      rows.forEach(([label, val], i) => {
+                        const ry = y + i * 14;
+                        if (i % 2 === 0) { doc.setFillColor(240,245,255); doc.rect(10,ry-4,W-20,14,'F'); }
+                        doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...lc); doc.text(label,14,ry+4);
+                        doc.setFont('helvetica','normal'); doc.setTextColor(...vc); doc.text(String(val),80,ry+4);
+                      });
+                      y += rows.length * 14 + 8;
+
+                      // Payment summary
+                      doc.setFillColor(248,250,255); doc.setDrawColor(210,220,240);
+                      doc.roundedRect(10,y,W-20,10,2,2,'FD');
+                      doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(0,74,173);
+                      doc.text('PAYMENT SUMMARY',14,y+7); y+=14;
+
+                      const boxH = inv.dueAmount > 0 ? 28 : 18;
+                      doc.setFillColor(255,255,255); doc.setDrawColor(220,228,245);
+                      doc.roundedRect(10,y,W-20,boxH,2,2,'FD');
+                      doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.setTextColor(...lc);
+                      doc.text('Amount Paid',14,y+10);
+                      doc.setTextColor(0,74,173);
+                      doc.text(`Rs. ${inv.amountPaid.toLocaleString()}`, W-14, y+10, { align:'right' });
+                      if (inv.dueAmount > 0) {
+                        doc.setFont('helvetica','bold'); doc.setTextColor(...lc); doc.text('Due Amount',14,y+22);
+                        doc.setTextColor(200,0,0); doc.text(`Rs. ${inv.dueAmount.toLocaleString()}`, W-14, y+22, { align:'right' });
+                      }
+                      y += boxH + 10;
+
+                      // Signatures
+                      doc.setDrawColor(200,210,230); doc.setFillColor(250,252,255);
+                      doc.roundedRect(10,y,85,24,2,2,'FD');
+                      doc.roundedRect(W-95,y,85,24,2,2,'FD');
+                      doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(130,140,160);
+                      doc.text('Patient / Guardian Signature',52,y+18,{align:'center'});
+                      doc.text('Authorized Signatory',W-52,y+18,{align:'center'});
+                      doc.setDrawColor(180,190,210);
+                      doc.line(18,y+14,87,y+14); doc.line(W-87,y+14,W-18,y+14);
+
+                      // Footer
+                      doc.setFillColor(0,74,173); doc.rect(0,282,W,15,'F');
+                      doc.setFont('helvetica','normal'); doc.setFontSize(7.5); doc.setTextColor(180,210,255);
+                      doc.text('Rehablito Physio & Autism Center  |  Official Payment Receipt  |  Not valid without official stamp', W/2, 291, { align:'center' });
+
+                      doc.save(`Receipt_${inv.receiptNumber || inv.id.slice(-8)}.pdf`);
+                    } finally { setIsProcessing(false); }
                   }}
-                  isLoading={isProcessing}
-                  className="flex-1 bg-on-surface text-white"
+                  disabled={isProcessing}
+                  className="flex items-center justify-center gap-2 py-3 rounded-xl bg-[#004aad] text-white text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-60"
                 >
-                  <Download size={20} />
-                  Download PDF
-                </Button>
-                <Button 
-                  variant="secondary"
-                  onClick={() => window.print()}
-                  className="flex-1"
+                  <Download size={15} /> Download PDF
+                </button>
+                <button
+                  onClick={() => {
+                    const inv = selectedInvoice;
+                    if (!inv) return;
+                    const method = inv.method ? inv.method.replace(/_/g,' ').toUpperCase() : 'CASH';
+                    const desc = inv.description || (inv.items && inv.items[0] && inv.items[0].description) || 'General Consultation';
+                    const statusColor = inv.dueAmount === 0 ? '#16a34a' : '#d97706';
+                    const statusBg = inv.dueAmount === 0 ? '#f0fdf4' : '#fffbeb';
+                    const statusText = inv.dueAmount === 0 ? 'Paid' : 'Partial Payment';
+                    const receiptNo = inv.receiptNumber || inv.id.slice(-8).toUpperCase();
+                    const detailData = [
+                      ['Receipt No.', receiptNo, true, false],
+                      ['Patient Name', inv.patientName, false, false],
+                      ['Date', inv.date, false, false],
+                      ['Method', method, false, false],
+                      ['Description', desc, false, false],
+                      ['Status', statusText, false, true],
+                    ];
+                    const rowsHtml = detailData.map(function(r, i) {
+                      const bg = i%2===0 ? '#eff6ff55' : '#ffffff';
+                      let valHtml;
+                      if (r[3]) {
+                        valHtml = '<span style="display:inline-block;padding:2px 10px;border-radius:999px;font-size:10px;font-weight:700;background:'+statusBg+';color:'+statusColor+'">'+r[1]+'</span>';
+                      } else if (r[2]) {
+                        valHtml = '<span style="font-family:monospace;color:#004aad;font-weight:700;font-size:12px">'+r[1]+'</span>';
+                      } else {
+                        valHtml = '<span style="color:#111827;font-weight:600;font-size:12px">'+r[1]+'</span>';
+                      }
+                      return '<div style="display:grid;grid-template-columns:1fr 1fr;padding:10px 24px;background:'+bg+'">'
+                        + '<span style="color:#6b7280;font-weight:700;font-size:10px;letter-spacing:.5px;text-transform:uppercase;align-self:center">'+r[0]+'</span>'
+                        + valHtml + '</div>';
+                    }).join('');
+                    const dueRow = inv.dueAmount > 0
+                      ? '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid #fee2e2;margin-top:6px">'
+                        + '<span style="color:#6b7280;font-weight:700;font-size:13px">Due Amount</span>'
+                        + '<span style="color:#dc2626;font-weight:800;font-size:15px">Rs. '+inv.dueAmount.toLocaleString()+'</span></div>'
+                      : '';
+                    const html = '<!DOCTYPE html><html><head><title>Receipt - '+receiptNo+'</title>'
+                      + '<meta charset="utf-8">'
+                      + '<style>'
+                      + '*{box-sizing:border-box;margin:0;padding:0;}'
+                      + 'body{font-family:Arial,Helvetica,sans-serif;background:#e8f0ff;display:flex;justify-content:center;align-items:flex-start;min-height:100vh;padding:32px 16px;}'
+                      + '.card{width:100%;max-width:600px;border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.25);}'
+                      + '@media print{'
+                      + '  @page{size:A4;margin:10mm;}'
+                      + '  body{background:#fff;padding:0;display:block;}'
+                      + '  .card{max-width:100%;width:100%;border-radius:0;box-shadow:none;}'
+                      + '}'
+                      + '</style></head><body>'
+                      + '<div class="card">'
+                      // Header band
+                      + '<div style="background:#004aad;padding:18px 24px;display:flex;align-items:center;justify-content:space-between">'
+                      + '<div style="display:flex;align-items:center;gap:12px">'
+                      + '<div style="width:42px;height:42px;background:#fff;border-radius:10px;overflow:hidden;flex-shrink:0">'
+                      + '<img src="http://localhost:3000/logo.jpeg" style="width:100%;height:100%;object-fit:contain"/></div>'
+                      + '<div><div style="color:#fff;font-size:18px;font-weight:800;line-height:1.2">REHABLITO</div>'
+                      + '<div style="color:#bfdbfe;font-size:10px">Physio &amp; Autism Center</div>'
+                      + '<div style="color:#93c5fd;font-size:9px">Everyone Deserves Trusted Hands</div></div></div>'
+                      + '<div style="text-align:right">'
+                      + '<div style="color:#bfdbfe;font-size:10px">'+inv.date+'</div>'
+                      + '<div style="color:#e0f2fe;font-size:10px;font-family:monospace">'+receiptNo+'</div></div>'
+                      + '</div>'
+                      // Title strip
+                      + '<div style="background:#eff6ff;padding:10px;text-align:center;color:#004aad;font-size:12px;font-weight:800;letter-spacing:3px;border-bottom:1px solid #bfdbfe">PAYMENT RECEIPT</div>'
+                      // Transaction details section
+                      + '<div style="background:#eff6ff;padding:9px 24px;color:#004aad;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid #bfdbfe">Transaction Details</div>'
+                      + rowsHtml
+                      // Payment summary section
+                      + '<div style="background:#eff6ff;padding:9px 24px;color:#004aad;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid #bfdbfe">Payment Summary</div>'
+                      + '<div style="background:#fff;padding:16px 24px">'
+                      + '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0">'
+                      + '<span style="color:#6b7280;font-weight:700;font-size:13px">Amount Paid</span>'
+                      + '<span style="color:#004aad;font-weight:800;font-size:17px">Rs. '+inv.amountPaid.toLocaleString()+'</span></div>'
+                      + dueRow
+                      + '</div>'
+                      // Signature boxes
+                      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:20px 24px;background:#f8faff">'
+                      + '<div style="border-top:1.5px solid #94a3b8;padding-top:8px;text-align:center;color:#94a3b8;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase">Patient / Guardian Signature</div>'
+                      + '<div style="border-top:1.5px solid #94a3b8;padding-top:8px;text-align:center;color:#94a3b8;font-size:9px;font-weight:700;letter-spacing:.5px;text-transform:uppercase">Authorized Signatory</div>'
+                      + '</div>'
+                      // Footer
+                      + '<div style="background:#004aad;padding:11px;text-align:center;color:#bfdbfe;font-size:9px">Rehablito Physio &amp; Autism Center &mdash; Official Payment Receipt &mdash; Not valid without official stamp</div>'
+                      + '</div>'
+                      + '</body></html>';
+                    const win = window.open('','_blank','width=680,height=960');
+                    if (!win) return;
+                    win.document.open();
+                    win.document.write(html);
+                    win.document.close();
+                    win.focus();
+                    setTimeout(function() { win.print(); win.onafterprint = function() { win.close(); }; }, 600);
+                  }}
+                                    className="flex items-center justify-center gap-2 py-3 rounded-xl border border-[#004aad] text-[#004aad] text-sm font-bold hover:bg-blue-50 transition-colors"
                 >
-                  <Printer size={20} />
-                  Print Receipt
-                </Button>
+                  <Printer size={15} /> Print Receipt
+                </button>
               </div>
             </div>
           ) : (
-            <div className="h-96 flex flex-col items-center justify-center text-on-surface-variant/40 bg-surface-container-low rounded-xl border-2 border-dashed border-outline-variant/20">
-              <FileText size={48} className="mb-4" />
-              <p className="font-bold">Select an invoice to preview</p>
+            <div className="h-80 flex flex-col items-center justify-center text-on-surface-variant/40 bg-surface-container-low rounded-xl border-2 border-dashed border-outline-variant/20">
+              <FileText size={40} className="mb-3" />
+              <p className="font-bold text-sm">Click a transaction to preview</p>
             </div>
           )}
         </div>
