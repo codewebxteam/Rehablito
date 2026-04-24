@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { useAttendance } from '../context/AttendanceContext';
 import { 
   LayoutDashboard, 
@@ -28,6 +28,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useSearch } from '../context/SearchContext';
 
 import { MobileNav } from './MobileNav';
+import { Toaster } from 'sonner';
 
 export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logout } = useAuth();
@@ -201,6 +202,8 @@ export const MainLayout: React.FC<{ children: React.ReactNode }> = ({ children }
       </main>
 
       <MobileNav />
+
+      <Toaster position="top-center" richColors closeButton />
 
       {/* Logout Modal remains same */}
       <AnimatePresence>

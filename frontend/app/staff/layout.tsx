@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { AuthProvider } from './context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 import { AttendanceProvider } from './context/AttendanceContext';
 import { SearchProvider } from './context/SearchContext';
 import { MainLayout } from './components/MainLayout';
@@ -32,14 +32,12 @@ export default function StaffWebLayout({ children }: { children: React.ReactNode
   }
 
   return (
-    <AuthProvider>
-      <AttendanceProvider>
-        <SearchProvider>
-          <RoleGuard allowedRoles={['super_admin', 'branch_manager', 'staff']}>
-            <StaffWebLayoutContent>{children}</StaffWebLayoutContent>
-          </RoleGuard>
-        </SearchProvider>
-      </AttendanceProvider>
-    </AuthProvider>
+    <AttendanceProvider>
+      <SearchProvider>
+        <RoleGuard allowedRoles={['super_admin', 'branch_manager', 'staff']}>
+          <StaffWebLayoutContent>{children}</StaffWebLayoutContent>
+        </RoleGuard>
+      </SearchProvider>
+    </AttendanceProvider>
   );
 }

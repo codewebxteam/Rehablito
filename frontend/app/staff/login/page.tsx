@@ -65,18 +65,18 @@ export default function StaffLoginPage() {
   const rightContent = (
     <div className="w-full max-w-sm mx-auto">
       <div className="mb-8 text-center sm:text-left">
-        <div className="flex items-center justify-center sm:justify-start gap-3 mb-6">
+        <div className="hidden sm:flex items-center justify-start gap-3 mb-6">
           <div className="w-10 h-10 rounded-xl bg-brand-sage flex items-center justify-center shadow-lg shadow-brand-sage/20">
             <Stethoscope className="w-6 h-6 text-white" />
           </div>
           <span className="text-2xl font-black tracking-tight text-on-background italic">Rehablito.</span>
         </div>
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center justify-center sm:justify-start gap-2 mb-2">
           <UserCheck className="w-5 h-5 text-brand-sage" />
           <span className="text-xs font-bold uppercase tracking-widest text-brand-sage">Staff Portal</span>
         </div>
-        <h2 className="text-3xl font-bold text-on-background tracking-tight">Welcome Back</h2>
-        <p className="text-on-surface-variant mt-2 font-medium">Sign in to your workspace.</p>
+        <h2 className="text-2xl sm:text-3xl font-bold text-on-background tracking-tight">Welcome Back</h2>
+        <p className="text-on-surface-variant mt-2 font-medium text-sm sm:text-base">Sign in to your workspace.</p>
       </div>
 
       <form className="space-y-5" onSubmit={handleSubmit}>

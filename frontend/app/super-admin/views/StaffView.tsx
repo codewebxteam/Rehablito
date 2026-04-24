@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Plus, Filter, UserCog, Edit, Trash2, X, UsersRound, UserCheck, UserMinus } from 'lucide-react';
+import { Search, Plus, Filter, UserCog, Edit, Trash2, X, UsersRound, UserCheck, UserMinus, Eye, EyeOff, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AnimatePresence, motion } from 'motion/react';
 import api from '@/lib/api';
@@ -89,6 +89,8 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
   const [form, setForm] = useState<NewStaffForm>(INITIAL_FORM);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
   const [editForm, setEditForm] = useState<NewStaffForm>(INITIAL_FORM);
+  const [showAddPass, setShowAddPass] = useState(false);
+  const [showEditPass, setShowEditPass] = useState(false);
   const [deletingStaff, setDeletingStaff] = useState<Staff | null>(null);
   const [page, setPage] = useState(1);
   const PER_PAGE = 10;
@@ -96,6 +98,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
   const resetForm = () => setForm(INITIAL_FORM);
   const closeModal = () => {
     setIsAddModalOpen(false);
+    setShowAddPass(false);
     resetForm();
   };
 
@@ -114,6 +117,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
 
   const closeEdit = () => {
     setEditingStaff(null);
+    setShowEditPass(false);
     setEditForm(INITIAL_FORM);
   };
 
@@ -599,31 +603,46 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
                   className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
                   placeholder="Email *"
                 />
-                <input
-                  type="password"
-                  value={form.password}
-                  onChange={(e) => setForm(prev => ({ ...prev, password: e.target.value }))}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Password * (min 6 chars)"
-                />
-                <select
-                  value={form.role}
-                  onChange={(e) => setForm(prev => ({ ...prev, role: e.target.value as StaffRole }))}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                >
-                  <option value="staff">Staff</option>
-                  <option value="branch_manager">Branch Manager</option>
-                </select>
-                <select
-                  value={form.branch}
-                  onChange={(e) => setForm(prev => ({ ...prev, branch: e.target.value }))}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                >
-                  <option value="">Select branch *</option>
-                  {branches.map(b => (
-                    <option key={b._id} value={b._id}>{b.name}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <input
+                    type={showAddPass ? "text" : "password"}
+                    value={form.password}
+                    onChange={(e) => setForm(prev => ({ ...prev, password: e.target.value }))}
+                    className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 pl-3 pr-10 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                    placeholder="Password * (min 6 chars)"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowAddPass(!showAddPass)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40 hover:text-on-surface transition-colors"
+                  >
+                    {showAddPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                <div className="relative">
+                  <select
+                    value={form.role}
+                    onChange={(e) => setForm(prev => ({ ...prev, role: e.target.value as StaffRole }))}
+                    className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 pl-3 pr-10 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25 appearance-none cursor-pointer"
+                  >
+                    <option value="staff">Staff</option>
+                    <option value="branch_manager">Branch Manager</option>
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40 pointer-events-none" size={16} />
+                </div>
+                <div className="relative">
+                  <select
+                    value={form.branch}
+                    onChange={(e) => setForm(prev => ({ ...prev, branch: e.target.value }))}
+                    className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 pl-3 pr-10 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25 appearance-none cursor-pointer"
+                  >
+                    <option value="">Select branch *</option>
+                    {branches.map(b => (
+                      <option key={b._id} value={b._id}>{b.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40 pointer-events-none" size={16} />
+                </div>
                 <input
                   type="text"
                   value={form.staffId}
@@ -709,31 +728,46 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
                   className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
                   placeholder="Email *"
                 />
-                <input
-                  type="password"
-                  value={editForm.password}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, password: e.target.value }))}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="New password (leave blank to keep)"
-                />
-                <select
-                  value={editForm.role}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, role: e.target.value as StaffRole }))}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                >
-                  <option value="staff">Staff</option>
-                  <option value="branch_manager">Branch Manager</option>
-                </select>
-                <select
-                  value={editForm.branch}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, branch: e.target.value }))}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                >
-                  <option value="">Select branch *</option>
-                  {branches.map(b => (
-                    <option key={b._id} value={b._id}>{b.name}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <input
+                    type={showEditPass ? "text" : "password"}
+                    value={editForm.password}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, password: e.target.value }))}
+                    className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 pl-3 pr-10 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                    placeholder="New password (leave blank to keep)"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEditPass(!showEditPass)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40 hover:text-on-surface transition-colors"
+                  >
+                    {showEditPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                <div className="relative">
+                  <select
+                    value={editForm.role}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, role: e.target.value as StaffRole }))}
+                    className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 pl-3 pr-10 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25 appearance-none cursor-pointer"
+                  >
+                    <option value="staff">Staff</option>
+                    <option value="branch_manager">Branch Manager</option>
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40 pointer-events-none" size={16} />
+                </div>
+                <div className="relative">
+                  <select
+                    value={editForm.branch}
+                    onChange={(e) => setEditForm(prev => ({ ...prev, branch: e.target.value }))}
+                    className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 pl-3 pr-10 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25 appearance-none cursor-pointer"
+                  >
+                    <option value="">Select branch *</option>
+                    {branches.map(b => (
+                      <option key={b._id} value={b._id}>{b.name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40 pointer-events-none" size={16} />
+                </div>
                 <input
                   type="text"
                   value={editForm.staffId}

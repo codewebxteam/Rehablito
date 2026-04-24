@@ -4,7 +4,7 @@ import api from '@/lib/api';
 import {
   History, CheckCircle2, MapPin, MoreVertical,
   Activity, Clock, AlertCircle, XCircle,
-  Eye, Edit, Trash2, Download, Plus
+  Eye, EyeOff, Edit, Trash2, Download, Plus
 } from 'lucide-react';
 import { Staff } from '../types';
 import { cn } from '../lib/utils';
@@ -68,6 +68,8 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newStaff, setNewStaff] = useState({ name: '', email: '', password: '', staffId: '', mobileNumber: '' });
   const [editingStaff, setEditingStaff] = useState<(Staff & { password?: string }) | null>(null);
+  const [showAddPass, setShowAddPass] = useState(false);
+  const [showEditPass, setShowEditPass] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [attendanceStats, setAttendanceStats] = useState<AttendanceStats | null>(null);
   const [attendanceLoading, setAttendanceLoading] = useState(true);
@@ -407,6 +409,7 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
                 await onAddStaff(newStaff);
                 setIsAddModalOpen(false);
                 setNewStaff({ name: '', email: '', password: '', staffId: '', mobileNumber: '' });
+                setShowAddPass(false);
                 setIsProcessing(false);
               }} className="space-y-4">
                 <div className="space-y-1.5">
@@ -423,9 +426,18 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Password *</label>
-                  <input type="password" required value={newStaff.password}
-                    onChange={e => setNewStaff(p => ({ ...p, password: e.target.value }))}
-                    className="w-full bg-surface-container-low rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" placeholder="Min 6 characters" />
+                  <div className="relative">
+                    <input type={showAddPass ? "text" : "password"} required value={newStaff.password}
+                      onChange={e => setNewStaff(p => ({ ...p, password: e.target.value }))}
+                      className="w-full bg-surface-container-low rounded-xl pl-4 pr-11 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" placeholder="Min 6 characters" />
+                    <button
+                      type="button"
+                      onClick={() => setShowAddPass(!showAddPass)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/40 hover:text-on-surface transition-colors"
+                    >
+                      {showAddPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                    <div className="space-y-1.5">
@@ -469,6 +481,7 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
                 setIsProcessing(true);
                 await onUpdateStaff(editingStaff);
                 setEditingStaff(null);
+                setShowEditPass(false);
                 setIsProcessing(false);
               }} className="space-y-4">
                 <div className="space-y-1.5">
@@ -485,9 +498,18 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">New Password</label>
-                  <input type="password" value={editingStaff.password || ''}
-                    onChange={e => setEditingStaff(p => p ? { ...p, password: e.target.value } : null)}
-                    className="w-full bg-surface-container-low rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" placeholder="Leave blank to keep current" />
+                  <div className="relative">
+                    <input type={showEditPass ? "text" : "password"} value={editingStaff.password || ''}
+                      onChange={e => setEditingStaff(p => p ? { ...p, password: e.target.value } : null)}
+                      className="w-full bg-surface-container-low rounded-xl pl-4 pr-11 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" placeholder="Leave blank to keep current" />
+                    <button
+                      type="button"
+                      onClick={() => setShowEditPass(!showEditPass)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/40 hover:text-on-surface transition-colors"
+                    >
+                      {showEditPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
@@ -504,7 +526,7 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
                   </div>
                 </div>
                 <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={() => setEditingStaff(null)}
+                  <button type="button" onClick={() => { setEditingStaff(null); setShowEditPass(false); }}
                     className="flex-1 py-3 rounded-xl border border-outline-variant/30 text-sm font-semibold text-on-surface-variant hover:bg-surface-container-low transition-colors">
                     Cancel
                   </button>

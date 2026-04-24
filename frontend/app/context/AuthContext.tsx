@@ -11,9 +11,11 @@ interface User {
   name: string;
   email: string;
   phone?: string;
+  mobile?: string;
   role: 'super_admin' | 'branch_manager' | 'staff' | 'user';
   branchId?: string;
   staffId?: string;
+  photoUrl?: string;
 }
 
 interface AuthContextType {
@@ -41,11 +43,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (token) {
         try {
           const { data } = await api.get('/auth/me');
-          setUser(data);
-        } catch (error) {
+          const userData = {
+            ...data,
+            mobile: data.mobile || data.phone,
+            photoUrl: data.photoUrl || ''
+          };
+          setUser(userData);
+        } catch (error: any) {
           console.error("Failed to fetch user:", error);
-          Cookies.remove('rehablito_token');
-          setUser(null);
+          if (error.response?.status === 401 || error.response?.status === 403) {
+            Cookies.remove('rehablito_token', { path: '/' });
+            setUser(null);
+          }
         }
       }
       setLoading(false);
@@ -75,7 +84,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true);
       const { data } = await api.post('/auth/login', { email, password });
       if (data.success) {
-        Cookies.set('rehablito_token', data.token, { expires: 30 });
+        Cookies.set('rehablito_token', data.token, { expires: 30, path: '/' });
         setUser(data.user);
         toast.success(`Welcome back, ${data.user.name}!`);
         redirectByRole(data.user.role);
@@ -94,7 +103,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true);
       const { data } = await api.post('/auth/admin/login', { email, password });
       if (data.success) {
-        Cookies.set('rehablito_token', data.token, { expires: 30 });
+        Cookies.set('rehablito_token', data.token, { expires: 30, path: '/' });
         setUser(data.user);
         toast.success(`Welcome back, ${data.user.name}!`);
         router.push('/super-admin');
@@ -113,7 +122,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true);
       const { data } = await api.post('/auth/manager/login', { email, password });
       if (data.success) {
-        Cookies.set('rehablito_token', data.token, { expires: 30 });
+        Cookies.set('rehablito_token', data.token, { expires: 30, path: '/' });
         setUser(data.user);
         toast.success(`Welcome back, ${data.user.name}!`);
         router.push('/manager');
@@ -148,7 +157,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { data } = await api.post('/auth/verify-otp', { staffId, otp });
       
       if (data.success) {
-        Cookies.set('rehablito_token', data.token, { expires: 30 });
+        Cookies.set('rehablito_token', data.token, { expires: 30, path: '/' });
         setUser(data.user);
         toast.success(`Welcome to the portal, ${data.user.name}!`);
         redirectByRole(data.user.role);
@@ -163,7 +172,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = () => {
-    Cookies.remove('rehablito_token');
+    Cookies.remove('rehablito_token', { path: '/' });
     setUser(null);
     router.push('/');
     toast.message('You have been logged out.');

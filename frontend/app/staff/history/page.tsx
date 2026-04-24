@@ -75,9 +75,9 @@ export default function HistoryPage() {
           <h3 className="text-2xl font-headline font-black text-on-surface tracking-tight">Attendance Log</h3>
           <p className="text-[10px] font-bold text-on-surface-variant/40 uppercase tracking-[0.2em]">{format(new Date(), 'MMMM yyyy')}</p>
         </div>
-        <button className="p-2.5 bg-surface-container-low text-primary rounded-xl border border-outline-variant/10 shadow-sm active:scale-95 transition-all">
+        {/* <button className="p-2.5 bg-surface-container-low text-primary rounded-xl border border-outline-variant/10 shadow-sm active:scale-95 transition-all">
           <Download className="w-5 h-5" />
-        </button>
+        </button> */}
       </motion.div>
 
       {/* Primary Metrics Row: High Density */}

@@ -1,9 +1,9 @@
-﻿"use client";
+"use client";
 import { motion } from "motion/react";
 import { ReactNode } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { X } from "lucide-react";
+import { X, Stethoscope } from "lucide-react";
 
 interface SplitLayoutProps {
   leftContent: ReactNode;
@@ -23,10 +23,11 @@ export default function SplitLayout({ leftContent, rightContent, leftBgImage }: 
             fill
             priority
             sizes="(min-width: 1024px) 60vw, 50vw"
-            className="object-cover opacity-80 mix-blend-overlay"
+            className="object-cover opacity-90"
             referrerPolicy="no-referrer"
           />
-          <div className="absolute inset-0 bg-linear-to-tr from-primary/60 via-transparent to-transparent"></div>
+          <div className="absolute inset-0 bg-black/40"></div>
+          <div className="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent"></div>
         </div>
         
         {/* Full-height container for flexible positioning */}
@@ -54,11 +55,11 @@ export default function SplitLayout({ leftContent, rightContent, leftBgImage }: 
 
         {/* Brand Header (Mobile & Desktop Context) */}
         <div className="relative z-10 p-6 md:p-8 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-brand-sage flex items-center justify-center md:hidden">
-               <div className="w-4 h-4 bg-white rounded-sm"></div>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-brand-sage flex items-center justify-center shadow-lg shadow-brand-sage/20">
+              <Stethoscope className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xl font-headline font-extrabold tracking-tight text-on-surface">Rehablito RMS</span>
+            <span className="text-2xl font-black tracking-tight text-on-background italic">Rehablito.</span>
           </div>
           <Link
             href="/"
@@ -69,7 +70,7 @@ export default function SplitLayout({ leftContent, rightContent, leftBgImage }: 
           </Link>
         </div>
         
-        <div className="relative z-10 flex-1 flex flex-col justify-center px-6 sm:px-12 lg:px-20 py-8 md:py-12 max-w-2xl mx-auto w-full">
+        <div className="relative z-10 flex-1 flex flex-col justify-center md:justify-center px-6 sm:px-12 lg:px-20 py-8 md:py-12 max-w-2xl mx-auto w-full min-h-[calc(100vh-180px)]">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

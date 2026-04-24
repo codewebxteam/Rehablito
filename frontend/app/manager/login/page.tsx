@@ -20,12 +20,12 @@ export default function ManagerLoginPage() {
   const leftContent = (
     <div className="absolute bottom-12 left-0 max-w-xl p-8">
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}
-        className="mb-6 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/10">
-        <span className="w-2 h-2 rounded-full bg-brand-sage shadow-[0_0_8px_rgba(78,110,93,0.8)]"></span>
+        className="mb-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-xl border border-white/20 shadow-xl">
+        <span className="w-2 h-2 rounded-full bg-brand-sage shadow-[0_0_12px_rgba(78,110,93,1)]"></span>
         <span className="text-white text-[10px] font-bold uppercase tracking-widest">Branch Manager Access</span>
       </motion.div>
       <motion.h1 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.2 }}
-        className="font-headline text-4xl md:text-5xl lg:text-6xl text-white font-extrabold leading-tight tracking-tight mb-4">
+        className="font-headline text-4xl md:text-5xl lg:text-6xl text-white font-extrabold leading-tight tracking-tight mb-4 drop-shadow-2xl">
         Your Branch. <br /><span className="text-secondary-fixed">Your Operations.</span>
       </motion.h1>
       <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.4 }}
@@ -38,18 +38,18 @@ export default function ManagerLoginPage() {
   const rightContent = (
     <div className="w-full max-w-sm mx-auto">
       <div className="mb-8 text-center sm:text-left">
-        <div className="flex items-center justify-center sm:justify-start gap-3 mb-6">
+        <div className="hidden sm:flex items-center justify-start gap-3 mb-6">
           <div className="w-10 h-10 rounded-xl bg-brand-sage flex items-center justify-center shadow-lg shadow-brand-sage/20">
             <Stethoscope className="w-6 h-6 text-white" />
           </div>
           <span className="text-2xl font-black tracking-tight text-on-background italic">Rehablito.</span>
         </div>
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center justify-center sm:justify-start gap-2 mb-2">
           <Briefcase className="w-5 h-5 text-brand-sage" />
           <span className="text-xs font-bold uppercase tracking-widest text-brand-sage">Branch Manager Portal</span>
         </div>
-        <h2 className="text-3xl font-bold text-on-background tracking-tight">Manager Sign In</h2>
-        <p className="text-on-surface-variant mt-2 font-medium">Access your branch workspace.</p>
+        <h2 className="text-2xl sm:text-3xl font-bold text-on-background tracking-tight">Manager Sign In</h2>
+        <p className="text-on-surface-variant mt-2 font-medium text-sm sm:text-base">Access your branch workspace.</p>
       </div>
 
       <form className="space-y-5" onSubmit={handleSubmit}>

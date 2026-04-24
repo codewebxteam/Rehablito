@@ -3,6 +3,7 @@ export interface User {
   staffId: string;
   name: string;
   role: string;
+  email: string;
   mobile: string;
   photoUrl: string;
 }
