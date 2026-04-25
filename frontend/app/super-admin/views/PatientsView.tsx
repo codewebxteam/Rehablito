@@ -231,7 +231,7 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
     if (patient) {
       const due = calculateDueAmount(id, patient.totalFee || 0);
       if (due > 0) {
-        toast.error(`Clear outstanding balance (₹${due.toLocaleString()}) before discharging.`, {
+        toast.error(`Clear due balance (₹${due.toLocaleString()}) before discharging.`, {
           description: "All fees must be settled to proceed with discharge.",
           duration: 4000
         });
@@ -261,7 +261,7 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
     if (editingPatient.status === 'Discharged') {
       const due = calculateDueAmount(editingPatient._id, editingPatient.totalFee || 0);
       if (due > 0) {
-        toast.error(`Clear outstanding balance (₹${due.toLocaleString()}) before discharging.`, {
+        toast.error(`Clear due balance (₹${due.toLocaleString()}) before discharging.`, {
           description: "All fees must be settled to proceed with discharge.",
           duration: 4000
         });
@@ -789,7 +789,7 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
                     if (newStatus === 'Discharged') {
                       const due = calculateDueAmount(editingPatient._id || '', editingPatient.totalFee || 0);
                       if (due > 0) {
-                        toast.warning(`Note: Outstanding balance of ₹${due.toLocaleString()} must be cleared before saving as Discharged.`);
+                        toast.warning(`Note: Due balance of ₹${due.toLocaleString()} must be cleared before saving as Discharged.`);
                       }
                     }
                     setEditingPatient(prev => prev ? ({ ...prev, status: newStatus }) : prev);

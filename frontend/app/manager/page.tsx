@@ -194,6 +194,12 @@ export default function ManagerDashboardApp() {
   const [billing, setBilling] = useState<BillingRecord[]>([]);
   const [notifications, setNotifications] = useState<{ id: string; message: string; type: 'success' | 'error' }[]>([]);
 
+  // Loading states
+  const [isLoadingLeads, setIsLoadingLeads] = useState(true);
+  const [isLoadingStaff, setIsLoadingStaff] = useState(true);
+  const [isLoadingPatients, setIsLoadingPatients] = useState(true);
+  const [isLoadingBilling, setIsLoadingBilling] = useState(true);
+
   // Responsive Sidebar States
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -248,6 +254,8 @@ export default function ManagerDashboardApp() {
       } catch (err) {
         console.error('Failed to fetch leads:', err);
         addNotification('Failed to load leads', 'error');
+      } finally {
+        setIsLoadingLeads(false);
       }
     };
     const fetchStaff = async () => {
@@ -264,6 +272,8 @@ export default function ManagerDashboardApp() {
       } catch (err) {
         console.error('Failed to fetch staff:', err);
         addNotification('Failed to load staff', 'error');
+      } finally {
+        setIsLoadingStaff(false);
       }
     };
     const fetchDutyStatus = async () => {
@@ -285,6 +295,8 @@ export default function ManagerDashboardApp() {
       } catch (err) {
         console.error('Failed to fetch patients:', err);
         addNotification('Failed to load patients', 'error');
+      } finally {
+        setIsLoadingPatients(false);
       }
     };
     const fetchPayments = async () => {
@@ -296,6 +308,8 @@ export default function ManagerDashboardApp() {
       } catch (err) {
         console.error('Failed to fetch billing:', err);
         addNotification('Failed to load billing', 'error');
+      } finally {
+        setIsLoadingBilling(false);
       }
     };
     fetchLeads();
@@ -776,7 +790,7 @@ export default function ManagerDashboardApp() {
                 <PatientOnboardingView onOnboard={addPatient} />
               )}
               { currentView === 'patients' && (
-              <PatientsListView patients={patients} billing={billing} onDelete={deletePatient} onUpdate={updatePatientRecord} onAddPayment={addBilling} />
+              <PatientsListView patients={patients} billing={billing} onDelete={deletePatient} onUpdate={updatePatientRecord} onAddPayment={addBilling} isLoading={isLoadingPatients} />
               )}
               {currentView === 'leads' && (
                 <LeadManagementView
@@ -785,6 +799,7 @@ export default function ManagerDashboardApp() {
                   onAddLead={addLead}
                   onDeleteLead={deleteLead}
                   onUpdateLead={updateLead}
+                  isLoading={isLoadingLeads}
                 />
               )}
               {currentView === 'staff' && (
@@ -794,6 +809,7 @@ export default function ManagerDashboardApp() {
                   onDeleteStaff={deleteStaff}
                   onUpdateStaff={updateStaff}
                   onAddStaff={addStaff}
+                  isLoading={isLoadingStaff}
                 />
               )}
               {currentView === 'services' && <ServicesView />}
@@ -804,6 +820,7 @@ export default function ManagerDashboardApp() {
                   onAddPayment={addBilling}
                   onDeleteBilling={deleteBilling}
                   onUpdateBilling={updateBilling}
+                  isLoading={isLoadingBilling}
                 />
               )}
             </motion.div>

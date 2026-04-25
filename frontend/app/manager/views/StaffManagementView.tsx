@@ -18,6 +18,7 @@ interface StaffManagementProps {
   onDeleteStaff: (id: string) => void;
   onUpdateStaff: (staff: Staff & { password?: string }) => void;
   onAddStaff: (staff: Partial<Staff> & { password?: string }) => void;
+  isLoading?: boolean;
 }
 
 interface AttendanceStats {
@@ -63,7 +64,7 @@ function RowMenu({ memberId, onView, onEdit, onDelete }: { memberId: string; onV
   );
 }
 
-export default function StaffManagementView({ staff, onToggleStatus, onDeleteStaff, onUpdateStaff, onAddStaff }: StaffManagementProps) {
+export default function StaffManagementView({ staff, onToggleStatus, onDeleteStaff, onUpdateStaff, onAddStaff, isLoading = false }: StaffManagementProps) {
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newStaff, setNewStaff] = useState({ name: '', email: '', password: '', staffId: '', mobileNumber: '' });
@@ -135,8 +136,16 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-surface-container-low">
-                      {staff.map(member => (
-                        <tr key={member.id} className="hover:bg-surface-container-low/50 transition-colors">
+                      {isLoading ? (
+                        <tr>
+                          <td colSpan={5} className="py-20 text-center">
+                            <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin mx-auto mb-4"></div>
+                            <p className="text-on-surface-variant font-medium">Loading staff...</p>
+                          </td>
+                        </tr>
+                      ) : (
+                        staff.map(member => (
+                          <tr key={member.id} className="hover:bg-surface-container-low/50 transition-colors">
                           <td className="px-5 py-3">
                             <div className="flex items-center gap-3">
                               <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
@@ -176,15 +185,22 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
                               onDelete={() => { if (window.confirm('Are you sure you want to delete this staff member? This will remove their record from your branch.')) onDeleteStaff(member.id); }} />
                           </td>
                         </tr>
-                      ))}
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
 
                 {/* Mobile cards */}
                 <div className="md:hidden divide-y divide-outline-variant/10">
-                  {staff.map(member => (
-                    <div key={member.id} className="p-4 space-y-3">
+                  {isLoading ? (
+                    <div className="py-20 flex flex-col items-center justify-center">
+                      <div className="w-10 h-10 rounded-full border-4 border-primary/20 border-t-primary animate-spin mb-3"></div>
+                      <p className="text-sm text-on-surface-variant font-medium">Loading staff...</p>
+                    </div>
+                  ) : (
+                    staff.map(member => (
+                      <div key={member.id} className="p-4 space-y-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold text-sm shrink-0">
@@ -218,7 +234,8 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
                         </button>
                       </div>
                     </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </>
             )}

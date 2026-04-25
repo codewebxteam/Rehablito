@@ -33,6 +33,7 @@ import { Lead, Staff, BillingRecord, Patient, ViewType } from '../types';
 import { cn } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import api from '@/lib/api';
+import { toast } from 'sonner';
 
 interface DashboardProps {
   leads: Lead[];
@@ -91,7 +92,9 @@ export default function DashboardView({ leads, onNavigate }: DashboardProps) {
 
   useEffect(() => {
     const fetchAll = async () => {
+      let toastId;
       try {
+        toastId = toast.loading('Loading dashboard...', { duration: Infinity });
         const [billingRes, patientRes, leadRes, paymentsRes] = await Promise.all([
           api.get('/manager/billing/summary'),
           api.get('/manager/patients/stats'),
@@ -104,6 +107,8 @@ export default function DashboardView({ leads, onNavigate }: DashboardProps) {
         if (paymentsRes.data?.success) setRecentPayments(paymentsRes.data.data || []);
       } catch (err) {
         console.error('Failed to load dashboard data:', err);
+      } finally {
+        if (toastId) toast.dismiss(toastId);
       }
     };
     fetchAll();
@@ -126,7 +131,7 @@ export default function DashboardView({ leads, onNavigate }: DashboardProps) {
       { label: 'Total Revenue', value: formatCurrency(totalRevenue), icon: CreditCard, trend: billingSummary ? formatCurrency(billingSummary.currentMonth.revenue) : '—', color: 'text-primary', bg: 'bg-primary/5' },
       { label: 'New Patients', value: totalPatients, icon: UserPlus, trend: `+${recentAdmissions}`, color: 'text-secondary', bg: 'bg-secondary/5' },
       { label: 'Open Leads', value: openLeads, icon: BarChart3, trend: leadStats?.conversionRate ?? 'Active', color: 'text-tertiary', bg: 'bg-orange-50' },
-      { label: 'Outstanding Dues', value: formatCurrency(outstandingDues), icon: AlertCircle, trend: outstandingDues > 0 ? 'Urgent' : 'Clear', color: 'text-error', bg: 'bg-error/5' },
+      { label: 'Total Dues', value: formatCurrency(outstandingDues), icon: AlertCircle, trend: outstandingDues > 0 ? 'Urgent' : 'Clear', color: 'text-error', bg: 'bg-error/5' },
     ];
   }, [billingSummary, patientStats, leadStats, leads]);
 

@@ -299,7 +299,7 @@ const FinanceChart = ({ trend }: { trend: MonthlyTrendEntry[] }) => {
 
 // ── KPI Card ──
 function KpiCard({
-  label, value, sub, icon: Icon, accent, trend,
+  label, value, sub, icon: Icon, accent, trend, isLoading,
 }: {
   label: string;
   value: string;
@@ -307,6 +307,7 @@ function KpiCard({
   icon: React.ElementType;
   accent: 'green' | 'red' | 'indigo' | 'amber';
   trend?: 'up' | 'down';
+  isLoading?: boolean;
 }) {
   const colors = {
     green:  { bg: 'bg-emerald-50',  icon: 'text-emerald-500',  val: 'text-emerald-600',  badge: 'bg-emerald-100 text-emerald-700'  },
@@ -321,23 +322,29 @@ function KpiCard({
       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
       className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col gap-4 relative overflow-hidden"
     >
-      <div className="absolute top-0 right-0 w-28 h-28 rounded-full blur-3xl opacity-30 pointer-events-none"
-        style={{ background: accent === 'green' ? '#10b981' : accent === 'red' ? '#ef4444' : accent === 'indigo' ? '#6366f1' : '#f59e0b', transform: 'translate(40%, -40%)' }}
-      />
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</span>
-        <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center', colors.bg)}>
-          <Icon size={18} className={colors.icon} />
-        </div>
-      </div>
-      <div>
-        <p className={cn('text-[28px] font-black leading-none tracking-tight', colors.val)}>{value}</p>
-        <div className="flex items-center gap-1 mt-2">
-          {trend === 'up' && <ArrowUpRight size={13} className={colors.icon} />}
-          {trend === 'down' && <ArrowDownRight size={13} className={colors.icon} />}
-          <p className="text-[11px] font-bold text-slate-400">{sub}</p>
-        </div>
-      </div>
+      {isLoading ? (
+        <div className="w-full h-[88px] animate-pulse bg-slate-50 rounded-lg" />
+      ) : (
+        <>
+          <div className="absolute top-0 right-0 w-28 h-28 rounded-full blur-3xl opacity-30 pointer-events-none"
+            style={{ background: accent === 'green' ? '#10b981' : accent === 'red' ? '#ef4444' : accent === 'indigo' ? '#6366f1' : '#f59e0b', transform: 'translate(40%, -40%)' }}
+          />
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</span>
+            <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center', colors.bg)}>
+              <Icon size={18} className={colors.icon} />
+            </div>
+          </div>
+          <div>
+            <p className={cn('text-[28px] font-black leading-none tracking-tight', colors.val)}>{value}</p>
+            <div className="flex items-center gap-1 mt-2">
+              {trend === 'up' && <ArrowUpRight size={13} className={colors.icon} />}
+              {trend === 'down' && <ArrowDownRight size={13} className={colors.icon} />}
+              <p className="text-[11px] font-bold text-slate-400">{sub}</p>
+            </div>
+          </div>
+        </>
+      )}
     </motion.div>
   );
 }
@@ -429,14 +436,16 @@ export const FinanceView = ({ initialData }: { initialData?: any }) => {
           icon={TrendingUp}
           accent="green"
           trend="up"
+          isLoading={isLoading}
         />
         <KpiCard
-          label="Outstanding Dues"
+          label="Total Dues"
           value={formatInr(summary?.totalDues || 0)}
           sub="Pending collection"
           icon={AlertCircle}
           accent="amber"
           trend="down"
+          isLoading={isLoading}
         />
         <KpiCard
           label="Total Expenses"
@@ -445,6 +454,7 @@ export const FinanceView = ({ initialData }: { initialData?: any }) => {
           icon={Wallet}
           accent="red"
           trend="down"
+          isLoading={isLoading}
         />
         <KpiCard
           label="Net Profit"
@@ -453,6 +463,7 @@ export const FinanceView = ({ initialData }: { initialData?: any }) => {
           icon={IndianRupee}
           accent="indigo"
           trend="up"
+          isLoading={isLoading}
         />
       </div>
 

@@ -27,6 +27,7 @@ interface PatientsListViewProps {
   onDelete: (id: string) => void;
   onUpdate: (patient: Patient) => void;
   onAddPayment: (input: any) => Promise<any>;
+  isLoading?: boolean;
 }
 
 // ── Dropdown Menu ──
@@ -443,7 +444,7 @@ function EditModal({ patient, billing, onClose, onSave }: { patient: Patient; bi
                   const paid = bills.reduce((s, b) => s + b.amountPaid, 0);
                   const due = (patient.totalFee || 0) - paid;
                   if (due > 0) {
-                    toast.error(`Clear outstanding balance (₹${due}) before discharging.`, {
+                    toast.error(`Clear due balance (₹${due}) before discharging.`, {
                       duration: 5000,
                       style: { background: '#fee2e2', color: '#991b1b', fontWeight: 'bold' }
                     });
@@ -489,7 +490,7 @@ function DeleteConfirm({ name, onClose, onConfirm }: { name: string; onClose: ()
 }
 
 // ── Main View ──
-export default function PatientsListView({ patients, billing, onDelete, onUpdate, onAddPayment }: PatientsListViewProps) {
+export default function PatientsListView({ patients, billing, onDelete, onUpdate, onAddPayment, isLoading = false }: PatientsListViewProps) {
   const [search, setSearch] = useState('');
   const [viewPatient, setViewPatient] = useState<Patient | null>(null);
   const [editPatient, setEditPatient] = useState<Patient | null>(null);
@@ -502,7 +503,7 @@ export default function PatientsListView({ patients, billing, onDelete, onUpdate
     const due = (patient.totalFee || 0) - totalPaid;
 
     if (due > 0) {
-      toast.error(`Patient cannot be discharged. Clear outstanding balance of ₹${due} first.`, {
+      toast.error(`Patient cannot be discharged. Clear due balance of ₹${due} first.`, {
         duration: 4000,
         position: 'top-center',
         style: { borderRadius: '12px', background: '#333', color: '#fff' }
@@ -564,7 +565,12 @@ export default function PatientsListView({ patients, billing, onDelete, onUpdate
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {isLoading ? (
+        <div className="py-20 flex flex-col items-center justify-center bg-white rounded-2xl border border-outline-variant/20 shadow-sm">
+          <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin mb-4"></div>
+          <p className="text-on-surface-variant font-medium">Loading patients...</p>
+        </div>
+      ) : filtered.length === 0 ? (
         <div className="bg-white p-12 rounded-2xl border border-outline-variant/20 text-center shadow-sm">
           <Users className="mx-auto h-12 w-12 text-outline-variant opacity-50 mb-4" />
           <h3 className="text-lg font-bold text-on-surface mb-2">{search ? 'No results found' : 'No Patients Found'}</h3>

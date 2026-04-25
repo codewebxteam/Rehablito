@@ -78,6 +78,7 @@ interface KpiCardProps {
   bg: string;
   iconBg: string;
   iconColor: string;
+  isLoading?: boolean;
   onClick: () => void;
 }
 
@@ -123,9 +124,7 @@ const RevenueTrends = React.memo(({ monthlyTrend = [], isLoading = false }: { mo
         <div className="p-2 bg-blue-50 rounded-xl"><TrendingUp size={16} className="text-blue-500" /></div>
       </div>
       <div className="h-[180px] w-full">
-        {isLoading ? (
-          <div className="h-full bg-slate-50 animate-pulse rounded-xl" />
-        ) : data.length === 0 ? (
+        {data.length === 0 ? (
           <div className="h-full flex items-center justify-center text-on-surface-variant/30 text-sm font-medium">No data yet</div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
@@ -173,11 +172,7 @@ const PatientPieChart = React.memo(({ patient, isLoading }: { patient: PatientSt
         <h4 className="text-base font-black font-headline text-on-surface">Patients</h4>
         <span className="text-xs font-black text-primary bg-primary/5 px-2.5 py-1 rounded-full">{patient?.total || 0} Total</span>
       </div>
-      {isLoading ? (
-        <div className="h-36 bg-slate-50 animate-pulse rounded-xl" />
-      ) : (
-        <>
-          <div className="h-36">
+      <div className="h-36">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={data} cx="50%" cy="50%" innerRadius={42} outerRadius={68} paddingAngle={3} dataKey="value" labelLine={false} label={renderLabel}>
@@ -198,8 +193,6 @@ const PatientPieChart = React.memo(({ patient, isLoading }: { patient: PatientSt
               </div>
             ))}
           </div>
-        </>
-      )}
     </div>
   );
 });
@@ -225,11 +218,8 @@ const LeadFunnel = React.memo(({ stats, isLoading }: { stats: LeadStats | null; 
           </span>
         )}
       </div>
-      {isLoading ? (
-        <div className="h-32 bg-slate-50 animate-pulse rounded-xl" />
-      ) : (
-        <div className="space-y-3 mt-2">
-          {data.map((stage) => (
+      <div className="space-y-3 mt-2">
+        {data.map((stage) => (
             <div key={stage.name}>
               <div className="flex justify-between items-center mb-1">
                 <span className="text-[11px] font-black text-on-surface-variant/70 uppercase tracking-wide">{stage.name}</span>
@@ -251,7 +241,6 @@ const LeadFunnel = React.memo(({ stats, isLoading }: { stats: LeadStats | null; 
             <span className="text-base font-black text-primary">{stats?.total || 0}</span>
           </div>
         </div>
-      )}
     </div>
   );
 });
@@ -276,9 +265,7 @@ const PaymentPieChart = React.memo(({ fee, isLoading }: { fee: FeeSummary | null
           ₹{((fee?.totalDues || 0) / 100000).toFixed(1)}L Due
         </span>
       </div>
-      {isLoading ? (
-        <div className="h-36 bg-slate-50 animate-pulse rounded-xl" />
-      ) : data.length === 0 ? (
+      {data.length === 0 ? (
         <div className="h-36 flex items-center justify-center text-on-surface-variant/30 text-sm">No data</div>
       ) : (
         <>
@@ -322,9 +309,7 @@ const BranchRankings = React.memo(({ branchWise = [], isLoading = false }: { bra
         <h4 className="text-base font-black font-headline text-on-surface">Branch Performance</h4>
         <Layers3 size={16} className="text-on-surface-variant/20" />
       </div>
-      {isLoading ? (
-        <div className="space-y-3">{[1,2,3].map(i => <div key={i} className="h-8 bg-slate-50 animate-pulse rounded-xl" />)}</div>
-      ) : branchWise.length === 0 ? (
+      {branchWise.length === 0 ? (
         <div className="py-8 text-center text-on-surface-variant/30 text-sm italic">No branch data</div>
       ) : (
         <div className="space-y-4">
@@ -369,8 +354,8 @@ const StaffAttendance = React.memo(({ staff, isLoading }: { staff: AttendanceSta
         <h4 className="text-base font-black font-headline text-on-surface">Staff Today</h4>
         <BadgeCheck size={16} className="text-purple-400" />
       </div>
-      {isLoading || !staff ? (
-        <div className="h-32 bg-slate-50 animate-pulse rounded-xl" />
+      {!staff ? (
+        <div className="h-32 flex items-center justify-center text-sm text-on-surface-variant/40 font-medium">No data</div>
       ) : (
         <div className="flex items-center gap-4">
           <div className="h-28 w-28 shrink-0">
@@ -431,9 +416,7 @@ const LiveFeed = React.memo(({ items, isLoading = false, liveItems = [] }: { ite
         </button>
       </div>
       <div className="space-y-3">
-        {isLoading
-          ? [1,2,3,4,5].map(i => <div key={i} className="h-9 bg-slate-50 animate-pulse rounded-xl" />)
-          : all.length === 0
+        {all.length === 0
             ? <p className="text-center py-6 text-on-surface-variant/30 text-xs italic font-medium">No activity yet</p>
             : all.map((item) => (
                 <div key={item.id} className="flex items-center gap-3 group">
@@ -496,8 +479,10 @@ export const DashboardView = ({ initialData }: { initialData?: any }) => {
 
   useEffect(() => {
     const fetchDashboard = async () => {
+      let toastId;
       try {
         setIsLoading(true);
+        toastId = toast.loading('Loading dashboard...', { duration: Infinity });
         const branchParam = selectedBranchId ? `?branch=${selectedBranchId}` : '';
         const { data } = await api.get(`/admin/dashboard${branchParam}`);
         if (data.success) {
@@ -508,7 +493,10 @@ export const DashboardView = ({ initialData }: { initialData?: any }) => {
           transformServerData(data.data);
         }
       } catch { toast.error('Failed to sync'); }
-      finally { setIsLoading(false); }
+      finally { 
+        setIsLoading(false); 
+        if (toastId) toast.dismiss(toastId);
+      }
     };
     fetchDashboard();
   }, [selectedBranchId, transformServerData]);
@@ -534,24 +522,28 @@ export const DashboardView = ({ initialData }: { initialData?: any }) => {
           icon={<Wallet size={16} />} label="Revenue Pool" value={fmt(feeSummary?.totalRevenue)}
           sub={`${feeSummary?.totalTransactions || 0} transactions`}
           bg="bg-gradient-to-br from-white to-blue-50/40" iconBg="bg-blue-50" iconColor="text-blue-600"
+          isLoading={isLoading}
           onClick={() => router.push('/super-admin/finance')}
         />
         <KpiCard
           icon={<UsersRound size={16} />} label="Active Patients" value={String(patientStats?.active || 0)}
           sub={`${patientStats?.total || 0} registered total`}
           bg="bg-gradient-to-br from-white to-emerald-50/40" iconBg="bg-emerald-50" iconColor="text-emerald-600"
+          isLoading={isLoading}
           onClick={() => router.push('/super-admin/patients')}
         />
         <KpiCard
           icon={<Mail size={16} />} label="Inquiry Flow" value={String(leadStats?.total || 0)}
           sub={`${leadStats?.converted || 0} converted`} subColor="text-emerald-600 font-bold"
           bg="bg-gradient-to-br from-white to-amber-50/40" iconBg="bg-amber-50" iconColor="text-amber-600"
+          isLoading={isLoading}
           onClick={() => router.push('/super-admin/leads')}
         />
         <KpiCard
           icon={<BadgeCheck size={16} />} label="Staff Active" value={`${attendanceStats?.present || 0}/${attendanceStats?.total || 0}`}
           sub="Live presence today"
           bg="bg-gradient-to-br from-white to-purple-50/40" iconBg="bg-purple-50" iconColor="text-purple-600"
+          isLoading={isLoading}
           onClick={() => router.push('/super-admin/attendance')}
         />
       </div>

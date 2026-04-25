@@ -74,13 +74,19 @@ export const BranchesView = ({ initialData }: { initialData?: any }) => {
           { title: 'Inactive', value: branches.length - activeCount, color: 'bg-amber-50 text-amber-600' },
         ].map((stat, idx) => (
           <div key={idx} className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm flex items-center justify-between">
-            <div>
-              <p className="text-sm font-bold text-on-surface-variant opacity-70 mb-1">{stat.title}</p>
-              <h3 className="text-3xl font-black">{stat.value}</h3>
-            </div>
-            <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center', stat.color)}>
-              <Building2 size={20} />
-            </div>
+            {isLoading ? (
+              <div className="w-full h-16 animate-pulse bg-surface-container-low rounded-lg" />
+            ) : (
+              <>
+                <div>
+                  <p className="text-sm font-bold text-on-surface-variant opacity-70 mb-1">{stat.title}</p>
+                  <h3 className="text-3xl font-black">{stat.value}</h3>
+                </div>
+                <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center', stat.color)}>
+                  <Building2 size={20} />
+                </div>
+              </>
+            )}
           </div>
         ))}
       </div>

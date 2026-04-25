@@ -186,31 +186,49 @@ export const AttendanceView = ({ initialData }: { initialData?: any }) => {
       {/* Top Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-sm font-bold text-on-surface-variant opacity-70">Present</p>
-            <h3 className="text-3xl font-black text-green-600 mt-1">{stats.present}</h3>
-          </div>
-          <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center text-green-600">
-            <CheckCircle2 size={24} />
-          </div>
+          {isLoading ? (
+             <div className="w-full h-16 animate-pulse bg-surface-container-low rounded-lg" />
+          ) : (
+            <>
+              <div>
+                <p className="text-sm font-bold text-on-surface-variant opacity-70">Present</p>
+                <h3 className="text-3xl font-black text-green-600 mt-1">{stats.present}</h3>
+              </div>
+              <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center text-green-600">
+                <CheckCircle2 size={24} />
+              </div>
+            </>
+          )}
         </div>
         <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-sm font-bold text-on-surface-variant opacity-70">Absent</p>
-            <h3 className="text-3xl font-black text-error mt-1">{stats.absent}</h3>
-          </div>
-          <div className="w-12 h-12 rounded-full bg-error/10 flex items-center justify-center text-error">
-            <XCircle size={24} />
-          </div>
+          {isLoading ? (
+             <div className="w-full h-16 animate-pulse bg-surface-container-low rounded-lg" />
+          ) : (
+            <>
+              <div>
+                <p className="text-sm font-bold text-on-surface-variant opacity-70">Absent</p>
+                <h3 className="text-3xl font-black text-error mt-1">{stats.absent}</h3>
+              </div>
+              <div className="w-12 h-12 rounded-full bg-error/10 flex items-center justify-center text-error">
+                <XCircle size={24} />
+              </div>
+            </>
+          )}
         </div>
         <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm flex items-center justify-between">
-          <div>
-            <p className="text-sm font-bold text-on-surface-variant opacity-70">On Leave</p>
-            <h3 className="text-3xl font-black text-amber-600 mt-1">{stats.leave}</h3>
-          </div>
-          <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center text-amber-600">
-            <Users size={24} />
-          </div>
+          {isLoading ? (
+             <div className="w-full h-16 animate-pulse bg-surface-container-low rounded-lg" />
+          ) : (
+            <>
+              <div>
+                <p className="text-sm font-bold text-on-surface-variant opacity-70">On Leave</p>
+                <h3 className="text-3xl font-black text-amber-600 mt-1">{stats.leave}</h3>
+              </div>
+              <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center text-amber-600">
+                <Users size={24} />
+              </div>
+            </>
+          )}
         </div>
       </div>
 

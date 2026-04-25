@@ -24,9 +24,10 @@ interface BillingManagementProps {
   onAddPayment: (input: NewPaymentInput) => Promise<BillingRecord | null>;
   onDeleteBilling: (id: string) => void;
   onUpdateBilling: (record: BillingRecord) => void;
+  isLoading?: boolean;
 }
 
-export default function BillingManagementView({ billing, patients, onAddPayment, onDeleteBilling, onUpdateBilling }: BillingManagementProps) {
+export default function BillingManagementView({ billing, patients, onAddPayment, onDeleteBilling, onUpdateBilling, isLoading = false }: BillingManagementProps) {
   const [selectedInvoice, setSelectedInvoice] = useState<BillingRecord | null>(billing[0] || null);
   
   const selectedPatientContext = useMemo(() => {
@@ -209,27 +210,45 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
           {/* Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             <div className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/60 mb-2">Total Collected</p>
-              <h3 className="text-xl md:text-2xl font-extrabold text-on-surface">{formatINR(stats.total)}</h3>
-              <div className="flex items-center gap-1 mt-2 text-secondary font-bold text-[10px]">
-                <TrendingUp size={12} />
-                {stats.transactions} transactions
-              </div>
+              {isLoading ? (
+                <div className="w-full h-16 bg-slate-200/60 animate-pulse rounded-lg" />
+              ) : (
+                <>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/60 mb-2">Total Collected</p>
+                  <h3 className="text-xl md:text-2xl font-extrabold text-on-surface">{formatINR(stats.total)}</h3>
+                  <div className="flex items-center gap-1 mt-2 text-secondary font-bold text-[10px]">
+                    <TrendingUp size={12} />
+                    {stats.transactions} transactions
+                  </div>
+                </>
+              )}
             </div>
             <div className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/60 mb-2">Pending Dues</p>
-              <h3 className="text-xl md:text-2xl font-extrabold text-error">{formatINR(stats.pending)}</h3>
-              <div className="flex items-center gap-1 mt-2 text-error font-bold text-[10px]">
-                <AlertCircle size={12} />
-                {stats.overdueCount} with dues
-              </div>
+              {isLoading ? (
+                <div className="w-full h-16 bg-slate-200/60 animate-pulse rounded-lg" />
+              ) : (
+                <>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/60 mb-2">Pending Dues</p>
+                  <h3 className="text-xl md:text-2xl font-extrabold text-error">{formatINR(stats.pending)}</h3>
+                  <div className="flex items-center gap-1 mt-2 text-error font-bold text-[10px]">
+                    <AlertCircle size={12} />
+                    {stats.overdueCount} with dues
+                  </div>
+                </>
+              )}
             </div>
             <div className="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10 shadow-sm">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/60 mb-2">Active Plans</p>
-              <h3 className="text-xl md:text-2xl font-extrabold text-primary">{stats.activePlans}</h3>
-              <div className="flex items-center gap-1 mt-2 text-on-surface-variant font-bold text-[10px]">
-                Unique patients billed
-              </div>
+              {isLoading ? (
+                <div className="w-full h-16 bg-slate-200/60 animate-pulse rounded-lg" />
+              ) : (
+                <>
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant/60 mb-2">Active Plans</p>
+                  <h3 className="text-xl md:text-2xl font-extrabold text-primary">{stats.activePlans}</h3>
+                  <div className="flex items-center gap-1 mt-2 text-on-surface-variant font-bold text-[10px]">
+                    Unique patients billed
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -253,9 +272,17 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant/10">
-                  {billing.slice((txPage - 1) * TX_PER_PAGE, txPage * TX_PER_PAGE).map((record) => (
-                    <tr 
-                      key={record.id} 
+                  {isLoading ? (
+                    <tr>
+                      <td colSpan={5} className="py-20 text-center">
+                        <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin mx-auto mb-4"></div>
+                        <p className="text-on-surface-variant font-medium">Loading transactions...</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    billing.slice((txPage - 1) * TX_PER_PAGE, txPage * TX_PER_PAGE).map((record) => (
+                      <tr 
+                        key={record.id} 
                       onClick={() => setSelectedInvoice(record)}
                       className={cn(
                         "cursor-pointer transition-colors group",
@@ -287,17 +314,24 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                           {record.dueAmount === 0 ? 'Paid' : 'Pending'}
                         </span>
                       </td>
-                    </tr>
-                  ))}
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
 
             {/* Mobile Card View (< 640px) */}
             <div className="sm:hidden divide-y divide-outline-variant/10">
-              {billing.slice((txPage - 1) * TX_PER_PAGE, txPage * TX_PER_PAGE).map((record) => (
-                <div 
-                  key={record.id} 
+              {isLoading ? (
+                <div className="py-20 flex flex-col items-center justify-center">
+                  <div className="w-10 h-10 rounded-full border-4 border-primary/20 border-t-primary animate-spin mb-3"></div>
+                  <p className="text-sm text-on-surface-variant font-medium">Loading transactions...</p>
+                </div>
+              ) : (
+                billing.slice((txPage - 1) * TX_PER_PAGE, txPage * TX_PER_PAGE).map((record) => (
+                  <div 
+                    key={record.id} 
                   onClick={() => setSelectedInvoice(record)}
                   className={cn(
                     "p-4 sm:p-6 space-y-4 cursor-pointer transition-colors",
@@ -335,7 +369,8 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                     </div>
                   </div>
                 </div>
-              ))}
+                ))
+              )}
             </div>
 
             {/* Pagination */}
@@ -811,7 +846,7 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                   </select>
                   {currentDueForSelected > 0 && (
                     <div className="mt-1.5 flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/8 border border-secondary/20">
-                      <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">Current Outstanding</span>
+                      <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">Current Due</span>
                       <span className="text-sm font-black text-on-surface">₹{currentDueForSelected.toLocaleString()}</span>
                     </div>
                   )}

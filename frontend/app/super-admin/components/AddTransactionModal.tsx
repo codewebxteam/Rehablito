@@ -269,7 +269,7 @@ export function AddTransactionModal() {
                     </div>
                     <div className="text-right">
                        <span className="text-[11px] font-bold text-slate-500 block max-w-[150px] sm:max-w-none truncate">Total: ₹{initialBaseFee.toLocaleString()} • Paid: ₹{totalPaid.toLocaleString()}</span>
-                       <div className="text-sm font-black text-slate-800 uppercase">Outstanding: ₹{currentOutstanding.toLocaleString()}</div>
+                       <div className="text-sm font-black text-slate-800 uppercase">Due: ₹{currentOutstanding.toLocaleString()}</div>
                     </div>
                   </div>
                 )}

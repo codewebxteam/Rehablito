@@ -30,9 +30,10 @@ interface LeadManagementProps {
   onAddLead: (lead: Omit<Lead, 'id' | 'dateReceived'>) => void;
   onDeleteLead: (id: string) => void;
   onUpdateLead: (lead: Lead) => void;
+  isLoading?: boolean;
 }
 
-export default function LeadManagementView({ leads, onUpdateStatus, onAddLead, onDeleteLead, onUpdateLead }: LeadManagementProps) {
+export default function LeadManagementView({ leads, onUpdateStatus, onAddLead, onDeleteLead, onUpdateLead, isLoading = false }: LeadManagementProps) {
   const [conversionRate, setConversionRate] = useState<string>('—');
   const [recentLeads, setRecentLeads] = useState<number | null>(null);
 
@@ -219,8 +220,16 @@ export default function LeadManagementView({ leads, onUpdateStatus, onAddLead, o
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-container-low">
-              {filteredLeads.map((lead) => (
-                <tr key={lead.id} className="hover:bg-surface-container-low/30 transition-colors group">
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} className="py-20 text-center">
+                    <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin mx-auto mb-4"></div>
+                    <p className="text-on-surface-variant font-medium">Loading leads...</p>
+                  </td>
+                </tr>
+              ) : (
+                filteredLeads.map((lead) => (
+                  <tr key={lead.id} className="hover:bg-surface-container-low/30 transition-colors group">
                   <td className="py-5 px-4 xl:px-6 2xl:px-8">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-xs uppercase">
@@ -294,15 +303,22 @@ export default function LeadManagementView({ leads, onUpdateStatus, onAddLead, o
                     )}
                   </td>
                 </tr>
-              ))}
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
         {/* Mobile Card View (< 640px) */}
         <div className="sm:hidden divide-y divide-outline-variant/10">
-          {filteredLeads.map((lead) => (
-            <div key={lead.id} className="p-4 sm:p-6 space-y-4">
+          {isLoading ? (
+            <div className="py-20 flex flex-col items-center justify-center">
+              <div className="w-10 h-10 rounded-full border-4 border-primary/20 border-t-primary animate-spin mb-3"></div>
+              <p className="text-sm text-on-surface-variant font-medium">Loading leads...</p>
+            </div>
+          ) : (
+            filteredLeads.map((lead) => (
+              <div key={lead.id} className="p-4 sm:p-6 space-y-4">
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-sm uppercase shrink-0">
@@ -385,10 +401,11 @@ export default function LeadManagementView({ leads, onUpdateStatus, onAddLead, o
                 </select>
               </div>
             </div>
-          ))}
+            ))
+          )}
         </div>
 
-        {filteredLeads.length === 0 && (
+        {!isLoading && filteredLeads.length === 0 && (
           <div className="py-20 text-center text-on-surface-variant/60 font-medium">
             No leads found matching your criteria.
           </div>
@@ -412,14 +429,20 @@ export default function LeadManagementView({ leads, onUpdateStatus, onAddLead, o
       {/* Insights */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
         <div className="bg-gradient-to-br from-primary to-primary-container p-6 rounded-2xl text-white shadow-xl shadow-primary/10">
-          <div className="flex justify-between items-start mb-4">
-            <TrendingUp size={32} />
-            <span className="bg-white/20 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">Conversion</span>
-          </div>
-          <h3 className="text-2xl font-bold mb-1">{conversionRate}</h3>
-          <p className="text-white/80 text-xs font-medium">
-            {recentLeads !== null ? `${recentLeads} new leads in last 7 days` : 'Current conversion rate'}
-          </p>
+          {isLoading ? (
+            <div className="w-full h-16 bg-white/20 animate-pulse rounded-lg" />
+          ) : (
+            <>
+              <div className="flex justify-between items-start mb-4">
+                <TrendingUp size={32} />
+                <span className="bg-white/20 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">Conversion</span>
+              </div>
+              <h3 className="text-2xl font-bold mb-1">{conversionRate}</h3>
+              <p className="text-white/80 text-xs font-medium">
+                {recentLeads !== null ? `${recentLeads} new leads in last 7 days` : 'Current conversion rate'}
+              </p>
+            </>
+          )}
         </div>
         <div className="bg-surface-container-lowest p-6 rounded-2xl relative overflow-hidden shadow-sm border border-outline-variant/10">
           <div className="relative z-10">
