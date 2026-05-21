@@ -351,7 +351,7 @@ const StaffAttendance = React.memo(({ staff, isLoading }: { staff: AttendanceSta
   return (
     <div className="bg-white/80 backdrop-blur-xl border border-white/60 rounded-2xl p-5 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <h4 className="text-base font-black font-headline text-on-surface">Physiotherepist Today</h4>
+        <h4 className="text-base font-black font-headline text-on-surface">Therepist Today</h4>
         <BadgeCheck size={16} className="text-purple-400" />
       </div>
       {!staff ? (
@@ -507,13 +507,13 @@ export const DashboardView = ({ initialData }: { initialData?: any }) => {
     <div className="w-full space-y-5 pb-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Action Bar */}
       <div className="flex justify-end">
-        <button
+        {/* <button
           onClick={() => setShowAddBranch(true)}
           className="group flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-black hover:bg-primary/90 active:scale-95 transition-all shadow-lg shadow-primary/20"
         >
           <Plus size={16} className="group-hover:rotate-90 transition-transform duration-300" />
           Add Branch
-        </button>
+        </button> */}
       </div>
 
       {/* KPI Row — compact */}

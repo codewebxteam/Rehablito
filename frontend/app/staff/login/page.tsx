@@ -73,7 +73,7 @@ export default function StaffLoginPage() {
         </div>
         <div className="flex items-center justify-center sm:justify-start gap-2 mb-2">
           <UserCheck className="w-5 h-5 text-brand-sage" />
-          <span className="text-xs font-bold uppercase tracking-widest text-brand-sage">Physiotherepist Portal</span>
+          <span className="text-xs font-bold uppercase tracking-widest text-brand-sage">Therepist Portal</span>
         </div>
         <h2 className="text-2xl sm:text-3xl font-bold text-on-background tracking-tight">Welcome Back</h2>
         <p className="text-on-surface-variant mt-2 font-medium text-sm sm:text-base">Sign in to your workspace.</p>

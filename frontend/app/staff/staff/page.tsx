@@ -85,7 +85,7 @@ export default function StaffDirectoryPage() {
         }
       } catch (err: unknown) {
         console.error('Failed to fetch branch staff:', err);
-        setError('Failed to load Physiotherepist directory');
+        setError('Failed to load Therepist directory');
       } finally {
         setLoading(false);
       }
@@ -105,14 +105,14 @@ export default function StaffDirectoryPage() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div className="space-y-1 text-center md:text-left">
           <p className="text-primary font-bold text-xs uppercase tracking-widest font-label">Branch Team</p>
-          <h3 className="text-2xl md:text-3xl font-headline font-extrabold text-on-surface">Physiotherepist Directory</h3>
+          <h3 className="text-2xl md:text-3xl font-headline font-extrabold text-on-surface">Therepist Directory</h3>
         </div>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-outline" />
             <input
               type="text"
-              placeholder="Search name, role, or Physiotherepist ID..."
+              placeholder="Search name, role, or Therepist ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 pr-4 py-3 bg-surface-container-low border-none rounded-xl text-sm focus:ring-2 focus:ring-primary/20 w-full sm:w-64"

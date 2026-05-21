@@ -38,12 +38,12 @@ function ShellInner({ children }: SuperAdminShellProps) {
       subtitle: 'Track and convert upcoming leads'
     },
     staff: {
-      title: 'Physiotherepist Management',
+      title: 'Therepist Management',
       subtitle: 'Manage employee records and roles'
     },
     attendance: {
       title: 'Daily Attendance',
-      subtitle: 'Live physiotherepist presence and tracking'
+      subtitle: 'Live therepist presence and tracking'
     },
     finance: {
       title: 'Financial Overview',

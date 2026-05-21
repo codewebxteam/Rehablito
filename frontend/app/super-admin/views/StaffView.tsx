@@ -365,7 +365,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
                   <UserCheck className="text-emerald-600 group-hover:text-white transition-colors duration-300" size={20} />
                 </div>
               </div>
-              <p className="text-on-surface-variant text-[10px] uppercase tracking-wider mb-1 font-bold">Active Physiotherepist</p>
+              <p className="text-on-surface-variant text-[10px] uppercase tracking-wider mb-1 font-bold">Active Therepist</p>
               <h3 className="text-2xl font-black font-headline text-on-surface">{activeStaff}</h3>
               <p className="text-on-surface-variant/70 text-xs mt-2 flex items-center gap-1 font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
@@ -392,7 +392,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
                   <UserMinus className="text-rose-600 group-hover:text-white transition-colors duration-300" size={20} />
                 </div>
               </div>
-              <p className="text-on-surface-variant text-[10px] uppercase tracking-wider mb-1 font-bold">Inactive Physiotherepist</p>
+              <p className="text-on-surface-variant text-[10px] uppercase tracking-wider mb-1 font-bold">Inactive Therepist</p>
               <h3 className="text-2xl font-black font-headline text-on-surface">{inactiveStaff}</h3>
               <p className="text-on-surface-variant/70 text-xs mt-2 flex items-center gap-1 font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
@@ -410,7 +410,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
             <UserCog size={20} />
           </div>
           <div>
-            <h3 className="text-xl font-bold font-headline text-on-surface">Physiotherepist Directory</h3>
+            <h3 className="text-xl font-bold font-headline text-on-surface">Therepist Directory</h3>
             <p className="text-xs text-on-surface-variant font-medium opacity-60">Manage employee records and roles</p>
           </div>
         </div>
@@ -471,7 +471,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
             className="bg-primary hover:bg-primary/90 text-white p-2.5 px-5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-primary/20 transition-all"
           >
             <Plus size={18} />
-            <span className="hidden sm:inline">Add Physiotherepist</span>
+            <span className="hidden sm:inline">Add Therepist</span>
           </button>
         </div>
       </div>
@@ -482,7 +482,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
           <div className="h-80 flex items-center justify-center">
             <div className="text-center">
               <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin mx-auto mb-4"></div>
-              <p className="text-on-surface-variant">Loading physiotherepist...</p>
+              <p className="text-on-surface-variant">Loading therepist...</p>
             </div>
           </div>
         ) : (
@@ -588,7 +588,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
             >
               <div className="flex items-start justify-between gap-4 mb-5">
                 <div>
-                  <h4 className="text-lg font-extrabold text-on-surface">Add Physiotherepist Member</h4>
+                  <h4 className="text-lg font-extrabold text-on-surface">Add Therepist Member</h4>
                   <p className="text-sm text-on-surface-variant mt-1">Create a new employee account.</p>
                 </div>
                 <button
@@ -715,12 +715,12 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
               className="w-full max-w-lg rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-2xl p-6 max-h-[90vh] overflow-y-auto"
               role="dialog"
               aria-modal="true"
-              aria-label="Edit physiotherepist member"
+              aria-label="Edit therepist member"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-start justify-between gap-4 mb-5">
                 <div>
-                  <h4 className="text-lg font-extrabold text-on-surface">Edit Physiotherepist Member</h4>
+                  <h4 className="text-lg font-extrabold text-on-surface">Edit Therepist Member</h4>
                   <p className="text-sm text-on-surface-variant mt-1">Update this employee&apos;s details.</p>
                 </div>
                 <button
@@ -769,7 +769,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
                     onChange={(e) => setEditForm(prev => ({ ...prev, role: e.target.value as StaffRole }))}
                     className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 pl-3 pr-10 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25 appearance-none cursor-pointer"
                   >
-                    <option value="staff">Physiotherepist</option>
+                    <option value="staff">Therepist</option>
                     <option value="branch_manager">Branch Manager</option>
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40 pointer-events-none" size={16} />
@@ -792,7 +792,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
                   value={editForm.staffId}
                   onChange={(e) => setEditForm(prev => ({ ...prev, staffId: e.target.value }))}
                   className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Physiotherepist ID"
+                  placeholder="Therepist ID"
                 />
                 <input
                   type="text"
@@ -847,18 +847,18 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
               className="w-full max-w-md rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-2xl p-6"
               role="dialog"
               aria-modal="true"
-              aria-label="Delete physiotherepist member"
+              aria-label="Delete therepist member"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-start justify-between gap-4 mb-4">
                 <div>
-                  <h4 className="text-lg font-extrabold text-on-surface">Delete Physiotherepist</h4>
+                  <h4 className="text-lg font-extrabold text-on-surface">Delete Therepist</h4>
                   <p className="text-sm text-on-surface-variant mt-1">This action cannot be undone.</p>
                 </div>
                 <button
                   onClick={() => setDeletingStaff(null)}
                   className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low"
-                  aria-label="Close delete physiotherepist modal"
+                  aria-label="Close delete therepist modal"
                 >
                   <X size={16} />
                 </button>
