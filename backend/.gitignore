@@ -8,3 +8,6 @@
 test-api.js
 test-admin.js
 test-otp.js
+
+# Admin setup scripts (Do not push to production)
+resetAdmin.js
