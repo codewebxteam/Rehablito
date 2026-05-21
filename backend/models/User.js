@@ -23,8 +23,8 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['super_admin', 'branch_manager', 'staff', 'public_user'],
-        default: 'public_user'
+        enum: ['super_admin', 'branch_manager', 'staff'],
+        default: 'staff'
     },
     // Required fields for specific roles
     branchId: {
@@ -40,6 +40,9 @@ const userSchema = new mongoose.Schema({
         sparse: true
     },
     mobileNumber: {
+        type: String
+    },
+    aadharNumber: {
         type: String
     },
     otp: {

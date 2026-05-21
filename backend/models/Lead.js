@@ -8,6 +8,7 @@ const leadSchema = new mongoose.Schema({
     age: { type: Number },
     diagnosis: { type: String },
     referredBy: { type: String },
+    description: { type: String }, // Added for lead remarks/responses
     status: {
         type: String,
         enum: ['new', 'contacted', 'converted', 'closed'],
