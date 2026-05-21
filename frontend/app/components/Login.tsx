@@ -67,7 +67,7 @@ export default function Login() {
           Admin / Manager
         </button>
         <button onClick={() => { setTab('staff'); }} className={`flex-1 py-3 text-sm font-bold rounded-xl relative z-10 transition-colors ${tab === 'staff' ? 'text-brand-sage' : 'text-outline hover:text-on-surface'}`}>
-          Staff
+          Physiotherapist
         </button>
       </div>
 
@@ -104,7 +104,7 @@ export default function Login() {
           <motion.form key="staff" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
             className="space-y-5" onSubmit={(e) => { e.preventDefault(); login(email, password); }}>
             <div className="space-y-2">
-              <label className="block text-sm font-bold text-on-background ml-1">Staff Email</label>
+              <label className="block text-sm font-bold text-on-background ml-1">Physiotherapist Email</label>
               <div className="relative group">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-outline group-focus-within:text-brand-sage transition-colors" />
                 <input className="block w-full pl-12 pr-4 py-4 bg-surface-container-low border border-outline-variant/30 rounded-xl focus:ring-4 focus:ring-brand-sage/10 focus:border-brand-sage transition-all outline-none text-on-background placeholder:text-outline/50"

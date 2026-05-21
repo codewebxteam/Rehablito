@@ -30,7 +30,7 @@ export default function AdminLoginPage() {
       </motion.h1>
       <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.4 }}
         className="text-white/80 text-lg leading-relaxed max-w-md font-medium">
-        Access the global dashboard to manage all branches, staff, and financials across the organization.
+        Access the global dashboard to manage all branches, Physiotherapist, and financials across the organization.
       </motion.p>
     </div>
   );

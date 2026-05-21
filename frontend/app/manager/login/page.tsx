@@ -30,7 +30,7 @@ export default function ManagerLoginPage() {
       </motion.h1>
       <motion.p initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.4 }}
         className="text-white/80 text-lg leading-relaxed max-w-md font-medium">
-        Manage patients, leads, staff, and billing for your branch from one place.
+        Manage patients, leads, Physiotherapist, and billing for your branch from one place.
       </motion.p>
     </div>
   );

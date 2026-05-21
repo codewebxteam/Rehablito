@@ -7,17 +7,14 @@ import {
   LogIn, 
   LogOut, 
   MapPin, 
-  CheckCircle2, 
   AlertCircle,
   Clock,
-  ShieldCheck,
   Zap,
-  ChevronRight,
-  Timer,
-  Layout
+  Loader2
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 export default function AttendancePage() {
   const {
@@ -47,12 +44,16 @@ export default function AttendancePage() {
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleCheckIn = () => {
-    void checkIn(ward || branchName || undefined);
+  const handleCheckIn = async () => {
+    if (!isInsideOffice) {
+      toast.error("Location mismatch: You must be inside the facility to clock-in.");
+      return;
+    }
+    await checkIn(ward || branchName || undefined);
   };
 
-  const handleCheckOut = () => {
-    void checkOut();
+  const handleCheckOut = async () => {
+    await checkOut();
   };
 
   return (
@@ -133,9 +134,9 @@ export default function AttendancePage() {
                   <button
                     onClick={handleCheckOut}
                     disabled={isProcessing}
-                    className="w-full py-5 bg-error text-white rounded-2xl font-black text-lg shadow-xl shadow-error/20 hover:bg-error/90 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+                    className="w-full py-5 bg-error text-white rounded-2xl font-black text-lg shadow-xl shadow-error/20 hover:bg-error/90 active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                   >
-                    <LogOut className="w-6 h-6" />
+                    {isProcessing ? <Loader2 className="animate-spin w-6 h-6" /> : <LogOut className="w-6 h-6" />}
                     {isProcessing ? 'Processing...' : 'Clock-Out Now'}
                   </button>
                 </motion.div>
@@ -169,7 +170,7 @@ export default function AttendancePage() {
                       disabled={!isInsideOffice || isProcessing}
                       className="w-full py-5 bg-secondary text-white rounded-2xl font-black text-lg shadow-xl shadow-secondary/20 hover:bg-secondary/90 disabled:opacity-50 disabled:grayscale active:scale-[0.98] transition-all flex items-center justify-center gap-3"
                     >
-                      <LogIn className="w-6 h-6" />
+                      {isProcessing ? <Loader2 className="animate-spin w-6 h-6" /> : <LogIn className="w-6 h-6" />}
                       {isProcessing ? 'Processing...' : 'Clock-In Now'}
                     </button>
                   </div>
@@ -192,7 +193,10 @@ export default function AttendancePage() {
 
       {/* Quick Recalibrate */}
       <div className="flex justify-center">
-        <button className="flex items-center gap-2 px-4 py-2 hover:bg-surface-container-low rounded-xl transition-all">
+        <button 
+          onClick={() => window.location.reload()} 
+          className="flex items-center gap-2 px-4 py-2 hover:bg-surface-container-low rounded-xl transition-all"
+        >
           <Zap className="w-3.5 h-3.5 text-primary" />
           <span className="text-[10px] font-black uppercase tracking-widest text-primary">Recalibrate GPS Sync</span>
         </button>

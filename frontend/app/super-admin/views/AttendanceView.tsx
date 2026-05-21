@@ -144,7 +144,7 @@ export const AttendanceView = ({ initialData }: { initialData?: any }) => {
 
   const markStatus = async (row: AttendanceRow, uiStatus: 'Present' | 'Absent') => {
     if (!row.branchId) {
-      toast.error('Staff member has no branch assigned');
+      toast.error('Physiotherepist member has no branch assigned');
       return;
     }
     try {
@@ -251,7 +251,7 @@ export const AttendanceView = ({ initialData }: { initialData?: any }) => {
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/50" size={18} />
               <input
                 type="text"
-                placeholder="Search staff or branch..."
+                placeholder="Search physiotherepist or branch..."
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                 className="w-full bg-surface-container-low/50 border border-outline-variant/20 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all font-medium text-on-surface"
@@ -272,7 +272,7 @@ export const AttendanceView = ({ initialData }: { initialData?: any }) => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-surface-container-low/30">
-                  <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Staff Member</th>
+                  <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Physiotherepist Member</th>
                   <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Branch</th>
                   <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Check-In</th>
                   <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Check-Out</th>
@@ -355,7 +355,7 @@ export const AttendanceView = ({ initialData }: { initialData?: any }) => {
 
             {filteredRows.length === 0 && (
               <div className="p-10 text-center text-on-surface-variant opacity-60">
-                No staff found.
+                No physiotherepist found.
               </div>
             )}
           </div>

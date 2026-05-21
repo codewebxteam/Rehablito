@@ -127,11 +127,15 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
     branchId: '',
     phone: ''
   });
-  const [branches, setBranches] = useState<{ _id: string; name: string }[]>([]);
+  
+  // Changed to any[] to hold full branch data (address, phone, email) if available
+  const [branches, setBranches] = useState<any[]>([]);
   const [services, setServices] = useState<ServiceOption[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [lastOnboarded, setLastOnboarded] = useState<Patient | null>(null);
+  
+  // Changed to any so it can hold the branchName for PDF generation
+  const [lastOnboarded, setLastOnboarded] = useState<any>(null);
 
   // Derived: selected service object
   const selectedService = services.find(s => s._id === formData.serviceId) || null;
@@ -187,6 +191,7 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
         branchId: formData.branchId,
         parentPhone: `+91${formData.phone}`,
       };
+      
       const { data } = await api.post('/manager/patients', payload);
       if (!data.success) { setErrors({ form: data.message || 'Failed to onboard patient' }); return; }
 
@@ -206,12 +211,24 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
         serviceId: formData.serviceId || undefined,
       };
 
+      // ── FIXED: Added Branch Details to the PDF payload ──
+      const selectedBranch = branches.find(b => b._id === formData.branchId) || branches.find(b => b._id === user?.branchId);
+      
+      const pdfPayload = {
+        ...newPatient,
+        branchName: selectedBranch?.name || 'REHABLITO PHYSIO & AUTISM CENTER',
+        branchAddress: selectedBranch?.address || '',
+        branchPhone: selectedBranch?.phone || '',
+        branchEmail: selectedBranch?.email || '',
+      };
+
       onOnboard(newPatient);
-      setLastOnboarded(newPatient);
+      setLastOnboarded(pdfPayload);
+      
       const newId = `RX-${Date.now().toString().slice(-6)}`;
       setFormData({ patientId: newId, name: '', parentName: '', age: '', gender: '', serviceId: '', therapyType: '', diagnosis: '', address: '', branchId: '', phone: '' });
 
-      const doc = await generatePatientPDF(newPatient, 'Patient Onboarding Record');
+      const doc = await generatePatientPDF(pdfPayload as any, 'Patient Onboarding Record');
       doc.save(`Onboarding_${newPatient.name.replace(/\s/g, '_')}.pdf`);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
@@ -475,4 +492,3 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
     </div>
   );
 }
-

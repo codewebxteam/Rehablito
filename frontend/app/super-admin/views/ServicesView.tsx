@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, Pencil, Trash2, X, Check, Stethoscope, Loader2, Building2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Check, Stethoscope, Loader2, Building2, Filter } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 import api from '@/lib/api';
@@ -24,6 +24,9 @@ export const ServicesView = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [mounted, setMounted] = useState(false);
+
+  // Filter state
+  const [selectedBranchFilter, setSelectedBranchFilter] = useState<string>('All');
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ ...EMPTY_FORM });
@@ -51,6 +54,13 @@ export const ServicesView = () => {
       if (data.success) setBranches(data.data);
     }).catch(() => {});
   }, [fetchServices]);
+
+  // ── Derived State for Filtering ──
+  const filteredServices = services.filter(s => {
+    if (selectedBranchFilter === 'All') return true;
+    // Show service if it's Global (empty branchIds) OR assigned to the selected branch
+    return s.branchIds.length === 0 || s.branchIds.some(b => b._id === selectedBranchFilter);
+  });
 
   // ── Branch multi-select toggle ──
   const toggleBranch = (id: string, form: typeof EMPTY_FORM, setForm: (f: typeof EMPTY_FORM) => void) => {
@@ -119,13 +129,6 @@ export const ServicesView = () => {
     } catch { alert('Failed to delete service'); }
   };
 
-  const branchLabel = (s: Service) =>
-    s.branchIds.length === 0
-      ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary/10 text-secondary text-[10px] font-bold">All Branches</span>
-      : s.branchIds.map(b => (
-          <span key={b._id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/8 text-primary text-[10px] font-bold mr-1">{b.name}</span>
-        ));
-
   // ── Branch chips component ──
   const BranchSelector = ({ form, setForm }: { form: typeof EMPTY_FORM, setForm: (f: typeof EMPTY_FORM) => void }) => (
     <div className="space-y-1.5">
@@ -142,7 +145,7 @@ export const ServicesView = () => {
             className={cn(
               'px-3 py-1.5 rounded-xl text-xs font-bold border transition-all',
               form.branchIds.includes(b._id)
-                ? 'bg-primary text-white border-primary'
+                ? 'bg-primary text-white border-primary shadow-md shadow-primary/20'
                 : 'bg-surface-container-low text-on-surface-variant border-outline-variant/20 hover:border-primary/50'
             )}
           >{b.name}</button>
@@ -155,17 +158,34 @@ export const ServicesView = () => {
   return (
     <div className="space-y-6 lg:space-y-8 pb-10">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-container-lowest p-6 rounded-2xl shadow-sm border border-outline-variant/10">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface-container-lowest p-6 rounded-2xl shadow-sm border border-outline-variant/10">
         <div>
           <h1 className="text-2xl font-black font-headline text-on-surface">Therapy Services</h1>
           <p className="text-sm font-medium text-on-surface-variant opacity-80 mt-1">Manage global therapy offerings and base pricing.</p>
         </div>
-        <button
-          onClick={() => { setShowAdd(true); setAddError(''); }}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 hover:-translate-y-0.5 transition-all w-fit"
-        >
-          <Plus size={18} /> Add Service
-        </button>
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          {/* Branch Filter */}
+          <div className="relative w-full sm:w-auto flex items-center bg-surface-container-low border border-outline-variant/20 rounded-xl px-3 py-2 text-sm focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/50 transition-all">
+            <Filter size={16} className="text-on-surface-variant/60 mr-2" />
+            <select 
+              value={selectedBranchFilter} 
+              onChange={(e) => setSelectedBranchFilter(e.target.value)}
+              className="bg-transparent border-none outline-none font-semibold text-on-surface cursor-pointer pr-4 appearance-none"
+            >
+              <option value="All">All Branches Overview</option>
+              {branches.map(b => (
+                <option key={b._id} value={b._id}>{b.name} Services</option>
+              ))}
+            </select>
+          </div>
+
+          <button
+            onClick={() => { setShowAdd(true); setAddError(''); }}
+            className="w-full sm:w-auto flex justify-center items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-bold shadow-lg shadow-primary/20 hover:opacity-90 hover:-translate-y-0.5 transition-all"
+          >
+            <Plus size={18} /> Add Service
+          </button>
+        </div>
       </div>
 
       {/* Table */}
@@ -186,19 +206,21 @@ export const ServicesView = () => {
           </div>
         ) : error ? (
           <div className="py-16 text-center text-error text-sm font-bold">{error}</div>
-        ) : services.length === 0 ? (
+        ) : filteredServices.length === 0 ? (
           <div className="py-20 text-center space-y-3">
             <div className="w-16 h-16 rounded-2xl bg-[#004aad]/8 flex items-center justify-center mx-auto">
               <Stethoscope size={28} className="text-[#004aad]/50" />
             </div>
-            <p className="text-on-surface-variant text-sm font-semibold">No services configured yet.</p>
-            <p className="text-on-surface-variant/50 text-xs">Click Add Service to get started.</p>
+            <p className="text-on-surface-variant text-sm font-semibold">
+              {selectedBranchFilter === 'All' ? 'No services configured yet.' : 'No services available for this branch.'}
+            </p>
+            {selectedBranchFilter === 'All' && <p className="text-on-surface-variant/50 text-xs">Click Add Service to get started.</p>}
           </div>
         ) : (
           <>
             {/* Desktop rows */}
             <div className="hidden md:block divide-y divide-outline-variant/8">
-              {services.map((service, idx) => (
+              {filteredServices.map((service, idx) => (
                 <motion.div
                   key={service._id}
                   initial={{ opacity: 0, y: 6 }}
@@ -257,7 +279,7 @@ export const ServicesView = () => {
 
             {/* Mobile cards */}
             <div className="md:hidden divide-y divide-outline-variant/10">
-              {services.map((service, idx) => (
+              {filteredServices.map((service, idx) => (
                 <motion.div key={service._id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.04 }} className="p-5 space-y-3">
                   <div className="flex items-start justify-between gap-3">
@@ -300,14 +322,14 @@ export const ServicesView = () => {
         )}
 
         {/* Footer */}
-        {!loading && services.length > 0 && (
+        {!loading && filteredServices.length > 0 && (
           <div className="px-6 py-3 border-t border-outline-variant/10 flex flex-wrap gap-4 items-center justify-between"
             style={{background:'linear-gradient(to right,#f0f5ff,#f8faff)'}}>
-            <span className="text-xs font-bold text-[#004aad]/60">{services.length} service{services.length !== 1 ? 's' : ''} configured</span>
+            <span className="text-xs font-bold text-[#004aad]/60">{filteredServices.length} service{filteredServices.length !== 1 ? 's' : ''} shown</span>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-bold text-on-surface-variant/50 uppercase tracking-wider">Avg rate</span>
               <span className="text-sm font-black text-[#004aad] bg-[#004aad]/8 px-3 py-1 rounded-lg">
-                ₹{Math.round(services.reduce((s, x) => s + x.price, 0) / services.length).toLocaleString()}
+                ₹{Math.round(filteredServices.reduce((s, x) => s + x.price, 0) / filteredServices.length).toLocaleString()}
               </span>
             </div>
           </div>

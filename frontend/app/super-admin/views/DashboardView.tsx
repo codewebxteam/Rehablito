@@ -351,7 +351,7 @@ const StaffAttendance = React.memo(({ staff, isLoading }: { staff: AttendanceSta
   return (
     <div className="bg-white/80 backdrop-blur-xl border border-white/60 rounded-2xl p-5 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <h4 className="text-base font-black font-headline text-on-surface">Staff Today</h4>
+        <h4 className="text-base font-black font-headline text-on-surface">Physiotherepist Today</h4>
         <BadgeCheck size={16} className="text-purple-400" />
       </div>
       {!staff ? (

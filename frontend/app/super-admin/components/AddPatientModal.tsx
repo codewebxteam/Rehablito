@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { X, UserPlus, Loader2 } from 'lucide-react';
+import { X, UserPlus, Loader2, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import api from '@/lib/api';
 import { toast } from 'sonner';
@@ -18,6 +18,7 @@ interface ServiceOption {
   name: string;
   price: number;
   unit: 'session' | 'month';
+  branchIds: Branch[]; // Backend schema mein branchIds array hai
 }
 
 interface AddPatientModalProps {
@@ -37,24 +38,33 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
 
   useEffect(() => {
     setMounted(true);
-    // Fetch services from DB
+    // Fetch all services
     api.get('/admin/services').then(({ data }) => {
       if (data.success) setServices(data.data);
     }).catch(() => {});
   }, []);
 
   const [form, setForm] = useState({
-    name: '',           // Child Name
+    name: '',
     parentName: '',
     parentPhone: '',
     address: '',
     branchId: '',
-    serviceId: '',      // Service from DB
-    therapyType: '',    // legacy fallback
+    serviceIds: [] as string[],
   });
 
-  // Derived: selected service
-  const selectedService = services.find(s => s._id === form.serviceId) || null;
+  // FILTER LOGIC: Sirf wahi services dikhen jo Global hain (branchIds.length === 0) 
+  // YA jo select ki gayi branch ki hain
+  const filteredServices = useMemo(() => {
+    if (!form.branchId) return []; 
+    return services.filter(s => 
+      s.branchIds.length === 0 || s.branchIds.some(b => b._id === form.branchId)
+    );
+  }, [form.branchId, services]);
+
+  // Derived: selected services and calculated total fee
+  const selectedServices = filteredServices.filter(s => form.serviceIds.includes(s._id));
+  const totalFee = selectedServices.reduce((sum, s) => sum + s.price, 0);
 
   // reset on close
   useEffect(() => {
@@ -65,8 +75,7 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
         parentPhone: '',
         address: '',
         branchId: '',
-        serviceId: '',
-        therapyType: '',
+        serviceIds: [],
       });
     }
   }, [isOpen]);
@@ -95,15 +104,10 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
         payload.parentPhone = rawPhone.startsWith('+') ? rawPhone : `+91 ${rawPhone}`;
       }
 
-      if (form.serviceId) {
-        payload.serviceId = form.serviceId;
-        payload.totalFee = selectedService?.price ?? 0;
-        // Also populate therapyType for backward compat
-        if (selectedService) {
-          payload.therapyType = [selectedService.name.toLowerCase().replace(/ /g, '_')];
-        }
-      } else if (form.therapyType) {
-        payload.therapyType = [form.therapyType];
+      if (form.serviceIds.length > 0) {
+        payload.serviceId = form.serviceIds[0]; 
+        payload.totalFee = totalFee;
+        payload.therapyType = selectedServices.map(s => s.name.toLowerCase().replace(/ /g, '_'));
       }
 
       const { data } = await api.post('/admin/patients', payload);
@@ -140,7 +144,6 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
               role="dialog"
               aria-modal="true"
             >
-              {/* Soft decorative blur */}
               <div className="absolute top-0 right-0 w-64 h-64 bg-blue-100/50 rounded-full blur-3xl -z-10 -translate-y-1/2 translate-x-1/3" />
               <div className="absolute bottom-0 left-0 w-64 h-64 bg-rose-100/40 rounded-full blur-3xl -z-10 translate-y-1/2 -translate-x-1/3" />
 
@@ -164,7 +167,6 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
 
               <form onSubmit={handleSubmit} className="px-8 py-6 space-y-6">
                 
-                {/* Primary Identifiers */}
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div>
@@ -197,30 +199,54 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
                   </div>
                 </div>
 
-                {/* Secondary Details Container */}
                 <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100 shadow-inner">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                     {/* Therapy Type */}
                      <div className="space-y-4">
                        <h4 className="text-[12px] font-black uppercase text-slate-800 tracking-wider">Clinical details</h4>
                         <div className="space-y-3">
-                           <label className={LABEL_CLASS}>Service / Therapy Name</label>
-                           <select value={form.serviceId} onChange={(e) => set('serviceId', e.target.value)} className={cn(INPUT_CLASS, 'appearance-none cursor-pointer bg-white')}>
-                             <option value="">No service selected</option>
-                             {services.map(s => (
-                               <option key={s._id} value={s._id}>{s.name} — ₹{s.price.toLocaleString()} / {s.unit}</option>
-                             ))}
-                           </select>
-                           {selectedService && (
-                             <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-blue-50 border border-blue-100">
-                               <span className="text-[10px] font-black uppercase tracking-wider text-blue-600">Total Fee</span>
-                               <span className="text-sm font-black text-slate-800">₹{selectedService.price.toLocaleString()} / {selectedService.unit}</span>
+                           <label className={LABEL_CLASS}>Select Services / Therapies</label>
+                           <div className="flex flex-wrap gap-2">
+                             {!form.branchId ? (
+                               <p className="text-xs text-amber-600 font-bold italic">Please select a branch first...</p>
+                             ) : filteredServices.length === 0 ? (
+                               <p className="text-xs text-slate-500 italic">No services available for this branch.</p>
+                             ) : (
+                               filteredServices.map(s => {
+                                 const isSelected = form.serviceIds.includes(s._id);
+                                 return (
+                                   <button
+                                     type="button"
+                                     key={s._id}
+                                     onClick={() => {
+                                       set('serviceIds', isSelected 
+                                         ? form.serviceIds.filter(id => id !== s._id)
+                                         : [...form.serviceIds, s._id]
+                                       );
+                                     }}
+                                     className={cn(
+                                       "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border text-left",
+                                       isSelected 
+                                         ? "bg-primary text-white border-primary shadow-md shadow-primary/20" 
+                                         : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                                     )}
+                                   >
+                                     {isSelected && <CheckCircle2 size={12} className="inline mr-1 -mt-0.5" />}
+                                     {s.name} <span className="opacity-80 font-normal ml-1">(₹{s.price.toLocaleString()})</span>
+                                   </button>
+                                 );
+                               })
+                             )}
+                           </div>
+                           
+                           {selectedServices.length > 0 && (
+                             <div className="flex items-center justify-between px-3 py-2 mt-3 rounded-xl bg-blue-50 border border-blue-100">
+                               <span className="text-[10px] font-black uppercase tracking-wider text-blue-600">Combined Total Fee</span>
+                               <span className="text-sm font-black text-slate-800">₹{totalFee.toLocaleString()}</span>
                              </div>
                            )}
                         </div>
                      </div>
 
-                     {/* Address */}
                      <div className="space-y-4">
                        <h4 className="text-[12px] font-black uppercase text-slate-800 tracking-wider">Location</h4>
                        <div className="space-y-3">

@@ -50,7 +50,7 @@ export default function ProfilePage() {
     { label: 'Full Name', value: user?.name, icon: UserIcon },
     { label: 'Email Address', value: user?.email, icon: Mail },
     { label: 'Phone Number', value: user?.mobile, icon: Phone },
-    { label: 'Staff ID', value: user?.staffId || 'RHB-STF-001', icon: CreditCard },
+    { label: 'Physio ID', value: user?.staffId || 'RHB-STF-001', icon: CreditCard },
   ];
 
   const resetModal = () => {
@@ -103,7 +103,7 @@ export default function ProfilePage() {
           <UserIcon className="w-7 h-7 text-primary/60" strokeWidth={1.5} />
         </div>
         <div className="text-center">
-          <p className="text-base font-bold text-on-surface tracking-tight">{user?.name || 'Staff Member'}</p>
+          <p className="text-base font-bold text-on-surface tracking-tight">{user?.name || 'Physio Member'}</p>
           <p className="text-[11px] text-on-surface-variant/50 font-medium mt-0.5">{user?.staffId || 'RHB-STF-001'} · {user?.role || 'Staff'}</p>
         </div>
       </motion.div>

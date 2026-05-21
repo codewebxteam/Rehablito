@@ -142,7 +142,7 @@ export default function SchedulesPage() {
               <h5 className="font-bold text-on-surface">Upcoming Holiday</h5>
             </div>
             <p className="text-sm text-on-surface-variant leading-relaxed">
-              Hospital Foundation Day is on Oct 31st. All non-emergency staff have a mandatory holiday.
+              Hospital Foundation Day is on Oct 31st. All non-emergency Physio have a mandatory holiday.
             </p>
           </div>
         </div>

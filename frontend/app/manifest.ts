@@ -2,10 +2,10 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Rehablito Staff Portal",
+    name: "Rehablito Physiotherepist Portal",
     short_name: "Rehablito",
     description:
-      "Rehablito staff portal — rehabilitation exercise management for therapists.",
+      "Rehablito physiotherepist portal — rehabilitation exercise management for therapists.",
     start_url: "/staff/login",
     scope: "/staff/",
     display: "standalone",

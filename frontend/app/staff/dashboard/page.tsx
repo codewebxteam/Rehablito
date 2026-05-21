@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useAttendance } from '../context/AttendanceContext';
 import {
   TrendingUp,
   Clock,
@@ -20,7 +21,7 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { motion, AnimatePresence } from 'motion/react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 interface DashboardToday {
   isOnDuty: boolean;
@@ -67,6 +68,10 @@ const item = {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  
+  // REAL-TIME CONTEXT HOOK
+  const { activeRecord, elapsedTime, records, branchName: contextBranchName } = useAttendance();
+  
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -76,7 +81,7 @@ export default function DashboardPage() {
         const { data: res } = await api.get('/staff/dashboard');
         if (res.success) setData(res.data);
       } catch (err) {
-        console.error('Failed to fetch staff dashboard:', err);
+        console.error('Failed to fetch Physio dashboard:', err);
       } finally {
         setIsLoading(false);
       }
@@ -85,14 +90,22 @@ export default function DashboardPage() {
   }, []);
 
   const firstName = (user?.name || data?.profile.name || '').split(' ')[0] || 'Member';
-  const isOnDuty = !!data?.today.isOnDuty;
-  const hasCheckedOut = !!data?.today.hasCheckedOut;
-  const branchName = data?.profile.branch?.name;
+  
+  // USE REAL-TIME STATE INSTEAD OF STATIC API STATE
+  const isOnDuty = !!activeRecord;
+  const displayBranchName = contextBranchName || data?.profile.branch?.name;
 
   const formatElapsedTime = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     return `${hrs}h ${mins}m`;
+  };
+
+  const calculateHours = (checkIn: string, checkOut?: string) => {
+    if (!checkOut) return 'In Progress';
+    const ms = new Date(checkOut).getTime() - new Date(checkIn).getTime();
+    const hrs = (ms / (1000 * 60 * 60)).toFixed(1);
+    return `${hrs}h`;
   };
 
   return (
@@ -138,7 +151,7 @@ export default function DashboardPage() {
                 <>
                   <p className="text-[10px] font-bold uppercase tracking-widest text-white/60">Currently Clocked In</p>
                   <h4 className="text-4xl font-headline font-black tracking-tighter">
-                    {formatElapsedTime(data?.today.elapsedSeconds || 0)}
+                    {formatElapsedTime(elapsedTime)}
                   </h4>
                 </>
               ) : (
@@ -198,39 +211,47 @@ export default function DashboardPage() {
               <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
               <p className="text-xs font-bold text-outline uppercase tracking-widest">Loading Logs</p>
             </div>
+          ) : records.length === 0 ? (
+            <div className="p-10 text-center">
+              <p className="text-xs font-bold text-on-surface-variant opacity-60">No recent logs found.</p>
+            </div>
           ) : (
             <div className="space-y-1">
-              <div className="bg-surface-container-lowest p-4 rounded-3xl flex items-center justify-between group decoration-transparent">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-secondary/10 flex items-center justify-center text-secondary">
-                    <CheckCircle2 className="w-6 h-6" />
+              {records.slice(0, 3).map((record, idx) => (
+                <div 
+                  key={record.id} 
+                  className={cn(
+                    "p-4 rounded-3xl flex items-center justify-between group decoration-transparent transition-all",
+                    idx === 0 ? "bg-surface-container-lowest shadow-sm" : "bg-transparent opacity-60 grayscale hover:grayscale-0 hover:opacity-100"
+                  )}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={cn(
+                      "w-12 h-12 rounded-2xl flex items-center justify-center",
+                      idx === 0 ? "bg-secondary/10 text-secondary" : "bg-outline/10 text-outline"
+                    )}>
+                      {record.checkOut ? <CheckCircle2 className="w-6 h-6" /> : <Clock className="w-6 h-6" />}
+                    </div>
+                    <div>
+                      <p className="font-black text-sm text-on-surface">
+                        {format(new Date(record.date), 'MMM dd, yyyy')}
+                      </p>
+                      <p className="text-[10px] font-bold text-outline uppercase tracking-widest">
+                        {record.ward || displayBranchName || 'Clinical Center'}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-black text-sm text-on-surface">Yesterday</p>
-                    <p className="text-[10px] font-bold text-outline uppercase tracking-widest">{branchName || 'Clinical Center'}</p>
+                  <div className="text-right">
+                    <p className="font-black text-sm text-on-surface">{calculateHours(record.checkIn, record.checkOut)}</p>
+                    <p className={cn(
+                      "text-[8px] font-bold uppercase tracking-widest",
+                      record.checkOut ? "text-secondary" : "text-primary"
+                    )}>
+                      {record.checkOut ? 'Completed' : 'Active'}
+                    </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-black text-sm text-on-surface">8.5h</p>
-                  <p className="text-[8px] font-bold text-secondary uppercase tracking-widest">Completed</p>
-                </div>
-              </div>
-              
-              <div className="bg-transparent p-4 rounded-3xl flex items-center justify-between opacity-50 grayscale">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-outline/10 flex items-center justify-center text-outline">
-                    <ShieldCheck className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <p className="font-black text-sm text-on-surface">Oct 12, 2026</p>
-                    <p className="text-[10px] font-bold text-outline uppercase tracking-widest">Andheri Branch</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-black text-sm text-on-surface">7.2h</p>
-                  <p className="text-[8px] font-bold text-outline uppercase tracking-widest">Verified</p>
-                </div>
-              </div>
+              ))}
             </div>
           )}
         </div>

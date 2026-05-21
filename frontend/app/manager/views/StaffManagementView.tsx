@@ -102,7 +102,7 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
           </button> */}
           <button onClick={() => setIsAddModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:opacity-90 transition-opacity">
-            <Plus size={15} /> Add Staff
+            <Plus size={15} /> Add Physiotherapist
           </button>
         </div>
       </div>
@@ -140,7 +140,7 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
                         <tr>
                           <td colSpan={5} className="py-20 text-center">
                             <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin mx-auto mb-4"></div>
-                            <p className="text-on-surface-variant font-medium">Loading staff...</p>
+                            <p className="text-on-surface-variant font-medium">Loading Physiotherapist...</p>
                           </td>
                         </tr>
                       ) : (
@@ -196,7 +196,7 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
                   {isLoading ? (
                     <div className="py-20 flex flex-col items-center justify-center">
                       <div className="w-10 h-10 rounded-full border-4 border-primary/20 border-t-primary animate-spin mb-3"></div>
-                      <p className="text-sm text-on-surface-variant font-medium">Loading staff...</p>
+                      <p className="text-sm text-on-surface-variant font-medium">Loading Physiotherapist...</p>
                     </div>
                   ) : (
                     staff.map(member => (
@@ -269,7 +269,7 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
                     <div className="bg-primary h-full rounded-full transition-all" style={{ width: `${Math.min(capacityPercent, 100)}%` }} />
                   </div>
                   <p className="text-[10px] text-on-surface-variant mt-1.5">
-                    {capacityPercent}% today · {attendanceStats?.today.present ?? 0}/{attendanceStats?.today.totalStaff ?? 0} staff
+                    {capacityPercent}% today · {attendanceStats?.today.present ?? 0}/{attendanceStats?.today.totalStaff ?? 0} physiotherapist
                   </p>
                 </div>
 
@@ -306,7 +306,7 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
             <div className="relative z-10">
               <div className="flex items-center gap-2 mb-2">
                 <MapPin className="text-secondary shrink-0" size={18} />
-                <h3 className="font-bold text-base">Staff Map</h3>
+                <h3 className="font-bold text-base">Physiotherapist Map</h3>
               </div>
               <p className="text-xs text-white/60 mb-4">Real-time GPS for active therapists.</p>
               <div className="space-y-2.5 mb-4">
@@ -419,7 +419,7 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
               className="bg-white rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl">
-              <h3 className="text-lg font-bold mb-5">Add New Staff</h3>
+              <h3 className="text-lg font-bold mb-5">Add New Physiotherapist</h3>
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 setIsProcessing(true);
@@ -492,7 +492,7 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
               className="bg-white rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl">
-              <h3 className="text-lg font-bold mb-5">Edit Staff Member</h3>
+              <h3 className="text-lg font-bold mb-5">Edit Physiotherapist Member</h3>
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 setIsProcessing(true);

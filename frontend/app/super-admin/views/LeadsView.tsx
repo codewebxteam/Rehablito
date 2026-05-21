@@ -1,11 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Search, Plus, PhoneCall, Mail, UserPlus, Filter, ChevronDown, CheckCircle2, X } from 'lucide-react';
+"use client";
+
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { AnimatePresence, motion } from 'motion/react';
+import { Search, Plus, PhoneCall, Mail, UserPlus, Filter, ChevronDown, CheckCircle2, X, Download, Loader2, MessageSquareText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import api from '@/lib/api';
 import { toast } from 'sonner';
 import { useBranch } from '../components/BranchContext';
 import { Pagination } from '../components/Pagination';
+import { exportToCSV } from '../../manager/lib/csvExport';
 
 interface Lead {
   _id?: string;
@@ -17,6 +21,7 @@ interface Lead {
   age?: number;
   source: string;      // Referred By
   service: string;     // Diagnosis
+  description?: string; // Lead Remarks
   status: 'New' | 'Contacted' | 'Converted' | 'Lost';
   date: string;
 }
@@ -32,6 +37,7 @@ interface ApiLead {
   age?: number;
   referredBy?: string;
   diagnosis?: string;
+  description?: string;
   status: 'new' | 'contacted' | 'converted' | 'closed';
   createdAt: string;
 }
@@ -42,28 +48,9 @@ interface Branch {
 }
 
 const DEFAULT_LEADS: Lead[] = [
-  { id: 'LD-001', name: 'Aman Sharma', phone: '+91 98765 43210', source: 'Website', service: 'Physiotherapy', status: 'New', date: 'Today, 10:30 AM' },
-  { id: 'LD-002', name: 'Vikram Patnaik', phone: '+91 87654 32109', source: 'Google Ads', service: 'Autism Center', status: 'Contacted', date: 'Yesterday, 04:15 PM' },
+  { id: 'LD-001', name: 'Aman Sharma', phone: '+91 98765 43210', source: 'Website', service: 'Physiotherapy', description: 'Wants to schedule a visit next week.', status: 'New', date: 'Today, 10:30 AM' },
+  { id: 'LD-002', name: 'Vikram Patnaik', phone: '+91 87654 32109', source: 'Google Ads', service: 'Autism Center', description: 'Asked for fee structure, will call back.', status: 'Contacted', date: 'Yesterday, 04:15 PM' },
 ];
-
-const maskPhoneNumber = (phone: string) => {
-  if (!phone) return '';
-  const digits = phone.replace(/\D/g, '');
-  const digitCount = digits.length;
-  
-  // For standard 10-digit numbers with country codes (e.g., +91 98765 43210 has 12 digits)
-  // We want to skip masking the country code, mask the next 6 digits, and keep the last 4.
-  const countryCodeLen = Math.max(0, digitCount - 10);
-  const coreMaskLen = Math.max(0, digitCount - countryCodeLen - 4);
-  
-  let currentIdx = 0;
-  return phone.replace(/\d/g, (match) => {
-    currentIdx++;
-    if (currentIdx <= countryCodeLen) return match; // Keep country code
-    if (currentIdx <= countryCodeLen + coreMaskLen) return 'X'; // Mask middle
-    return match; // Keep last 4
-  });
-};
 
 export const LeadsView = ({ initialData }: { initialData?: any }) => {
   const transformApiLeads = (data: ApiLead[]) => data.map((l: ApiLead) => ({
@@ -76,6 +63,7 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
     age: l.age,
     source: l.referredBy || 'Direct',
     service: l.diagnosis || 'Service',
+    description: l.description || '',
     status: l.status === 'new' ? 'New' : l.status === 'contacted' ? 'Contacted' : l.status === 'converted' ? 'Converted' : 'Lost' as Lead['status'],
     date: new Date(l.createdAt).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true })
   }));
@@ -94,7 +82,10 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [isExporting, setIsExporting] = useState(false);
   const PER_PAGE = 10;
+  
+  // State for Add Lead (Without description)
   const [newLead, setNewLead] = useState({
     childName: '',
     parentName: '',
@@ -105,6 +96,14 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
     referredBy: '',
     branchId: '',
     status: 'new'
+  });
+
+  // State for Status Update Modal
+  const [statusModal, setStatusModal] = useState<{ isOpen: boolean; leadId: string; newStatus: Lead['status']; description: string }>({
+    isOpen: false,
+    leadId: '',
+    newStatus: 'New',
+    description: ''
   });
 
   const resetLeadForm = () => {
@@ -171,7 +170,6 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
       const { data } = await api.post('/admin/leads', payload);
       if (data.success) {
         toast.success('Lead added successfully');
-        // Refresh leads after adding
         const leadsRes = await api.get('/admin/leads');
         if (leadsRes.data.success) {
           setLeads(transformApiLeads(leadsRes.data.data));
@@ -183,6 +181,24 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
       console.error('Failed to add lead:', err);
       toast.error('Failed to add lead');
     }
+  };
+
+  const handleExportCSV = () => {
+    setIsExporting(true);
+    setTimeout(() => {
+      const exportData = filteredLeads.map(lead => ({
+        Name: lead.name,
+        Phone: lead.phone,
+        Email: lead.email,
+        Service: lead.service,
+        Source: lead.source,
+        Remarks: lead.description || 'N/A',
+        Status: lead.status,
+        Date: lead.date
+      }));
+      exportToCSV(exportData, `Leads_Export_${new Date().toISOString().split('T')[0]}`);
+      setIsExporting(false);
+    }, 800);
   };
 
   const filteredLeads = leads.filter((l) => {
@@ -204,14 +220,31 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
     converted: leads.filter(l => l.status === 'Converted').length,
   };
 
-  const updateStatus = async (id: string, newStatus: Lead['status']) => {
+  const handleStatusSelect = (leadId: string, newStatus: Lead['status'], currentDesc?: string) => {
+    // If status is changed to Contacted, Converted or Lost, show the modal to enter remarks
+    if (newStatus === 'Contacted' || newStatus === 'Lost' || newStatus === 'Converted') {
+      setStatusModal({ isOpen: true, leadId, newStatus, description: currentDesc || '' });
+    } else {
+      // Directly update if marked as 'New'
+      updateStatus(leadId, newStatus, currentDesc);
+    }
+    setOpenDropdownId(null);
+  };
+
+  const updateStatus = async (id: string, newStatus: Lead['status'], description?: string) => {
     try {
       const statusMap = { 'New': 'new', 'Contacted': 'contacted', 'Converted': 'converted', 'Lost': 'closed' } as const;
-      const { data } = await api.put(`/admin/leads/${id}`, { status: statusMap[newStatus] });
+      
+      const payload: any = { status: statusMap[newStatus] };
+      if (description !== undefined) {
+        payload.description = description;
+      }
+
+      const { data } = await api.put(`/admin/leads/${id}`, payload);
       if (data.success) {
         toast.success('Lead status updated');
-        setLeads(prev => prev.map(lead => lead._id === id ? { ...lead, status: newStatus } : lead));
-        setOpenDropdownId(null);
+        setLeads(prev => prev.map(lead => lead._id === id ? { ...lead, status: newStatus, description: description !== undefined ? description : lead.description } : lead));
+        setStatusModal(prev => ({ ...prev, isOpen: false }));
       }
     } catch (err: unknown) {
       toast.error('Failed to update lead status');
@@ -220,7 +253,6 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
 
   return (
     <div className="w-full space-y-4 sm:space-y-6 pb-6 lg:pb-10">
-      {/* Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {[
           { title: 'Total Leads', value: stats.total, icon: <UserPlus size={20} />, color: 'bg-surface-container-low text-on-surface' },
@@ -246,13 +278,19 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
         ))}
       </div>
 
-      {/* Header Actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-surface-container-lowest p-6 rounded-2xl shadow-sm border border-outline-variant/10">
         <div>
           <h3 className="text-xl font-bold font-headline text-on-surface">Leads Pipeline</h3>
         </div>
         
         <div className="flex w-full sm:w-auto items-center gap-3">
+          <button
+            onClick={handleExportCSV}
+            disabled={isExporting}
+            className="px-4 py-2.5 rounded-xl border border-outline-variant/20 text-on-surface-variant font-bold text-sm hover:bg-surface-container-low transition-all"
+          >
+             {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+          </button>
           <div className="relative flex-1 sm:flex-none">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/50" size={18} />
             <input 
@@ -311,7 +349,6 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
         </div>
       </div>
 
-      {/* Table */}
       <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/10 min-h-96">
         {isLoading ? (
           <div className="h-96 flex items-center justify-center">
@@ -328,6 +365,7 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Lead Info</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Source & Contact</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Service Required</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70 w-1/4">Remarks</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Date</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Status</th>
                 </tr>
@@ -356,9 +394,21 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{lead.service}</td>
-                  <td className="px-6 py-4 text-sm text-on-surface-variant opacity-80">{lead.date}</td>
+                  
+                  {/* Remarks Column */}
+                  <td className="px-6 py-4 text-xs text-on-surface-variant">
+                    {lead.description ? (
+                      <div className="flex items-start gap-2">
+                        <MessageSquareText size={14} className="mt-0.5 opacity-50 shrink-0" />
+                        <span className="line-clamp-2" title={lead.description}>{lead.description}</span>
+                      </div>
+                    ) : (
+                      <span className="opacity-40 italic">- No remarks -</span>
+                    )}
+                  </td>
+
+                  <td className="px-6 py-4 text-sm text-on-surface-variant opacity-80 whitespace-nowrap">{lead.date}</td>
                   <td className="px-6 py-4 relative">
-                    {/* Status Dropdown */}
                     <div className="relative inline-block">
                       <button 
                         onClick={() => lead._id && setOpenDropdownId(openDropdownId === lead._id ? null : lead._id)}
@@ -385,7 +435,7 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
                             {(['New', 'Contacted', 'Converted', 'Lost'] as const).map(status => (
                               <button
                                 key={status}
-                                onClick={() => updateStatus(lead._id!, status)}
+                                onClick={() => handleStatusSelect(lead._id!, status, lead.description)}
                                 className={cn(
                                   "w-full text-left px-4 py-2 text-xs font-bold transition-colors hover:bg-surface-container-low",
                                   status === 'New' && "text-blue-600",
@@ -406,7 +456,7 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
               ))}
               {filteredLeads.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="p-10 text-center text-on-surface-variant opacity-60">
+                  <td colSpan={6} className="p-10 text-center text-on-surface-variant opacity-60">
                     No leads found.
                   </td>
                 </tr>
@@ -418,6 +468,7 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
         <Pagination total={filteredLeads.length} page={page} perPage={PER_PAGE} onChange={p => setPage(p)} />
       </div>
 
+      {/* Add Lead Modal */}
       <AnimatePresence>
         {isAddModalOpen && (
           <motion.div
@@ -425,10 +476,7 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={() => {
-              setIsAddModalOpen(false);
-              resetLeadForm();
-            }}
+            onClick={() => { setIsAddModalOpen(false); resetLeadForm(); }}
           >
             <motion.div
               initial={{ opacity: 0, y: 8, scale: 0.98 }}
@@ -436,9 +484,6 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
               exit={{ opacity: 0, y: 8, scale: 0.98 }}
               transition={{ duration: 0.16 }}
               className="w-full max-w-lg rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-2xl p-6"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Add lead"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-start justify-between gap-4 mb-5">
@@ -447,12 +492,8 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
                   <p className="text-sm text-on-surface-variant mt-1">Create a new lead in the pipeline.</p>
                 </div>
                 <button
-                  onClick={() => {
-                    setIsAddModalOpen(false);
-                    resetLeadForm();
-                  }}
+                  onClick={() => { setIsAddModalOpen(false); resetLeadForm(); }}
                   className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low"
-                  aria-label="Close add lead modal"
                 >
                   <X size={16} />
                 </button>
@@ -520,6 +561,7 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
                     ))}
                   </select>
                 </div>
+
                 <select
                   value={newLead.status}
                   onChange={(e) => setNewLead(prev => ({ ...prev, status: e.target.value }))}
@@ -534,10 +576,7 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
 
               <div className="mt-6 flex justify-end gap-3">
                 <button
-                  onClick={() => {
-                    setIsAddModalOpen(false);
-                    resetLeadForm();
-                  }}
+                  onClick={() => { setIsAddModalOpen(false); resetLeadForm(); }}
                   className="px-4 py-2 rounded-xl text-sm font-semibold text-on-surface-variant border border-outline-variant/30 hover:text-on-surface hover:bg-surface-container-low transition-colors"
                 >
                   Cancel
@@ -548,6 +587,71 @@ export const LeadsView = ({ initialData }: { initialData?: any }) => {
                   className="px-4 py-2 rounded-xl text-sm font-bold bg-primary text-white hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   Add Lead
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Status Update Modal */}
+      <AnimatePresence>
+        {statusModal.isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setStatusModal(prev => ({ ...prev, isOpen: false }))}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 8, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              transition={{ duration: 0.16 }}
+              className="w-full max-w-md rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-2xl p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between gap-4 mb-5">
+                <div>
+                  <h4 className="text-lg font-extrabold text-on-surface">Update Status</h4>
+                  <p className="text-sm text-on-surface-variant mt-1">
+                    Marking lead as <strong className="text-primary">{statusModal.newStatus}</strong>
+                  </p>
+                </div>
+                <button
+                  onClick={() => setStatusModal(prev => ({ ...prev, isOpen: false }))}
+                  className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-bold text-on-surface-variant mb-1.5">Remarks / Response</label>
+                  <textarea
+                    value={statusModal.description}
+                    onChange={(e) => setStatusModal(prev => ({ ...prev, description: e.target.value }))}
+                    className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-3 px-4 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25 resize-none h-28"
+                    placeholder="Client se kya baat hui? Enter response here..."
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  onClick={() => setStatusModal(prev => ({ ...prev, isOpen: false }))}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold text-on-surface-variant border border-outline-variant/30 hover:text-on-surface hover:bg-surface-container-low transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => updateStatus(statusModal.leadId, statusModal.newStatus, statusModal.description)}
+                  className="px-5 py-2 rounded-xl text-sm font-bold bg-primary text-white hover:bg-primary/90 transition-colors"
+                >
+                  Update Lead
                 </button>
               </div>
             </motion.div>

@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { AttendanceRecord } from '../types';
 import api from '@/lib/api';
+import { toast } from 'sonner'; // Added for better UX notifications
 
 interface Geofence {
   branchName: string;
@@ -39,7 +40,7 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
             Math.cos(φ1) * Math.cos(φ2) *
             Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+  return R * c; // Distance in meters
 };
 
 const getCurrentPosition = (): Promise<GeolocationPosition> =>
@@ -82,11 +83,13 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           api.get('/staff/geofence'),
           api.get('/staff/duty-status'),
         ]);
+        
         if (geoRes.data.success) {
           const g = geoRes.data.data as Geofence;
           setGeofence(g);
           setBranchName(g.branchName);
         }
+        
         if (dutyRes.data.success) {
           const duty = dutyRes.data.data;
           if (duty.isOnDuty && duty.checkInTime) {
@@ -101,6 +104,7 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             setElapsedTime(duty.elapsedSeconds || 0);
           }
         }
+        
         // Fetch history
         void fetchRecords();
       } catch (err) {
@@ -108,8 +112,7 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
     };
     bootstrap();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchRecords]);
+  }, [fetchRecords, branchName]);
 
   const updateLocation = useCallback(() => {
     if (!navigator.geolocation) {
@@ -136,7 +139,7 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   useEffect(() => {
     updateLocation();
-    const interval = setInterval(updateLocation, 10000);
+    const interval = setInterval(updateLocation, 10000); // Check location every 10 seconds
     return () => clearInterval(interval);
   }, [updateLocation]);
 
@@ -164,7 +167,9 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         latitude: pos.coords.latitude,
         longitude: pos.coords.longitude,
       });
+      
       if (data.success) {
+        toast.success('Successfully checked in!');
         const checkInIso = data.data.checkInTime || new Date().toISOString();
         setActiveRecord({
           id: data.data._id,
@@ -174,14 +179,16 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           status: 'on_duty',
           ward: ward || wardRef.current || branchName || 'Your branch',
         });
-        // Refresh records
         void fetchRecords();
       } else {
+        toast.error(data.message || 'Check-in failed');
         setLocationError(data.message || 'Check-in failed');
       }
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } }; message?: string };
-      setLocationError(axiosErr?.response?.data?.message || axiosErr?.message || 'Check-in failed');
+      const errorMsg = axiosErr?.response?.data?.message || axiosErr?.message || 'Check-in failed';
+      toast.error(errorMsg);
+      setLocationError(errorMsg);
     } finally {
       setIsProcessing(false);
     }
@@ -196,19 +203,23 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const pos = await getCurrentPosition();
         payload = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
       } catch {
-        // location optional on check-out
+        // Location optional on check-out based on your backend
       }
       const { data } = await api.post('/staff/check-out', payload);
+      
       if (data.success) {
+        toast.success('Successfully checked out. Great job today!');
         setActiveRecord(null);
-        // Refresh records
         void fetchRecords();
       } else {
+        toast.error(data.message || 'Check-out failed');
         setLocationError(data.message || 'Check-out failed');
       }
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } }; message?: string };
-      setLocationError(axiosErr?.response?.data?.message || axiosErr?.message || 'Check-out failed');
+      const errorMsg = axiosErr?.response?.data?.message || axiosErr?.message || 'Check-out failed';
+      toast.error(errorMsg);
+      setLocationError(errorMsg);
     } finally {
       setIsProcessing(false);
     }

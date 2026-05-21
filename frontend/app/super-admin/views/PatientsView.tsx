@@ -27,7 +27,7 @@ interface Patient {
   totalFee?: number;
 }
 
-type PatientStatusFilter = 'All' | Patient['status'];
+type PatientStatusFilter = 'All' | Patient['status'] | 'Due';
 
 interface ApiPatient {
   _id: string;
@@ -35,13 +35,20 @@ interface ApiPatient {
   parentName?: string;
   parentPhone?: string;
   address?: string;
-  therapyType?: string[];
+  therapyType?: any;
   age: number;
   condition: string;
   branchId?: { _id: string; name: string } | null;
   status: 'active' | 'discharged' | 'on_hold';
   admissionDate: string;
   totalFee?: number;
+}
+
+interface ServiceOption {
+  _id: string;
+  name: string;
+  price: number;
+  unit: string;
 }
 
 // Default fallback data
@@ -63,7 +70,7 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
     parentName: p.parentName,
     parentPhone: p.parentPhone,
     address: p.address,
-    therapyType: p.therapyType,
+    therapyType: Array.isArray(p.therapyType) ? p.therapyType : (typeof p.therapyType === 'string' && p.therapyType ? [p.therapyType] : []),
     age: p.age,
     condition: p.condition,
     branch: p.branchId?._id || '',
@@ -77,19 +84,18 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
     hasServerData && Array.isArray(initialData?.patients) ? transformApiPatients(initialData.patients) : DEFAULT_PATIENTS
   );
   const [branches, setBranches] = useState<Branch[]>(initialData?.branches || []);
+  const [services, setServices] = useState<ServiceOption[]>(initialData?.services || []);
   const [isLoading, setIsLoading] = useState(!hasServerData);
   const { selectedBranchId } = useBranch();
   const { openModal, registerSavedHandler } = useAddTransaction();
   const [fees, setFees] = useState<any[]>([]);
 
-  // Listen for new transactions to update local fees state
   useEffect(() => {
     registerSavedHandler((tx: NewTransaction) => {
       setFees(prev => [tx, ...prev]);
     });
   }, [registerSavedHandler]);
 
-  // Fetch fees once on mount
   useEffect(() => {
     api.get('/admin/fees').then(res => {
       if (res.data.success) setFees(res.data.data || []);
@@ -149,22 +155,25 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
         setIsLoading(true);
         setError(null);
         const branchParam = selectedBranchId ? `?branch=${selectedBranchId}` : '';
-        const [patientRes, branchRes] = await Promise.all([
+        const [patientRes, branchRes, serviceRes] = await Promise.all([
           api.get(`/admin/patients${branchParam}`),
-          api.get('/admin/branches')
+          api.get('/admin/branches'),
+          api.get('/admin/services') // Dynamically fetching services
         ]);
 
         const branchList: Branch[] = branchRes.data.success && branchRes.data.data ? branchRes.data.data : [];
         if (branchList.length) setBranches(branchList);
 
+        if (serviceRes.data.success) {
+          setServices(serviceRes.data.data);
+        }
+
         if (patientRes.data.success) {
           setPatients(transformApiPatients(patientRes.data.data));
         }
       } catch (err: unknown) {
-        console.error('Failed to fetch patients:', err);
-        const message = 'Failed to load patients';
-        setError(message);
-        toast.error(message);
+        console.error('Failed to fetch data:', err);
+        setError('Failed to load data');
       } finally {
         setIsLoading(false);
       }
@@ -275,6 +284,7 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
         age: editingPatient.age,
         condition: editingPatient.condition,
         branchId: editingPatient.branch,
+        therapyType: editingPatient.therapyType || [],
         status: editingPatient.status === 'Active' ? 'active' : editingPatient.status === 'Discharged' ? 'discharged' : 'on_hold'
       };
       const { data } = await api.put(`/admin/patients/${editingPatient._id}`, payload);
@@ -293,7 +303,16 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
     const matchesSearch =
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (p.id?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
-    const matchesStatus = statusFilter === 'All' || p.status === statusFilter;
+    
+    let matchesStatus = false;
+    if (statusFilter === 'All') {
+      matchesStatus = true;
+    } else if (statusFilter === 'Due') {
+      matchesStatus = calculateDueAmount(p._id || p.id || '', p.totalFee || 0) > 0;
+    } else {
+      matchesStatus = p.status === statusFilter;
+    }
+
     return matchesSearch && matchesStatus;
   });
 
@@ -339,7 +358,7 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
                   exit={{ opacity: 0, y: -6 }}
                   className="absolute right-0 mt-2 w-44 rounded-xl border border-outline-variant/20 bg-surface-container-lowest shadow-xl p-2 z-20"
                 >
-                  {(['All', 'Active', 'Discharged', 'Critical'] as PatientStatusFilter[]).map((option) => (
+                  {(['All', 'Active', 'Discharged', 'Critical', 'Due'] as PatientStatusFilter[]).map((option) => (
                     <button
                       key={option}
                       onClick={() => {
@@ -347,13 +366,14 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
                         setIsFilterMenuOpen(false);
                       }}
                       className={cn(
-                        "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors",
+                        "w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between",
                         statusFilter === option
                           ? "bg-primary/10 text-primary font-semibold"
                           : "text-on-surface-variant hover:bg-surface-container-low"
                       )}
                     >
                       {option}
+                      {option === 'Due' && <span className="w-2 h-2 rounded-full bg-error"></span>}
                     </button>
                   ))}
                 </motion.div>
@@ -390,131 +410,140 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Contact</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Branch</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70 text-right">Fee (₹)</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70 text-right">Due (₹)</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Status</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-container-low/50">
-                {filteredPatients.map((patient) => (
-                <motion.tr 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  key={patient.id} 
-                  onClick={() => setViewingPatient(patient)}
-                  className="hover:bg-surface-container-low/50 transition-colors group cursor-pointer"
-                >
-                  <td className="px-6 py-4">
-                    <div className="flex flex-col">
-                      <span className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">{patient.name}</span>
-                      <span className="text-[10px] text-on-surface-variant uppercase tracking-wider mt-0.5 opacity-60 font-bold">{patient._id?.slice(-8) || patient.id}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{patient.parentName || 'N/A'}</td>
-                  <td className="px-6 py-4 flex flex-wrap gap-1">
-                    {patient.therapyType && patient.therapyType.length > 0 ? (
-                      patient.therapyType.map((t, i) => (
-                        <span key={i} className="px-2 py-1 bg-surface-container-low text-on-surface-variant text-[10px] font-bold rounded-md uppercase tracking-wider">
-                          {t.replace('_', ' ')}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-sm text-on-surface-variant opacity-60">N/A</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-sm font-medium text-on-surface-variant whitespace-nowrap">{patient.parentPhone || 'N/A'}</td>
-                  <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{branches.find(b => b._id === patient.branch)?.name || 'Unknown'}</td>
-                  <td className="px-6 py-4 text-right">
-                    <span className="text-sm font-black text-on-surface">₹{(patient.totalFee || 0).toLocaleString()}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={cn(
-                      "px-3 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-wider inline-block",
-                      patient.status === 'Active' && "bg-blue-50 text-blue-700",
-                      patient.status === 'Discharged' && "bg-surface-container-low text-on-surface-variant",
-                      patient.status === 'Critical' && "bg-error/10 text-error"
-                    )}>
-                      {patient.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
-                    <div className="relative inline-block text-left">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          patient.id && setActiveMenu(activeMenu === patient.id ? null : patient.id);
-                        }}
-                        className="p-2 hover:bg-surface-container-low rounded-lg text-on-surface-variant transition-colors"
-                      >
-                        <MoreVertical size={16} />
-                      </button>
-
-                      {activeMenu === patient.id && (
-                        <div className="absolute right-0 mt-2 w-44 rounded-xl border border-outline-variant/20 bg-surface-container-lowest shadow-xl p-1.5 z-20">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openModal({ patientId: patient._id, branchId: patient.branch });
-                              setActiveMenu(null);
-                            }}
-                            className="w-full px-3 py-2 text-left text-sm rounded-lg text-secondary hover:bg-secondary/10 flex items-center gap-2 font-semibold"
-                          >
-                            <CreditCard size={14} />
-                            Add Payment
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setViewingPatient(patient);
-                              setActiveMenu(null);
-                            }}
-                            className="w-full px-3 py-2 text-left text-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low flex items-center gap-2"
-                          >
-                            <Eye size={14} />
-                            View
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingPatient(patient);
-                              setActiveMenu(null);
-                            }}
-                            className="w-full px-3 py-2 text-left text-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low flex items-center gap-2"
-                          >
-                            <Edit size={14} />
-                            Edit
-                          </button>
-                          {patient.status !== 'Discharged' && patient._id && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleMarkDischarged(patient._id!);
-                              }}
-                              className="w-full px-3 py-2 text-left text-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low flex items-center gap-2"
-                            >
-                              <CheckCircle2 size={14} />
-                              Mark Discharged
-                            </button>
-                          )}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeletingPatient(patient);
-                              setActiveMenu(null);
-                            }}
-                            className="w-full px-3 py-2 text-left text-sm rounded-lg text-error hover:bg-error/10 flex items-center gap-2"
-                          >
-                            <Trash2 size={14} />
-                            Delete
-                          </button>
+                {filteredPatients.map((patient) => {
+                  const due = calculateDueAmount(patient._id || patient.id || '', patient.totalFee || 0);
+                  return (
+                    <motion.tr 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      key={patient.id} 
+                      onClick={() => setViewingPatient(patient)}
+                      className="hover:bg-surface-container-low/50 transition-colors group cursor-pointer"
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">{patient.name}</span>
+                          <span className="text-[10px] text-on-surface-variant uppercase tracking-wider mt-0.5 opacity-60 font-bold">{patient._id?.slice(-8) || patient.id}</span>
                         </div>
-                      )}
-                    </div>
-                  </td>
-                </motion.tr>
-              ))}
+                      </td>
+                      <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{patient.parentName || 'N/A'}</td>
+                      <td className="px-6 py-4 flex flex-wrap gap-1">
+                        {Array.isArray(patient.therapyType) && patient.therapyType.length > 0 ? (
+                          patient.therapyType.map((t, i) => (
+                            <span key={i} className="px-2 py-1 bg-surface-container-low text-on-surface-variant text-[10px] font-bold rounded-md uppercase tracking-wider">
+                              {t.replace(/_/g, ' ')}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-sm text-on-surface-variant opacity-60">N/A</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-sm font-medium text-on-surface-variant whitespace-nowrap">{patient.parentPhone || 'N/A'}</td>
+                      <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{branches.find(b => b._id === patient.branch)?.name || 'Unknown'}</td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-sm font-black text-on-surface">₹{(patient.totalFee || 0).toLocaleString()}</span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className={cn("text-sm font-black", due > 0 ? "text-error" : "text-green-600")}>
+                          ₹{due.toLocaleString()}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={cn(
+                          "px-3 py-1.5 text-[10px] font-black rounded-lg uppercase tracking-wider inline-block",
+                          patient.status === 'Active' && "bg-blue-50 text-blue-700",
+                          patient.status === 'Discharged' && "bg-surface-container-low text-on-surface-variant",
+                          patient.status === 'Critical' && "bg-error/10 text-error"
+                        )}>
+                          {patient.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="relative inline-block text-left">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              patient.id && setActiveMenu(activeMenu === patient.id ? null : patient.id);
+                            }}
+                            className="p-2 hover:bg-surface-container-low rounded-lg text-on-surface-variant transition-colors"
+                          >
+                            <MoreVertical size={16} />
+                          </button>
+
+                          {activeMenu === patient.id && (
+                            <div className="absolute right-0 mt-2 w-44 rounded-xl border border-outline-variant/20 bg-surface-container-lowest shadow-xl p-1.5 z-20">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openModal({ patientId: patient._id, branchId: patient.branch });
+                                  setActiveMenu(null);
+                                }}
+                                className="w-full px-3 py-2 text-left text-sm rounded-lg text-secondary hover:bg-secondary/10 flex items-center gap-2 font-semibold"
+                              >
+                                <CreditCard size={14} />
+                                Add Payment
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setViewingPatient(patient);
+                                  setActiveMenu(null);
+                                }}
+                                className="w-full px-3 py-2 text-left text-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low flex items-center gap-2"
+                              >
+                                <Eye size={14} />
+                                View
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingPatient(patient);
+                                  setActiveMenu(null);
+                                }}
+                                className="w-full px-3 py-2 text-left text-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low flex items-center gap-2"
+                              >
+                                <Edit size={14} />
+                                Edit
+                              </button>
+                              {patient.status !== 'Discharged' && patient._id && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleMarkDischarged(patient._id!);
+                                  }}
+                                  className="w-full px-3 py-2 text-left text-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low flex items-center gap-2"
+                                >
+                                  <CheckCircle2 size={14} />
+                                  Mark Discharged
+                                </button>
+                              )}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDeletingPatient(patient);
+                                  setActiveMenu(null);
+                                }}
+                                className="w-full px-3 py-2 text-left text-sm rounded-lg text-error hover:bg-error/10 flex items-center gap-2"
+                              >
+                                <Trash2 size={14} />
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </motion.tr>
+                  );
+                })}
               {filteredPatients.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="p-10 text-center text-on-surface-variant opacity-60">
+                  <td colSpan={9} className="p-10 text-center text-on-surface-variant opacity-60">
                     No patients found.
                   </td>
                 </tr>
@@ -584,7 +613,7 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
                   { label: 'Child Name',         value: viewingPatient.name },
                   { label: 'Parent / Guardian',  value: viewingPatient.parentName || '—' },
                   { label: 'Phone Contact',      value: viewingPatient.parentPhone || '—' },
-                  { label: 'Service / Therapy',  value: viewingPatient.therapyType?.map(t => t.replace(/_/g, ' ')).join(', ') || '—' },
+                  { label: 'Service / Therapy',  value: Array.isArray(viewingPatient.therapyType) ? viewingPatient.therapyType.map(t => t.replace(/_/g, ' ')).join(', ') : '—' },
                   { label: 'Branch',             value: branches.find(b => b._id === viewingPatient.branch)?.name || '—' },
                   { label: 'Address',            value: viewingPatient.address || '—' },
                   { label: 'Onboarding Date',    value: viewingPatient.lastVisit || '—' },
@@ -642,7 +671,7 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
                         parentName: p.parentName,
                         age: p.age,
                         gender: '',
-                        therapyType: p.therapyType?.[0] || '',
+                        therapyType: Array.isArray(p.therapyType) ? p.therapyType[0] : '',
                         condition: p.condition || '',
                         address: p.address,
                         phone: p.parentPhone || '',
@@ -673,7 +702,8 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
               ...newPatient,
               id: newPatient._id,
               branch: newPatient.branchId?._id || newPatient.branchId,
-              status: newPatient.status === 'active' ? 'Active' : 'Discharged'
+              status: newPatient.status === 'active' ? 'Active' : 'Discharged',
+              therapyType: Array.isArray(newPatient.therapyType) ? newPatient.therapyType : (typeof newPatient.therapyType === 'string' && newPatient.therapyType ? [newPatient.therapyType] : [])
             },
             ...prev
           ]);
@@ -799,6 +829,57 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
                   <option value="Discharged">Discharged</option>
                   <option value="Critical">Critical</option>
                 </select>
+
+                <div className="sm:col-span-2 bg-surface-container-low/50 p-3 rounded-xl border border-outline-variant/20">
+                  <label className="text-xs font-bold text-on-surface-variant mb-2 block uppercase tracking-wider">Select Services / Therapies</label>
+                  <div className="flex flex-wrap gap-2">
+                    {services.length === 0 ? (
+                      <p className="text-xs text-slate-500 italic">No services available...</p>
+                    ) : (
+                      services.map(service => {
+                        const therapyValue = service.name.toLowerCase().replace(/ /g, '_');
+                        const safeTherapyType = Array.isArray(editingPatient.therapyType) 
+                          ? editingPatient.therapyType 
+                          : (typeof editingPatient.therapyType === 'string' && editingPatient.therapyType ? [editingPatient.therapyType] : []);
+                          
+                        const isSelected = safeTherapyType.includes(therapyValue);
+                        
+                        return (
+                          <button
+                            type="button"
+                            key={service._id}
+                            onClick={() => {
+                              setEditingPatient(prev => {
+                                if (!prev) return prev;
+                                
+                                const currentArray = Array.isArray(prev.therapyType) 
+                                  ? prev.therapyType 
+                                  : (typeof prev.therapyType === 'string' && prev.therapyType ? [prev.therapyType] : []);
+                                  
+                                const isCurrentlySelected = currentArray.includes(therapyValue);
+                                
+                                const updated = isCurrentlySelected 
+                                  ? currentArray.filter(t => t !== therapyValue)
+                                  : [...currentArray, therapyValue];
+                                  
+                                return { ...prev, therapyType: updated };
+                              });
+                            }}
+                            className={cn(
+                              "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border text-left",
+                              isSelected 
+                                ? "bg-primary text-white border-primary shadow-md shadow-primary/20" 
+                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                            )}
+                          >
+                            {isSelected && <CheckCircle2 size={12} className="inline mr-1 -mt-0.5" />}
+                            {service.name}
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div className="mt-6 flex justify-end gap-3">
