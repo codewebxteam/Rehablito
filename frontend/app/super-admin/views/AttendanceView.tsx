@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Users, Search, CheckCircle2, XCircle, Calendar } from 'lucide-react';
@@ -20,6 +22,7 @@ interface StaffMember {
   staffId?: string;
   role: 'staff' | 'branch_manager';
   branchId: string;
+  designation?: string; // 🔥 Added
 }
 
 interface ApiStaff {
@@ -27,12 +30,13 @@ interface ApiStaff {
   name: string;
   staffId?: string;
   role: 'staff' | 'branch_manager';
+  designation?: string; // 🔥 Added
   branchId?: { _id: string; name: string } | string | null;
 }
 
 interface ApiAttendance {
   _id: string;
-  userId: { _id: string; name: string } | string | null;
+  userId: { _id: string; name: string; designation?: string } | string | null; // 🔥 Added designation in userId
   branchId: { _id: string; name: string } | string;
   date: string;
   checkIn?: string;
@@ -43,6 +47,7 @@ interface ApiAttendance {
 interface AttendanceRow {
   userId: string;
   name: string;
+  designation?: string; // 🔥 Added
   branchId: string;
   checkIn: string;
   checkOut: string;
@@ -90,6 +95,7 @@ export const AttendanceView = ({ initialData }: { initialData?: any }) => {
             name: s.name,
             staffId: s.staffId,
             role: s.role,
+            designation: s.designation, // 🔥 Mapped
             branchId: typeof s.branchId === 'object' && s.branchId ? s.branchId._id : (s.branchId as string) || '',
           }));
           setStaff(list);
@@ -119,6 +125,7 @@ export const AttendanceView = ({ initialData }: { initialData?: any }) => {
       return {
         userId: s._id,
         name: s.name,
+        designation: s.designation, // 🔥 Passed
         branchId: s.branchId,
         checkIn: att?.checkIn || '—',
         checkOut: att?.checkOut || '—',
@@ -131,7 +138,9 @@ export const AttendanceView = ({ initialData }: { initialData?: any }) => {
   const filteredRows = rows.filter(r => {
     const q = search.toLowerCase();
     const branchName = branches.find(b => b._id === r.branchId)?.name || '';
-    return r.name.toLowerCase().includes(q) || branchName.toLowerCase().includes(q);
+    return r.name.toLowerCase().includes(q) || 
+           (r.designation?.toLowerCase().includes(q) ?? false) || 
+           branchName.toLowerCase().includes(q);
   });
 
   const pagedRows = filteredRows.slice((page - 1) * PER_PAGE, page * PER_PAGE);
@@ -251,7 +260,7 @@ export const AttendanceView = ({ initialData }: { initialData?: any }) => {
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/50" size={18} />
               <input
                 type="text"
-                placeholder="Search therepist or branch..."
+                placeholder="Search by name or designation..."
                 value={search}
                 onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                 className="w-full bg-surface-container-low/50 border border-outline-variant/20 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all font-medium text-on-surface"
@@ -296,7 +305,10 @@ export const AttendanceView = ({ initialData }: { initialData?: any }) => {
                           <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs uppercase">
                             {row.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
                           </div>
-                          <span className="text-sm font-bold text-on-surface">{row.name}</span>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-on-surface">{row.name}</span>
+                            {row.designation && <span className="text-[10px] font-bold text-primary uppercase">{row.designation}</span>}
+                          </div>
                         </div>
                       </td>
                       <td className="px-4 sm:px-6 py-4 text-sm font-medium text-on-surface-variant">

@@ -1,5 +1,37 @@
 const User = require('../models/User');
 const Attendance = require('../models/Attendance');
+const Designation = require('../models/Designation'); // 🔥 NEW: Imported Designation model
+
+// ─── DESIGNATION CONTROLLERS (NEW) ───
+
+// GET /api/admin/designations
+const getDesignations = async (req, res) => {
+    try {
+        const designations = await Designation.find().sort({ name: 1 });
+        res.json({ success: true, data: designations });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+// POST /api/admin/designations
+const createDesignation = async (req, res) => {
+    try {
+        const { name } = req.body;
+        if (!name) return res.status(400).json({ success: false, message: 'Designation name is required' });
+        
+        // Prevent exact duplicates (case-insensitive)
+        const existing = await Designation.findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') } });
+        if (existing) return res.status(400).json({ success: false, message: 'Designation already exists' });
+
+        const designation = await Designation.create({ name });
+        res.status(201).json({ success: true, data: designation });
+    } catch (err) {
+        res.status(400).json({ success: false, message: err.message });
+    }
+};
+
+// ─── STAFF CONTROLLERS ───
 
 // GET /api/admin/staff?branch=ID&role=staff&page=1&limit=20
 const getStaff = async (req, res) => {
@@ -39,7 +71,8 @@ const getStaff = async (req, res) => {
 // POST /api/admin/staff
 const createStaff = async (req, res) => {
     try {
-        const { name, email, password, role, branchId, staffId, mobileNumber } = req.body;
+        // 🔥 Added designation to destructured body
+        const { name, email, password, role, branchId, staffId, mobileNumber, designation } = req.body;
 
         if (!['staff', 'branch_manager'].includes(role)) {
             return res.status(400).json({ success: false, message: 'Role must be staff or branch_manager' });
@@ -53,7 +86,7 @@ const createStaff = async (req, res) => {
             return res.status(400).json({ success: false, message: 'User with this email already exists' });
         }
 
-        const user = await User.create({ name, email, password, role, branchId, staffId, mobileNumber });
+        const user = await User.create({ name, email, password, role, branchId, staffId, mobileNumber, designation });
         const populated = await User.findById(user._id)
             .select('-password -otp -otpExpires')
             .populate('branchId', 'name');
@@ -66,7 +99,8 @@ const createStaff = async (req, res) => {
 // PUT /api/admin/staff/:id
 const updateStaff = async (req, res) => {
     try {
-        const { name, email, role, branchId, staffId, mobileNumber, password } = req.body;
+        // 🔥 Added designation
+        const { name, email, role, branchId, staffId, mobileNumber, password, designation } = req.body;
 
         const user = await User.findById(req.params.id);
         if (!user) return res.status(404).json({ success: false, message: 'Staff not found' });
@@ -89,6 +123,7 @@ const updateStaff = async (req, res) => {
         if (branchId !== undefined) user.branchId = branchId;
         if (staffId !== undefined) user.staffId = staffId;
         if (mobileNumber !== undefined) user.mobileNumber = mobileNumber;
+        if (designation !== undefined) user.designation = designation;
         if (password) user.password = password;
 
         await user.save();
@@ -151,7 +186,8 @@ const getAttendance = async (req, res) => {
         if (req.query.userId) filter.userId = req.query.userId;
 
         const attendance = await Attendance.find(filter)
-            .populate('userId', 'name staffId role')
+            // 🔥 Added 'designation' in populate so we get it alongside name and role
+            .populate('userId', 'name staffId role designation') 
             .populate('branchId', 'name')
             .sort({ date: -1 });
         res.json({ success: true, count: attendance.length, data: attendance });
@@ -180,7 +216,7 @@ const markAttendance = async (req, res) => {
             { $set: update, $setOnInsert: { date: dayStart } },
             { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
         )
-            .populate('userId', 'name staffId role')
+            .populate('userId', 'name staffId role designation')
             .populate('branchId', 'name');
 
         res.status(201).json({ success: true, data: attendance });
@@ -216,4 +252,15 @@ const getAttendanceStats = async (req, res) => {
     }
 };
 
-module.exports = { getStaff, createStaff, updateStaff, deleteStaff, transferStaff, getAttendance, markAttendance, getAttendanceStats };
+module.exports = { 
+    getDesignations, 
+    createDesignation, 
+    getStaff, 
+    createStaff, 
+    updateStaff, 
+    deleteStaff, 
+    transferStaff, 
+    getAttendance, 
+    markAttendance, 
+    getAttendanceStats 
+};

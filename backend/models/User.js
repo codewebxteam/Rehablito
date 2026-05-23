@@ -26,6 +26,11 @@ const userSchema = new mongoose.Schema({
         enum: ['super_admin', 'branch_manager', 'staff'],
         default: 'staff'
     },
+    // 🔥 NEW: Dynamic Designation Field (Physiotherapist, Speech Therapist, etc.)
+    designation: {
+        type: String,
+        trim: true
+    },
     // Required fields for specific roles
     branchId: {
         type: mongoose.Schema.ObjectId,

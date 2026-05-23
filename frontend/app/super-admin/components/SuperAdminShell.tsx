@@ -45,6 +45,11 @@ function ShellInner({ children }: SuperAdminShellProps) {
       title: 'Daily Attendance',
       subtitle: 'Live therepist presence and tracking'
     },
+    // 🔥 NEW: Added missing configuration for Patient Attendance
+    'patient-attendance': {
+      title: 'Global Patient Attendance',
+      subtitle: 'Monitor patient check-ins and check-outs across all branches'
+    },
     finance: {
       title: 'Financial Overview',
       subtitle: 'Revenue, expenses, and transaction logs'

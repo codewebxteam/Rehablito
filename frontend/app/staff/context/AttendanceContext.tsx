@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { AttendanceRecord } from '../types';
 import api from '@/lib/api';
-import { toast } from 'sonner'; // Added for better UX notifications
+import { toast } from 'sonner';
 
 interface Geofence {
   branchName: string;
@@ -20,7 +20,7 @@ interface AttendanceContextType {
   branchName: string | null;
   geofence: Geofence | null;
   checkIn: (ward?: string) => Promise<void>;
-  checkOut: () => Promise<void>;
+  checkOut: (isAutoCheckout?: boolean) => Promise<void>; // Updated type signature
   isInsideOffice: boolean;
   locationError: string | null;
   currentLocation: { lat: number; lng: number } | null;
@@ -194,21 +194,29 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
-  const checkOut = async () => {
+  const checkOut = async (isAutoCheckout = false) => {
     if (!activeRecord || isProcessing) return;
     setIsProcessing(true);
     try {
-      let payload: { latitude?: number; longitude?: number } = {};
+      // Adding isAutoCheckout flag to payload incase backend wants to track system logouts
+      let payload: { latitude?: number; longitude?: number; isAutoCheckout?: boolean } = {
+        isAutoCheckout
+      };
       try {
         const pos = await getCurrentPosition();
-        payload = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+        payload.latitude = pos.coords.latitude;
+        payload.longitude = pos.coords.longitude;
       } catch {
         // Location optional on check-out based on your backend
       }
       const { data } = await api.post('/staff/check-out', payload);
       
       if (data.success) {
-        toast.success('Successfully checked out. Great job today!');
+        if (isAutoCheckout) {
+          toast.error('You moved outside the office radius. Auto-checked out!', { duration: 6000 });
+        } else {
+          toast.success('Successfully checked out. Great job today!');
+        }
         setActiveRecord(null);
         void fetchRecords();
       } else {
@@ -224,6 +232,20 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setIsProcessing(false);
     }
   };
+
+  // 🔥 NEW LOGIC: AUTO-CHECKOUT WHEN LEAVING GEOFENCE 🔥
+  useEffect(() => {
+    // Sirf tabhi logout karo jab:
+    // 1. User Checked In ho (activeRecord)
+    // 2. Current location valid ho (!locationError) - Lift me connection tutne se logout na ho
+    // 3. User definitely radius ke bahar chala gaya ho (!isInsideOffice)
+    if (activeRecord && currentLocation && !isInsideOffice && !locationError && !isProcessing) {
+      console.log('User went outside geofence. Triggering auto-checkout.');
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      checkOut(true); 
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isInsideOffice, locationError, activeRecord, currentLocation]);
 
   return (
     <AttendanceContext.Provider value={{

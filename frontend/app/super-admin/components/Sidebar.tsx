@@ -18,6 +18,7 @@ import {
   MapPin,
   Check,
   Stethoscope,
+  ClipboardList // 🔥 NEW: Added icon for Patient Attendance
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -48,7 +49,8 @@ const NAV_GROUPS = [
     title: 'Operations',
     items: [
       { tab: 'staff'      as const, icon: UsersRound },
-      { tab: 'attendance' as const, icon: CalendarCheck },
+      { tab: 'attendance' as const, icon: CalendarCheck }, // (Staff Attendance)
+      { tab: 'patient-attendance' as const, icon: ClipboardList }, // 🔥 NEW: Added Patient Attendance link
       { tab: 'finance'    as const, icon: Wallet },
     ],
   },

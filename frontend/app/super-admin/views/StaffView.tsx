@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { Search, Plus, Filter, UserCog, Edit, Trash2, X, UsersRound, UserCheck, UserMinus, Eye, EyeOff, ChevronDown } from 'lucide-react';
+import { Search, Plus, Filter, UserCog, Edit, Trash2, X, UsersRound, UserCheck, UserMinus, Eye, EyeOff, ChevronDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AnimatePresence, motion } from 'motion/react';
 import api from '@/lib/api';
@@ -17,6 +17,7 @@ interface Staff {
   name: string;
   email: string;
   role: StaffRole;
+  designation?: string; // 🔥 Added designation
   staffId?: string;
   mobileNumber?: string;
   aadharNumber?: string;
@@ -31,11 +32,17 @@ interface Branch {
   name: string;
 }
 
+interface Designation {
+  _id: string;
+  name: string;
+}
+
 interface ApiStaff {
   _id: string;
   name: string;
   email: string;
   role: StaffRole;
+  designation?: string; // 🔥 Added designation
   staffId?: string;
   mobileNumber?: string;
   aadharNumber?: string;
@@ -47,6 +54,7 @@ interface NewStaffForm {
   email: string;
   password: string;
   role: StaffRole;
+  designation: string; // 🔥 Added designation
   branch: string;
   staffId: string;
   mobileNumber: string;
@@ -58,13 +66,14 @@ const INITIAL_FORM: NewStaffForm = {
   email: '',
   password: '',
   role: 'staff',
+  designation: '', // 🔥 Initialized
   branch: '',
   staffId: '',
   mobileNumber: '',
   aadharNumber: '',
 };
 
-const roleLabel = (role: StaffRole) => (role === 'branch_manager' ? 'Branch Manager' : 'Staff');
+const roleLabel = (role: StaffRole) => (role === 'branch_manager' ? 'Branch Manager' : 'System Access');
 
 export const StaffView = ({ initialData }: { initialData?: any }) => {
   const transformApiStaff = (data: ApiStaff[]): Staff[] => data.map((s: ApiStaff) => ({
@@ -73,6 +82,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
     name: s.name,
     email: s.email,
     role: s.role,
+    designation: s.designation, // 🔥 mapped
     staffId: s.staffId,
     mobileNumber: s.mobileNumber,
     aadharNumber: s.aadharNumber,
@@ -86,6 +96,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
     hasServerData && Array.isArray(initialData?.staff) ? transformApiStaff(initialData.staff) : []
   );
   const [branches, setBranches] = useState<Branch[]>(initialData?.branches || []);
+  const [designations, setDesignations] = useState<Designation[]>(initialData?.designations || []); // 🔥 New state
   const [isLoading, setIsLoading] = useState(!hasServerData);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<StaffStatusFilter>('All');
@@ -102,10 +113,16 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
   const [page, setPage] = useState(1);
   const PER_PAGE = 10;
 
+  // 🔥 State for dynamic designation input
+  const [showNewDesignationInput, setShowNewDesignationInput] = useState(false);
+  const [newDesignationName, setNewDesignationName] = useState('');
+  const [isAddingDesignation, setIsAddingDesignation] = useState(false);
+
   const resetForm = () => setForm(INITIAL_FORM);
   const closeModal = () => {
     setIsAddModalOpen(false);
     setShowAddPass(false);
+    setShowNewDesignationInput(false);
     resetForm();
   };
 
@@ -116,6 +133,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
       email: s.email,
       password: '',
       role: s.role,
+      designation: s.designation || '',
       branch: s.branch,
       staffId: s.staffId || '',
       mobileNumber: s.mobileNumber || '',
@@ -126,6 +144,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
   const closeEdit = () => {
     setEditingStaff(null);
     setShowEditPass(false);
+    setShowNewDesignationInput(false);
     setEditForm(INITIAL_FORM);
   };
 
@@ -134,27 +153,58 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
       try {
         setIsLoading(true);
         const branchParam = selectedBranchId ? `?branch=${selectedBranchId}` : '';
-        const [staffRes, branchRes] = await Promise.all([
+        const [staffRes, branchRes, desigRes] = await Promise.all([
           api.get(`/admin/staff${branchParam}`),
           api.get('/admin/branches'),
+          api.get('/admin/designations') // 🔥 Fetch designations
         ]);
 
         if (branchRes.data.success && branchRes.data.data) {
           setBranches(branchRes.data.data);
         }
-
+        if (desigRes.data?.success && desigRes.data.data) {
+          setDesignations(desigRes.data.data);
+        }
         if (staffRes.data.success) {
           setStaffList(transformApiStaff(staffRes.data.data));
         }
       } catch (err) {
         console.error('Failed to fetch staff:', err);
-        toast.error('Failed to load staff');
+        toast.error('Failed to load staff data');
       } finally {
         setIsLoading(false);
       }
     };
     fetchData();
   }, [selectedBranchId]);
+
+  // 🔥 Handler to save a new designation to the database
+  const handleAddNewDesignation = async (isEditMode: boolean) => {
+    if (!newDesignationName.trim()) return;
+    setIsAddingDesignation(true);
+    try {
+      const { data } = await api.post('/admin/designations', { name: newDesignationName.trim() });
+      if (data.success) {
+        const newDesig = data.data;
+        setDesignations(prev => [...prev, newDesig].sort((a, b) => a.name.localeCompare(b.name)));
+        
+        // Auto-select it
+        if (isEditMode) {
+          setEditForm(prev => ({ ...prev, designation: newDesig.name }));
+        } else {
+          setForm(prev => ({ ...prev, designation: newDesig.name }));
+        }
+        
+        setShowNewDesignationInput(false);
+        setNewDesignationName('');
+        toast.success('New designation added!');
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to add designation');
+    } finally {
+      setIsAddingDesignation(false);
+    }
+  };
 
   const handleAddStaff = async () => {
     if (!form.name.trim() || !form.email.trim() || !form.password.trim() || !form.branch) {
@@ -178,6 +228,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
       if (form.staffId.trim()) payload.staffId = form.staffId.trim();
       if (form.mobileNumber.trim()) payload.mobileNumber = form.mobileNumber.trim();
       if (form.aadharNumber.trim()) payload.aadharNumber = form.aadharNumber.trim();
+      if (form.designation.trim()) payload.designation = form.designation.trim(); // 🔥 Add to payload
 
       const { data } = await api.post('/admin/staff', payload);
       if (data.success) {
@@ -189,6 +240,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
           name: s.name,
           email: s.email,
           role: s.role,
+          designation: s.designation,
           staffId: s.staffId,
           mobileNumber: s.mobileNumber,
           aadharNumber: s.aadharNumber,
@@ -226,6 +278,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
         staffId: editForm.staffId.trim() || undefined,
         mobileNumber: editForm.mobileNumber.trim() || undefined,
         aadharNumber: editForm.aadharNumber.trim() || undefined,
+        designation: editForm.designation.trim() || undefined, // 🔥 Add to payload
       };
       if (editForm.password) payload.password = editForm.password;
 
@@ -238,6 +291,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
           name: s.name,
           email: s.email,
           role: s.role,
+          designation: s.designation,
           staffId: s.staffId,
           mobileNumber: s.mobileNumber,
           aadharNumber: s.aadharNumber,
@@ -273,6 +327,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
     const matchesSearch =
       s.name.toLowerCase().includes(q) ||
       s.email.toLowerCase().includes(q) ||
+      (s.designation?.toLowerCase().includes(q) ?? false) ||
       (s.staffId?.toLowerCase().includes(q) ?? false);
     const matchesStatus = statusFilter === 'All' || s.status === statusFilter;
     const matchesRole = roleFilter === 'All' || s.role === roleFilter;
@@ -365,7 +420,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
                   <UserCheck className="text-emerald-600 group-hover:text-white transition-colors duration-300" size={20} />
                 </div>
               </div>
-              <p className="text-on-surface-variant text-[10px] uppercase tracking-wider mb-1 font-bold">Active Therepist</p>
+              <p className="text-on-surface-variant text-[10px] uppercase tracking-wider mb-1 font-bold">Active Staff</p>
               <h3 className="text-2xl font-black font-headline text-on-surface">{activeStaff}</h3>
               <p className="text-on-surface-variant/70 text-xs mt-2 flex items-center gap-1 font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
@@ -392,7 +447,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
                   <UserMinus className="text-rose-600 group-hover:text-white transition-colors duration-300" size={20} />
                 </div>
               </div>
-              <p className="text-on-surface-variant text-[10px] uppercase tracking-wider mb-1 font-bold">Inactive Therepist</p>
+              <p className="text-on-surface-variant text-[10px] uppercase tracking-wider mb-1 font-bold">Inactive Staff</p>
               <h3 className="text-2xl font-black font-headline text-on-surface">{inactiveStaff}</h3>
               <p className="text-on-surface-variant/70 text-xs mt-2 flex items-center gap-1 font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
@@ -410,7 +465,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
             <UserCog size={20} />
           </div>
           <div>
-            <h3 className="text-xl font-bold font-headline text-on-surface">Therepist Directory</h3>
+            <h3 className="text-xl font-bold font-headline text-on-surface">Staff Directory</h3>
             <p className="text-xs text-on-surface-variant font-medium opacity-60">Manage employee records and roles</p>
           </div>
         </div>
@@ -420,7 +475,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/50" size={18} />
             <input
               type="text"
-              placeholder="Search staff, email, ID..."
+              placeholder="Search staff, role, email..."
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
               className="w-full sm:w-64 bg-surface-container-low/50 border border-outline-variant/20 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all text-on-surface"
@@ -471,7 +526,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
             className="bg-primary hover:bg-primary/90 text-white p-2.5 px-5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-primary/20 transition-all"
           >
             <Plus size={18} />
-            <span className="hidden sm:inline">Add Therepist</span>
+            <span className="hidden sm:inline">Add Staff</span>
           </button>
         </div>
       </div>
@@ -482,7 +537,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
           <div className="h-80 flex items-center justify-center">
             <div className="text-center">
               <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin mx-auto mb-4"></div>
-              <p className="text-on-surface-variant">Loading therepist...</p>
+              <p className="text-on-surface-variant">Loading staff...</p>
             </div>
           </div>
         ) : (
@@ -491,7 +546,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
               <thead>
                 <tr className="bg-surface-container-low/30 border-b border-outline-variant/10">
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Employee</th>
-                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Role</th>
+                  <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Role & Designation</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Email</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Branch</th>
                   <th className="px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Status</th>
@@ -517,7 +572,16 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{roleLabel(staff.role)}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium text-on-surface-variant">{roleLabel(staff.role)}</span>
+                        {staff.designation && (
+                          <span className="text-[10px] font-bold text-primary uppercase tracking-wider mt-0.5">
+                            {staff.designation}
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{staff.email}</td>
                     <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">
                       {branches.find(b => b._id === staff.branch)?.name || 'Unknown'}
@@ -566,6 +630,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
         <Pagination total={filteredStaff.length} page={page} perPage={PER_PAGE} onChange={p => setPage(p)} />
       </div>
 
+      {/* Add Staff Modal */}
       <AnimatePresence>
         {isAddModalOpen && (
           <motion.div
@@ -588,7 +653,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
             >
               <div className="flex items-start justify-between gap-4 mb-5">
                 <div>
-                  <h4 className="text-lg font-extrabold text-on-surface">Add Therepist Member</h4>
+                  <h4 className="text-lg font-extrabold text-on-surface">Add Staff Member</h4>
                   <p className="text-sm text-on-surface-variant mt-1">Create a new employee account.</p>
                 </div>
                 <button
@@ -608,6 +673,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
                   className="sm:col-span-2 w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
                   placeholder="Full name *"
                 />
+                
                 <input
                   type="email"
                   value={form.email}
@@ -615,6 +681,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
                   className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
                   placeholder="Email *"
                 />
+
                 <div className="relative">
                   <input
                     type={showAddPass ? "text" : "password"}
@@ -631,17 +698,19 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
                     {showAddPass ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
+
                 <div className="relative">
                   <select
                     value={form.role}
                     onChange={(e) => setForm(prev => ({ ...prev, role: e.target.value as StaffRole }))}
                     className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 pl-3 pr-10 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25 appearance-none cursor-pointer"
                   >
-                    <option value="staff">Staff</option>
+                    <option value="staff">Staff Access</option>
                     <option value="branch_manager">Branch Manager</option>
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40 pointer-events-none" size={16} />
                 </div>
+
                 <div className="relative">
                   <select
                     value={form.branch}
@@ -655,20 +724,81 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40 pointer-events-none" size={16} />
                 </div>
+
+                {/* 🔥 Custom Dynamic Designation Dropdown */}
+                <div className="relative sm:col-span-2 mt-2">
+                  <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Designation</label>
+                  {!showNewDesignationInput ? (
+                    <div className="relative">
+                      <select
+                        value={form.designation}
+                        onChange={(e) => {
+                          if (e.target.value === 'ADD_NEW_DESIGNATION') {
+                            setShowNewDesignationInput(true);
+                          } else {
+                            setForm(prev => ({ ...prev, designation: e.target.value }));
+                          }
+                        }}
+                        className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 pl-3 pr-10 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25 appearance-none cursor-pointer"
+                      >
+                        <option value="">Select Specialization / Designation (Optional)</option>
+                        {designations.map(d => (
+                          <option key={d._id} value={d.name}>{d.name}</option>
+                        ))}
+                        <option value="ADD_NEW_DESIGNATION" className="font-bold text-primary">
+                          + Add New Designation
+                        </option>
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40 pointer-events-none" size={16} />
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newDesignationName}
+                        onChange={(e) => setNewDesignationName(e.target.value)}
+                        placeholder="Type new designation (e.g. Speech Therapist)"
+                        autoFocus
+                        className="flex-1 bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleAddNewDesignation(false)}
+                        disabled={isAddingDesignation || !newDesignationName.trim()}
+                        className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold flex items-center justify-center hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                      >
+                        {isAddingDesignation ? '...' : <Check size={18} />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowNewDesignationInput(false);
+                          setNewDesignationName('');
+                        }}
+                        className="px-4 py-2 bg-surface-container-high text-on-surface-variant rounded-xl text-sm font-bold hover:bg-surface-container-low transition-colors"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <input
                   type="text"
                   value={form.staffId}
                   onChange={(e) => setForm(prev => ({ ...prev, staffId: e.target.value }))}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Staff ID"
+                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25 mt-2"
+                  placeholder="Employee ID"
                 />
+
                 <input
                   type="text"
                   value={form.aadharNumber}
                   onChange={(e) => setForm(prev => ({ ...prev, aadharNumber: e.target.value }))}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25 mt-2"
                   placeholder="Aadhar Card Number"
                 />
+
                 <input
                   type="tel"
                   value={form.mobileNumber}
@@ -715,12 +845,12 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
               className="w-full max-w-lg rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-2xl p-6 max-h-[90vh] overflow-y-auto"
               role="dialog"
               aria-modal="true"
-              aria-label="Edit therepist member"
+              aria-label="Edit staff member"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-start justify-between gap-4 mb-5">
                 <div>
-                  <h4 className="text-lg font-extrabold text-on-surface">Edit Therepist Member</h4>
+                  <h4 className="text-lg font-extrabold text-on-surface">Edit Staff Member</h4>
                   <p className="text-sm text-on-surface-variant mt-1">Update this employee&apos;s details.</p>
                 </div>
                 <button
@@ -740,6 +870,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
                   className="sm:col-span-2 w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
                   placeholder="Full name *"
                 />
+                
                 <input
                   type="email"
                   value={editForm.email}
@@ -747,6 +878,7 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
                   className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
                   placeholder="Email *"
                 />
+
                 <div className="relative">
                   <input
                     type={showEditPass ? "text" : "password"}
@@ -763,17 +895,19 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
                     {showEditPass ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
+
                 <div className="relative">
                   <select
                     value={editForm.role}
                     onChange={(e) => setEditForm(prev => ({ ...prev, role: e.target.value as StaffRole }))}
                     className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 pl-3 pr-10 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25 appearance-none cursor-pointer"
                   >
-                    <option value="staff">Therepist</option>
+                    <option value="staff">Staff Access</option>
                     <option value="branch_manager">Branch Manager</option>
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40 pointer-events-none" size={16} />
                 </div>
+
                 <div className="relative">
                   <select
                     value={editForm.branch}
@@ -787,20 +921,81 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
                   </select>
                   <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40 pointer-events-none" size={16} />
                 </div>
+
+                {/* 🔥 Custom Dynamic Designation Dropdown (Edit Mode) */}
+                <div className="relative sm:col-span-2 mt-2">
+                  <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1">Designation</label>
+                  {!showNewDesignationInput ? (
+                    <div className="relative">
+                      <select
+                        value={editForm.designation}
+                        onChange={(e) => {
+                          if (e.target.value === 'ADD_NEW_DESIGNATION') {
+                            setShowNewDesignationInput(true);
+                          } else {
+                            setEditForm(prev => ({ ...prev, designation: e.target.value }));
+                          }
+                        }}
+                        className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 pl-3 pr-10 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25 appearance-none cursor-pointer"
+                      >
+                        <option value="">Select Specialization / Designation (Optional)</option>
+                        {designations.map(d => (
+                          <option key={d._id} value={d.name}>{d.name}</option>
+                        ))}
+                        <option value="ADD_NEW_DESIGNATION" className="font-bold text-primary">
+                          + Add New Designation
+                        </option>
+                      </select>
+                      <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant/40 pointer-events-none" size={16} />
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newDesignationName}
+                        onChange={(e) => setNewDesignationName(e.target.value)}
+                        placeholder="Type new designation (e.g. Speech Therapist)"
+                        autoFocus
+                        className="flex-1 bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleAddNewDesignation(true)}
+                        disabled={isAddingDesignation || !newDesignationName.trim()}
+                        className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold flex items-center justify-center hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                      >
+                        {isAddingDesignation ? '...' : <Check size={18} />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowNewDesignationInput(false);
+                          setNewDesignationName('');
+                        }}
+                        className="px-4 py-2 bg-surface-container-high text-on-surface-variant rounded-xl text-sm font-bold hover:bg-surface-container-low transition-colors"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <input
                   type="text"
                   value={editForm.staffId}
                   onChange={(e) => setEditForm(prev => ({ ...prev, staffId: e.target.value }))}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Therepist ID"
+                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25 mt-2"
+                  placeholder="Employee ID"
                 />
+
                 <input
                   type="text"
                   value={editForm.aadharNumber}
                   onChange={(e) => setEditForm(prev => ({ ...prev, aadharNumber: e.target.value }))}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25 mt-2"
                   placeholder="Aadhar Card Number"
                 />
+
                 <input
                   type="tel"
                   value={editForm.mobileNumber}
@@ -847,18 +1042,18 @@ export const StaffView = ({ initialData }: { initialData?: any }) => {
               className="w-full max-w-md rounded-2xl bg-surface-container-lowest border border-outline-variant/20 shadow-2xl p-6"
               role="dialog"
               aria-modal="true"
-              aria-label="Delete therepist member"
+              aria-label="Delete staff member"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-start justify-between gap-4 mb-4">
                 <div>
-                  <h4 className="text-lg font-extrabold text-on-surface">Delete Therepist</h4>
+                  <h4 className="text-lg font-extrabold text-on-surface">Delete Staff</h4>
                   <p className="text-sm text-on-surface-variant mt-1">This action cannot be undone.</p>
                 </div>
                 <button
                   onClick={() => setDeletingStaff(null)}
                   className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low"
-                  aria-label="Close delete therepist modal"
+                  aria-label="Close delete staff modal"
                 >
                   <X size={16} />
                 </button>

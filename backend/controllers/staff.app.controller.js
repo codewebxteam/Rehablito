@@ -170,7 +170,8 @@ const checkIn = async (req, res) => {
 // POST /api/staff/check-out - Manual check-out with optional location
 const checkOut = async (req, res) => {
     try {
-        const { latitude, longitude } = req.body;
+        // 🔥 ADDED isAutoCheckout flag to catch the frontend parameter
+        const { latitude, longitude, isAutoCheckout } = req.body;
 
         const today = getToday();
         const tomorrow = new Date(today);
@@ -192,6 +193,11 @@ const checkOut = async (req, res) => {
 
         if (latitude !== undefined && longitude !== undefined) {
             attendance.checkOutLocation = { latitude, longitude };
+        }
+
+        // 🔥 LOGIC TO SAVE AUTO-CHECKOUT STATUS
+        if (isAutoCheckout) {
+            attendance.autoCheckedOut = true;
         }
 
         // Calculate duty hours
@@ -216,7 +222,8 @@ const checkOut = async (req, res) => {
 
         res.json({
             success: true,
-            message: 'Checked out successfully',
+            // Custom message if it was an auto-checkout
+            message: isAutoCheckout ? 'Auto-checked out successfully due to leaving geofence' : 'Checked out successfully',
             data: populated,
         });
     } catch (err) {
@@ -248,6 +255,7 @@ const getDutyStatus = async (req, res) => {
                     dutyHours: 0,
                     elapsedSeconds: 0,
                     status: 'not_checked_in',
+                    autoCheckedOut: false // added this
                 }
             });
         }
@@ -273,6 +281,7 @@ const getDutyStatus = async (req, res) => {
                 elapsedSeconds,
                 status: attendance.status,
                 locationVerified: attendance.locationVerified,
+                autoCheckedOut: attendance.autoCheckedOut || false // added this
             }
         });
     } catch (err) {
@@ -365,6 +374,7 @@ const getAttendanceCalendar = async (req, res) => {
                 checkInTime: rec.checkInTime,
                 checkOutTime: rec.checkOutTime,
                 locationVerified: rec.locationVerified,
+                autoCheckedOut: rec.autoCheckedOut || false // added this
             };
         });
 
@@ -460,6 +470,7 @@ const getDashboard = async (req, res) => {
             dutyHours: rec.dutyHours,
             checkIn: rec.checkIn,
             checkOut: rec.checkOut,
+            autoCheckedOut: rec.autoCheckedOut || false
         }));
 
         // Duty status
@@ -493,6 +504,7 @@ const getDashboard = async (req, res) => {
                     checkOut: todayRecord ? todayRecord.checkOut : null,
                     dutyHours: todayRecord ? todayRecord.dutyHours : 0,
                     status: todayRecord ? todayRecord.status : 'not_checked_in',
+                    autoCheckedOut: todayRecord ? (todayRecord.autoCheckedOut || false) : false
                 },
                 monthly: {
                     month: `${now.toLocaleString('en', { month: 'long' })} ${now.getFullYear()}`,
@@ -540,6 +552,7 @@ const getBranchStaff = async (req, res) => {
                 });
                 const obj = member.toObject();
                 obj.todayStatus = attendance ? attendance.status : 'not_marked';
+                obj.autoCheckedOut = attendance ? (attendance.autoCheckedOut || false) : false;
                 return obj;
             })
         );

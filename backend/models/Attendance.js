@@ -27,6 +27,8 @@ const attendanceSchema = new mongoose.Schema({
     dutyHours: { type: Number, default: 0 },
     // Whether check-in was validated against geofence
     locationVerified: { type: Boolean, default: false },
+    // Flag to track if the system automatically checked the user out (Geofence exit)
+    autoCheckedOut: { type: Boolean, default: false },
 }, { timestamps: true });
 
 // Compound index to prevent duplicate attendance per user per day

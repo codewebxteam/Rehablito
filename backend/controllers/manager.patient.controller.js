@@ -1,6 +1,7 @@
 const Patient = require('../models/Patient');
 const Branch = require('../models/Branch');
 const Lead = require('../models/Lead');
+const PatientAttendance = require('../models/PatientAttendance'); // 🔥 NEW: Added Attendance Model
 const mongoose = require('mongoose');
 const { generatePatientRegistrationPDF } = require('../utils/pdfGenerator');
 
@@ -222,7 +223,165 @@ const getPatientStats = async (req, res) => {
     }
 };
 
+// 🔥 ─────────────────────────────────────────────
+// 🔥 GET /api/manager/patient-attendance/today
+// 🔥 Get today's attendance list and summary
+// 🔥 ─────────────────────────────────────────────
+const getTodayAttendance = async (req, res) => {
+    try {
+        const branchId = getManagerBranchId(req);
+        
+        // Setup today's start and end time
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
 
+        // Fetch all active patients in this branch
+        const patients = await Patient.find({ branchId, status: 'active' })
+            .select('name parentName therapyType status');
+
+        // Fetch today's attendance records for this branch
+        const attendances = await PatientAttendance.find({
+            branchId,
+            date: { $gte: today, $lt: tomorrow }
+        });
+
+        let currentlyAvailable = 0;
+        let checkedOutToday = 0;
+
+        // Map patients with their attendance status
+        const attendanceList = patients.map(patient => {
+            const record = attendances.find(a => a.patientId.toString() === patient._id.toString());
+            let currentStatus = 'not_marked'; // default
+
+            if (record) {
+                currentStatus = record.status; // 'checked_in' or 'checked_out'
+                if (currentStatus === 'checked_in') currentlyAvailable++;
+                if (currentStatus === 'checked_out') checkedOutToday++;
+            }
+
+            return {
+                _id: patient._id,
+                name: patient.name,
+                parentName: patient.parentName,
+                therapyType: patient.therapyType,
+                attendanceStatus: currentStatus,
+                checkInTime: record ? record.checkInTime : null,
+                checkOutTime: record ? record.checkOutTime : null,
+                recordId: record ? record._id : null
+            };
+        });
+
+        res.json({
+            success: true,
+            data: {
+                summary: {
+                    totalActivePatients: patients.length,
+                    currentlyAvailable,
+                    checkedOutToday
+                },
+                list: attendanceList
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+// 🔥 ─────────────────────────────────────────────
+// 🔥 POST /api/manager/patient-attendance/check-in
+// 🔥 Mark a patient as checked-in (arrived)
+// 🔥 ─────────────────────────────────────────────
+const checkInPatient = async (req, res) => {
+    try {
+        const branchId = getManagerBranchId(req);
+        const { patientId } = req.body;
+
+        if (!patientId) {
+            return res.status(400).json({ success: false, message: 'Patient ID is required' });
+        }
+
+        // Verify patient belongs to this branch
+        const patient = await Patient.findOne({ _id: patientId, branchId });
+        if (!patient) {
+            return res.status(404).json({ success: false, message: 'Patient not found in this branch' });
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        // Check if already checked in/out today
+        const existingRecord = await PatientAttendance.findOne({
+            patientId,
+            date: { $gte: today, $lt: tomorrow }
+        });
+
+        if (existingRecord) {
+            return res.status(400).json({ 
+                success: false, 
+                message: `Patient is already ${existingRecord.status.replace('_', ' ')} today.` 
+            });
+        }
+
+        // Create check-in record
+        const attendance = await PatientAttendance.create({
+            patientId,
+            branchId,
+            date: today,
+            checkInTime: new Date(),
+            status: 'checked_in',
+            recordedBy: req.user._id // Manager ID
+        });
+
+        res.status(201).json({ success: true, message: 'Patient checked in successfully', data: attendance });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+// 🔥 ─────────────────────────────────────────────
+// 🔥 POST /api/manager/patient-attendance/check-out
+// 🔥 Mark a patient as checked-out (departed)
+// 🔥 ─────────────────────────────────────────────
+const checkOutPatient = async (req, res) => {
+    try {
+        const branchId = getManagerBranchId(req);
+        const { patientId } = req.body;
+
+        if (!patientId) {
+            return res.status(400).json({ success: false, message: 'Patient ID is required' });
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        // Find the active check-in record for today
+        const attendance = await PatientAttendance.findOne({
+            patientId,
+            branchId,
+            date: { $gte: today, $lt: tomorrow },
+            status: 'checked_in'
+        });
+
+        if (!attendance) {
+            return res.status(400).json({ success: false, message: 'No active check-in found for this patient today.' });
+        }
+
+        // Update record to checked-out
+        attendance.checkOutTime = new Date();
+        attendance.status = 'checked_out';
+        await attendance.save();
+
+        res.json({ success: true, message: 'Patient checked out successfully', data: attendance });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
 
 module.exports = {
     getPatients,
@@ -231,4 +390,7 @@ module.exports = {
     updatePatient,
     downloadPatientPDF,
     getPatientStats,
+    getTodayAttendance, // 🔥 Added export
+    checkInPatient,     // 🔥 Added export
+    checkOutPatient,    // 🔥 Added export
 };

@@ -22,7 +22,8 @@ import {
   ChevronRight,
   CheckCircle2,
   AlertCircle,
-  LogOut
+  LogOut,
+  Activity // Added an extra icon option if needed
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
@@ -44,6 +45,8 @@ import StaffManagementView from './views/StaffManagementView';
 import BillingManagementView from './views/BillingManagementView';
 import PatientsListView from './views/PatientsListView';
 import ServicesView from './views/ServicesView';
+// 🔥 NEW: Imported the Patient Attendance View
+import PatientAttendanceView from './views/PatientAttendanceView';
 
 // ── Lead API types & mappers ──
 type ApiLeadStatus = 'new' | 'contacted' | 'converted' | 'closed';
@@ -209,13 +212,14 @@ export default function ManagerDashboardApp() {
   const [isOnDuty, setIsOnDuty] = useState(false);
   const [checkinLoading, setCheckinLoading] = useState(false);
 
-  const resolveViewFromPath = (path: string): ViewType => {
+  // 🔥 UPDATED: Added 'attendance' to valid views
+  const resolveViewFromPath = (path: string): ViewType | string => {
     const segment = path.split('/')[2];
-    const validViews: ViewType[] = ['dashboard', 'onboarding', 'patients', 'leads', 'staff', 'billing', 'services'];
-    return validViews.includes(segment as ViewType) ? (segment as ViewType) : 'dashboard';
+    const validViews: string[] = ['dashboard', 'onboarding', 'patients', 'leads', 'staff', 'billing', 'services', 'attendance'];
+    return validViews.includes(segment) ? segment : 'dashboard';
   };
 
-  const navigateToView = (view: ViewType) => {
+  const navigateToView = (view: string) => {
     setIsSidebarOpen(false);
     router.push(`/manager/${view}`);
   };
@@ -424,9 +428,6 @@ export default function ManagerDashboardApp() {
   };
 
   const toggleStaffStatus = (id: string) => {
-    // Note: status toggling is not directly supported by current backend staff API
-    // but we can simulate it or wait for actual backend field.
-    // For now, let's keep local toggle or use update API if status is added.
     setStaff(prev => prev.map(s => s.id === id ? { ...s, status: s.status === 'Active' ? 'Inactive' : 'Active' } : s));
     const member = staff.find(s => s.id === id);
     addNotification(`Staff ${member?.name} status toggled locally`);
@@ -569,10 +570,12 @@ export default function ManagerDashboardApp() {
     }
   };
 
+  // 🔥 UPDATED: Added "attendance" to menu items
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'onboarding', label: 'Patient Onboarding', icon: UserPlus },
     { id: 'patients', label: 'Patients', icon: ClipboardList },
+    { id: 'attendance', label: 'Patient Attendance', icon: Calendar },
     { id: 'leads', label: 'Leads', icon: Users },
     { id: 'staff', label: 'Staff', icon: UserCheck },
     { id: 'services', label: 'Services', icon: Settings },
@@ -636,7 +639,7 @@ export default function ManagerDashboardApp() {
           {menuItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => navigateToView(item.id as ViewType)}
+              onClick={() => navigateToView(item.id)}
               title={isSidebarCollapsed ? item.label : undefined}
               className={cn(
                 "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-semibold text-sm tracking-tight",
@@ -792,6 +795,12 @@ export default function ManagerDashboardApp() {
               { currentView === 'patients' && (
               <PatientsListView patients={patients} billing={billing} onDelete={deletePatient} onUpdate={updatePatientRecord} onAddPayment={addBilling} isLoading={isLoadingPatients} />
               )}
+              
+              {/* 🔥 NEW: Added Patient Attendance View renderer */}
+              { currentView === 'attendance' && (
+                <PatientAttendanceView />
+              )}
+
               {currentView === 'leads' && (
                 <LeadManagementView
                   leads={leads}

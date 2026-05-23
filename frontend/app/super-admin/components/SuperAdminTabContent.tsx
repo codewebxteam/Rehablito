@@ -20,6 +20,10 @@ const StaffView = dynamic(() => import('../views/StaffView').then(m => ({ defaul
 const AttendanceView = dynamic(() => import('../views/AttendanceView').then(m => ({ default: m.AttendanceView })), {
   loading: () => <ViewSkeleton />,
 });
+// 🔥 NEW: Added dynamic import for Patient Attendance
+const PatientAttendanceView = dynamic(() => import('../views/PatientAttendanceView').then(m => ({ default: m.PatientAttendanceView })), {
+  loading: () => <ViewSkeleton />,
+});
 const FinanceView = dynamic(() => import('../views/FinanceView').then(m => ({ default: m.FinanceView })), {
   loading: () => <ViewSkeleton />,
 });
@@ -58,6 +62,7 @@ const SuperAdminTabContent = React.memo(function SuperAdminTabContent({ tab, ini
   if (tab === 'leads') return <LeadsView initialData={initialData} />;
   if (tab === 'staff') return <StaffView initialData={initialData} />;
   if (tab === 'attendance') return <AttendanceView initialData={initialData} />;
+  if (tab === 'patient-attendance') return <PatientAttendanceView />; // 🔥 NEW: Route to new view
   if (tab === 'finance') return <FinanceView initialData={initialData} />;
   if (tab === 'branches') return <BranchesView initialData={initialData} />;
   if (tab === 'services') return <ServicesView />;

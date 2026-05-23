@@ -6,10 +6,27 @@ const { authorize } = require('../middleware/role.middleware');
 // Controllers
 const { getBranches, getBranch, createBranch, updateBranch, deleteBranch } = require('../controllers/branch.controller');
 const { getLeads, createLead, updateLead, getLeadStats } = require('../controllers/lead.controller');
-const { getPatients, createPatient, updatePatient, getPatientStats } = require('../controllers/patient.controller');
+const { 
+    getPatients, 
+    createPatient, 
+    updatePatient, 
+    getPatientStats,
+    getGlobalPatientAttendance // 🔥 NEW: Imported Attendance Controller
+} = require('../controllers/patient.controller');
 const { getFees, createFee, getFeeSummary } = require('../controllers/fee.controller');
 const { getDashboardData } = require('../controllers/dashboard.controller');
-const { getStaff, createStaff, updateStaff, deleteStaff, transferStaff, getAttendance, markAttendance, getAttendanceStats } = require('../controllers/staff.controller');
+const { 
+    getStaff, 
+    createStaff, 
+    updateStaff, 
+    deleteStaff, 
+    transferStaff, 
+    getAttendance, 
+    markAttendance, 
+    getAttendanceStats,
+    getDesignations,    // 🔥 NEW: Imported Designation function
+    createDesignation   // 🔥 NEW: Imported Designation function
+} = require('../controllers/staff.controller');
 const { getServices, createService, updateService, deleteService } = require('../controllers/service.controller');
 
 // All routes require super_admin
@@ -32,11 +49,15 @@ router.get('/patients/stats', getPatientStats);
 router.route('/patients').get(getPatients).post(createPatient);
 router.route('/patients/:id').put(updatePatient);
 
+// 🔥 NEW: Patient Attendance 
+router.get('/patient-attendance', getGlobalPatientAttendance);
+
 // ── Fees ──
 router.get('/fees/summary', getFeeSummary);
 router.route('/fees').get(getFees).post(createFee);
 
-// ── Staff & Attendance ──
+// ── Staff, Designations & Attendance ──
+router.route('/designations').get(getDesignations).post(createDesignation); // 🔥 NEW: Designations route
 router.route('/staff').get(getStaff).post(createStaff);
 router.route('/staff/:id').put(updateStaff).delete(deleteStaff);
 router.put('/staff/:id/transfer', transferStaff);

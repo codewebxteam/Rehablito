@@ -14,6 +14,9 @@ const {
     updatePatient,
     downloadPatientPDF,
     getPatientStats,
+    getTodayAttendance, // 🔥 NEW
+    checkInPatient,     // 🔥 NEW
+    checkOutPatient,    // 🔥 NEW
 } = require('../controllers/manager.patient.controller');
 
 const {
@@ -66,6 +69,7 @@ router.route('/services').get(getServices).post(createService);
 // DELETE /api/manager/services/:id  → Delete service (branch-scoped)
 router.route('/services/:id').put(updateService).delete(deleteService);
 
+
 // ════════════════════════════════════════════════
 // ██  Patient Onboarding
 // ════════════════════════════════════════════════
@@ -95,6 +99,21 @@ router.route('/patients/:id').get(getPatient).put(updatePatient).delete(async (r
 // GET    /api/manager/patients/:id/pdf → Download registration PDF
 router.get('/patients/:id/pdf', downloadPatientPDF);
 
+
+// 🔥 ════════════════════════════════════════════════
+// 🔥 ██  Patient Attendance
+// 🔥 ════════════════════════════════════════════════
+
+// GET    /api/manager/patient-attendance/today      → Get today's attendance summary and list
+router.get('/patient-attendance/today', getTodayAttendance);
+
+// POST   /api/manager/patient-attendance/check-in   → Mark patient as arrived
+router.post('/patient-attendance/check-in', checkInPatient);
+
+// POST   /api/manager/patient-attendance/check-out  → Mark patient as departed
+router.post('/patient-attendance/check-out', checkOutPatient);
+
+
 // ════════════════════════════════════════════════
 // ██  Lead Management (Phone Masking Applied)
 // ════════════════════════════════════════════════
@@ -115,6 +134,7 @@ router.post('/leads/:id/notes', addLeadNote);
 
 // PUT    /api/manager/leads/:id/convert → Convert lead to patient
 router.put('/leads/:id/convert', convertLeadToPatient);
+
 
 // ════════════════════════════════════════════════
 // ██  Staff Management & Attendance
@@ -138,6 +158,7 @@ router.get('/staff/:id/attendance', getStaffAttendanceHistory);
 // GET    /api/manager/attendance        → Branch attendance for a date
 // POST   /api/manager/attendance        → Mark attendance
 router.route('/attendance').get(getBranchAttendance).post(markAttendance);
+
 
 // ════════════════════════════════════════════════
 // ██  Billing & Invoicing
