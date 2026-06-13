@@ -107,6 +107,13 @@ export default async function SuperAdminTabPage({ params }: SuperAdminTabPagePro
         };
         break;
       }
+      case 'feedbacks': {
+        const branchesRes = await fetchBranches();
+        initialData = {
+          branches: branchesRes.success ? branchesRes.data : [],
+        };
+        break;
+      }
       case 'settings':
         // No server data needed
         break;

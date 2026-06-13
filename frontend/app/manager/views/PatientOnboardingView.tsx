@@ -125,7 +125,9 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
     diagnosis: '',
     address: '',
     branchId: '',
-    phone: ''
+    phone: '',
+    parentEmail: '',    // 🔥 NEW
+    parentPassword: ''  // 🔥 NEW
   });
   
   // Changed to any[] to hold full branch data (address, phone, email) if available
@@ -168,6 +170,12 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
     } else if (!/^\d{10}$/.test(formData.phone)) {
       newErrors.phone = 'Enter exactly 10 digits';
     }
+    if (formData.parentEmail && !formData.parentPassword) {
+      newErrors.parentPassword = 'Password required if creating parent portal';
+    }
+    if (formData.parentPassword && !formData.parentEmail) {
+      newErrors.parentEmail = 'Email required if creating parent portal';
+    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -190,6 +198,8 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
         address: formData.address,
         branchId: formData.branchId,
         parentPhone: `+91${formData.phone}`,
+        parentEmail: formData.parentEmail || undefined,       // 🔥 NEW
+        parentPassword: formData.parentPassword || undefined, // 🔥 NEW
       };
       
       const { data } = await api.post('/manager/patients', payload);
@@ -226,7 +236,7 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
       setLastOnboarded(pdfPayload);
       
       const newId = `RX-${Date.now().toString().slice(-6)}`;
-      setFormData({ patientId: newId, name: '', parentName: '', age: '', gender: '', serviceId: '', therapyType: '', diagnosis: '', address: '', branchId: '', phone: '' });
+      setFormData({ patientId: newId, name: '', parentName: '', age: '', gender: '', serviceId: '', therapyType: '', diagnosis: '', address: '', branchId: '', phone: '', parentEmail: '', parentPassword: '' });
 
       const doc = await generatePatientPDF(pdfPayload as any, 'Patient Onboarding Record');
       doc.save(`Onboarding_${newPatient.name.replace(/\s/g, '_')}.pdf`);
@@ -304,6 +314,44 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
                   placeholder="e.g. Rajesh Sharma"
                 />
                 {errors.parentName && <p className="text-[10px] text-error font-medium flex items-center gap-1 mt-1 px-1"><AlertCircle size={14} />{errors.parentName}</p>}
+              </div>
+            </div>
+
+            {/* Parent Portal Setup - Optional */}
+            <div className="p-5 rounded-2xl bg-brand-sage/5 border border-brand-sage/20 space-y-4">
+              <div className="flex items-center gap-3 mb-2">
+                <ShieldCheck className="w-5 h-5 text-brand-sage" />
+                <h3 className="text-sm font-bold text-on-background">Parent Portal Account <span className="text-xs font-medium text-on-surface-variant ml-2">(Optional)</span></h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Parent Email</label>
+                  <input
+                    type="email"
+                    value={formData.parentEmail}
+                    onChange={e => setFormData(prev => ({ ...prev, parentEmail: e.target.value }))}
+                    className={cn(
+                      "w-full bg-white border rounded-2xl px-5 py-4 focus:ring-4 focus:ring-brand-sage/10 focus:border-brand-sage outline-none transition-all",
+                      errors.parentEmail ? "border-error" : "border-outline-variant/30"
+                    )}
+                    placeholder="parent@example.com"
+                  />
+                  {errors.parentEmail && <p className="text-[10px] text-error font-medium flex items-center gap-1 mt-1 px-1"><AlertCircle size={14} />{errors.parentEmail}</p>}
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Set Password</label>
+                  <input
+                    type="password"
+                    value={formData.parentPassword}
+                    onChange={e => setFormData(prev => ({ ...prev, parentPassword: e.target.value }))}
+                    className={cn(
+                      "w-full bg-white border rounded-2xl px-5 py-4 focus:ring-4 focus:ring-brand-sage/10 focus:border-brand-sage outline-none transition-all",
+                      errors.parentPassword ? "border-error" : "border-outline-variant/30"
+                    )}
+                    placeholder="Minimum 6 characters"
+                  />
+                  {errors.parentPassword && <p className="text-[10px] text-error font-medium flex items-center gap-1 mt-1 px-1"><AlertCircle size={14} />{errors.parentPassword}</p>}
+                </div>
               </div>
             </div>
 

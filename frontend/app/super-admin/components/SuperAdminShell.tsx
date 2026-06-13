@@ -62,6 +62,10 @@ function ShellInner({ children }: SuperAdminShellProps) {
       title: 'Therapy Services',
       subtitle: 'Manage common therapy services and dynamic base pricing'
     },
+    feedbacks: {
+      title: 'Feedbacks',
+      subtitle: 'Manage complaints, requests, and feedback'
+    },
     settings: {
       title: 'System Settings',
       subtitle: 'Configure platform-wide preferences'

@@ -8,7 +8,7 @@ import { Stethoscope } from 'lucide-react';
 
 interface RoleGuardProps {
   children: React.ReactNode;
-  allowedRoles: ('super_admin' | 'branch_manager' | 'staff' | 'user')[];
+  allowedRoles: ('super_admin' | 'branch_manager' | 'staff' | 'user' | 'parent')[];
 }
 
 export const RoleGuard = ({ children, allowedRoles }: RoleGuardProps) => {
@@ -33,6 +33,9 @@ export const RoleGuard = ({ children, allowedRoles }: RoleGuardProps) => {
             break;
           case 'staff':
             router.push('/staff');
+            break;
+          case 'parent':
+            router.push('/parent');
             break;
           default:
             router.push('/');

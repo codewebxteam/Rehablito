@@ -127,7 +127,7 @@ const RevenueTrends = React.memo(({ monthlyTrend = [], isLoading = false }: { mo
         {data.length === 0 ? (
           <div className="h-full flex items-center justify-center text-on-surface-variant/30 text-sm font-medium">No data yet</div>
         ) : (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <AreaChart data={data} margin={{ top: 5, right: 5, left: -28, bottom: 0 }}>
               <defs>
                 <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
@@ -173,7 +173,7 @@ const PatientPieChart = React.memo(({ patient, isLoading }: { patient: PatientSt
         <span className="text-xs font-black text-primary bg-primary/5 px-2.5 py-1 rounded-full">{patient?.total || 0} Total</span>
       </div>
       <div className="h-36">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <PieChart>
                 <Pie data={data} cx="50%" cy="50%" innerRadius={42} outerRadius={68} paddingAngle={3} dataKey="value" labelLine={false} label={renderLabel}>
                   {data.map((entry, index) => <Cell key={index} fill={entry.color} />)}
@@ -270,7 +270,7 @@ const PaymentPieChart = React.memo(({ fee, isLoading }: { fee: FeeSummary | null
       ) : (
         <>
           <div className="h-36">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <PieChart>
                 <Pie data={data} cx="50%" cy="50%" outerRadius={65} paddingAngle={4} dataKey="value" strokeWidth={0}>
                   {data.map((entry, index) => <Cell key={index} fill={entry.color} />)}
@@ -359,7 +359,7 @@ const StaffAttendance = React.memo(({ staff, isLoading }: { staff: AttendanceSta
       ) : (
         <div className="flex items-center gap-4">
           <div className="h-28 w-28 shrink-0">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <RadialBarChart cx="50%" cy="50%" innerRadius="68%" outerRadius="85%" data={radialData} startAngle={90} endAngle={-270} barSize={10}>
                 <RadialBar background={{ fill: '#f8fafc' }} dataKey="value" cornerRadius={10} />
                 <text x="50%" y="50%" textAnchor="middle" dominantBaseline="central" fill="#0f172a" fontSize={22} fontWeight={900}>{pct}%</text>

@@ -75,4 +75,4 @@ export interface InvoiceItem {
 }
 
 // 🔥 UPDATED: Added 'attendance' to the ViewType union
-export type ViewType = 'dashboard' | 'onboarding' | 'patients' | 'leads' | 'staff' | 'billing' | 'services' | 'attendance';
+export type ViewType = 'dashboard' | 'onboarding' | 'patients' | 'leads' | 'staff' | 'billing' | 'services' | 'attendance' | 'feedbacks';

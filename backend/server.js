@@ -24,17 +24,24 @@ const protectedRoutes = require('./routes/protected.routes');
 const adminRoutes = require('./routes/admin.routes');
 const managerRoutes = require('./routes/manager.routes');
 const staffRoutes = require('./routes/staff.routes');
+const parentRoutes = require('./routes/parent.routes'); // 🔥 NEW: Parent Portal routes
+const paymentRoutes = require('./routes/payment.routes'); // NEW
 
 // Mount routers (specific paths first, generic last)
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/manager', managerRoutes);
 app.use('/api/staff', staffRoutes);
+app.use('/api/parent', parentRoutes); // 🔥 NEW: Parent Portal routes
+app.use('/api/payments', paymentRoutes); // NEW
 app.use('/api', protectedRoutes);
 
 app.get('/', (req, res) => {
     res.send('Rehablito API is running...');
 });
+
+// Initialize Cron Jobs
+require('./cron/billingCron');
 
 const PORT = process.env.PORT || 5000;
 

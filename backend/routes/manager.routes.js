@@ -5,6 +5,7 @@ const { authorize } = require('../middleware/role.middleware');
 
 const { getBranches } = require('../controllers/branch.controller');
 const { getServices, createService, updateService, deleteService } = require('../controllers/service.controller');
+const { sendMessage } = require('../controllers/message.controller');
 
 // ── Manager Controllers ──
 const {
@@ -18,6 +19,11 @@ const {
     checkInPatient,     // 🔥 NEW
     checkOutPatient,    // 🔥 NEW
 } = require('../controllers/manager.patient.controller');
+
+const {
+    getAllFeedbacks,
+    replyToFeedback
+} = require('../controllers/feedback.controller');
 
 const {
     getLeads,
@@ -115,6 +121,12 @@ router.post('/patient-attendance/check-out', checkOutPatient);
 
 
 // ════════════════════════════════════════════════
+// ██  Messaging
+// ════════════════════════════════════════════════
+router.post('/messages', sendMessage);
+
+
+// ════════════════════════════════════════════════
 // ██  Lead Management (Phone Masking Applied)
 // ════════════════════════════════════════════════
 
@@ -180,5 +192,15 @@ router.route('/billing/:id').get(getPayment).put(updatePayment);
 
 // GET    /api/manager/billing/:id/invoice → Download invoice/receipt PDF
 router.get('/billing/:id/invoice', downloadInvoice);
+
+// ════════════════════════════════════════════════
+// ██  Parent Feedback Management
+// ════════════════════════════════════════════════
+
+// GET    /api/manager/feedbacks         → List feedbacks for manager's branch
+router.get('/feedbacks', getAllFeedbacks);
+
+// PUT    /api/manager/feedbacks/:id     → Reply to feedback and update status
+router.put('/feedbacks/:id', replyToFeedback);
 
 module.exports = router;

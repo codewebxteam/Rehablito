@@ -8,6 +8,7 @@ export const SUPER_ADMIN_TABS = [
   'finance',
   'branches',
   'services',
+  'feedbacks',
   'settings'
 ] as const;
 
@@ -23,6 +24,7 @@ export const TAB_LABELS: Record<SuperAdminTab, string> = {
   finance: 'Finance',
   branches: 'Branches',
   services: 'Services',
+  feedbacks: 'Feedbacks',
   settings: 'Settings'
 };
 

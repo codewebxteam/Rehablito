@@ -23,7 +23,7 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['super_admin', 'branch_manager', 'staff'],
+        enum: ['super_admin', 'branch_manager', 'staff', 'parent'],
         default: 'staff'
     },
     // 🔥 NEW: Dynamic Designation Field (Physiotherapist, Speech Therapist, etc.)
@@ -31,7 +31,13 @@ const userSchema = new mongoose.Schema({
         type: String,
         trim: true
     },
-    // Required fields for specific roles
+    // 🔥 Parent Portal: Link parent user to their child's patient record
+    patientId: {
+        type: mongoose.Schema.ObjectId,
+        ref: 'Patient',
+        default: null
+    },
+    // Required fields for specific roles (not required for parent)
     branchId: {
         type: mongoose.Schema.ObjectId,
         ref: 'Branch',

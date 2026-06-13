@@ -37,7 +37,8 @@ interface ApiPatient {
   address?: string;
   therapyType?: any;
   age: number;
-  condition: string;
+  condition?: string;
+  diagnosis?: string;
   branchId?: { _id: string; name: string } | null;
   status: 'active' | 'discharged' | 'on_hold';
   admissionDate: string;
@@ -72,7 +73,7 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
     address: p.address,
     therapyType: Array.isArray(p.therapyType) ? p.therapyType : (typeof p.therapyType === 'string' && p.therapyType ? [p.therapyType] : []),
     age: p.age,
-    condition: p.condition,
+    condition: p.diagnosis || p.condition || '',
     branch: p.branchId?._id || '',
     status: (p.status === 'active' ? 'Active' : p.status === 'discharged' ? 'Discharged' : 'Critical') as Patient['status'],
     lastVisit: p.admissionDate ? new Date(p.admissionDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A',
@@ -264,7 +265,7 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
 
   const handleSaveEditedPatient = async () => {
     if (!editingPatient || !editingPatient._id) return;
-    if (!(editingPatient.name || "").trim() || !(editingPatient.condition || "").trim() || !(editingPatient.branch || "").trim() || editingPatient.age <= 0) {
+    if (!(editingPatient.name || "").trim() || !(editingPatient.branch || "").trim() || editingPatient.age <= 0) {
       return;
     }
     if (editingPatient.status === 'Discharged') {
@@ -279,18 +280,27 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
     }
 
     try {
+      const calculatedTotalFee = services
+        .filter(service => {
+          const val = service.name.toLowerCase().replace(/ /g, '_');
+          return (editingPatient.therapyType || []).includes(val);
+        })
+        .reduce((sum, s) => sum + s.price, 0);
+
       const payload = {
         name: editingPatient.name,
         age: editingPatient.age,
-        condition: editingPatient.condition,
+        diagnosis: editingPatient.condition || '',
         branchId: editingPatient.branch,
         therapyType: editingPatient.therapyType || [],
+        totalFee: calculatedTotalFee,
         status: editingPatient.status === 'Active' ? 'active' : editingPatient.status === 'Discharged' ? 'discharged' : 'on_hold'
       };
       const { data } = await api.put(`/admin/patients/${editingPatient._id}`, payload);
       if (data.success) {
         toast.success('Patient updated successfully');
-        setPatients(prev => prev.map(patient => (patient._id === editingPatient._id ? editingPatient : patient)));
+        const updatedPatient = transformApiPatients([data.data])[0];
+        setPatients(prev => prev.map(patient => (patient._id === updatedPatient._id ? updatedPatient : patient)));
         setEditingPatient(null);
         setActiveMenu(null);
       }
@@ -879,6 +889,20 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
                       })
                     )}
                   </div>
+                  {Array.isArray(editingPatient.therapyType) && editingPatient.therapyType.length > 0 && (
+                    <div className="flex items-center justify-between px-3 py-2 mt-3 rounded-xl bg-primary/10 border border-primary/20">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-primary">Recalculated Total Fee</span>
+                      <span className="text-sm font-black text-on-surface">
+                        ₹{services
+                          .filter(service => {
+                            const val = service.name.toLowerCase().replace(/ /g, '_');
+                            return editingPatient.therapyType?.includes(val);
+                          })
+                          .reduce((sum, s) => sum + s.price, 0)
+                          .toLocaleString()}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 

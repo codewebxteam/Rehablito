@@ -12,8 +12,9 @@ interface User {
   email: string;
   phone?: string;
   mobile?: string;
-  role: 'super_admin' | 'branch_manager' | 'staff' | 'user';
+  role: 'super_admin' | 'branch_manager' | 'staff' | 'user' | 'parent';
   branchId?: string;
+  patientId?: string; // 🔥 NEW: For parent role
   staffId?: string;
   photoUrl?: string;
 }
@@ -24,6 +25,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   adminLogin: (email: string, password: string) => Promise<void>;
   managerLogin: (email: string, password: string) => Promise<void>;
+  parentLogin: (email: string, password: string) => Promise<void>; // 🔥 NEW
   requestOtp: (staffId: string, mobileNumber: string) => Promise<boolean>;
   verifyOtp: (staffId: string, otp: string) => Promise<void>;
   logout: () => void;
@@ -73,6 +75,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         break;
       case 'staff':
         router.push('/staff');
+        break;
+      case 'parent':
+        router.push('/parent');
         break;
       default:
         router.push('/');
@@ -136,6 +141,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const parentLogin = async (email: string, password: string) => {
+    try {
+      setLoading(true);
+      const { data } = await api.post('/auth/parent/login', { email, password });
+      if (data.success) {
+        Cookies.set('rehablito_token', data.token, { expires: 30, path: '/' });
+        setUser(data.user);
+        toast.success(`Welcome to Parents Portal, ${data.user.name}!`);
+        router.push('/parent');
+      }
+    } catch (error: any) {
+      const message = error.response?.data?.message || 'Invalid parent credentials.';
+      toast.error(message);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const requestOtp = async (staffId: string, mobileNumber: string) => {
     try {
       const { data } = await api.post('/auth/request-otp', { staffId, mobileNumber });
@@ -179,7 +203,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, adminLogin, managerLogin, requestOtp, verifyOtp, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, loading, login, adminLogin, managerLogin, parentLogin, requestOtp, verifyOtp, logout, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   );

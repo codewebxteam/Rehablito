@@ -1,7 +1,9 @@
 const Patient = require('../models/Patient');
 const Branch = require('../models/Branch');
 const Lead = require('../models/Lead');
+const User = require('../models/User'); // 🔥 Parent Portal: Auto-create parent accounts
 const PatientAttendance = require('../models/PatientAttendance'); // 🔥 NEW: Added Attendance Model
+const FeePayment = require('../models/FeePayment'); // 🔥 NEW: Added FeePayment Model
 const mongoose = require('mongoose');
 const { generatePatientRegistrationPDF } = require('../utils/pdfGenerator');
 
@@ -102,12 +104,46 @@ const createPatient = async (req, res) => {
             await Lead.findByIdAndUpdate(patient.leadId, { status: 'converted' });
         }
 
+        // 🔥 Parent Portal: Auto-create parent account if parentEmail + parentPassword are provided
+        let parentAccount = null;
+        const { parentEmail, parentPassword } = req.body;
+        if (parentEmail && parentPassword) {
+            // Check if parent user already exists
+            const existingParent = await User.findOne({ email: parentEmail });
+            if (!existingParent) {
+                parentAccount = await User.create({
+                    name: req.body.parentName || patient.name + "'s Parent",
+                    email: parentEmail,
+                    password: parentPassword,
+                    role: 'parent',
+                    patientId: patient._id,
+                    mobileNumber: req.body.parentPhone || undefined,
+                });
+                console.log(`✅ Parent account created: ${parentEmail} for patient ${patient.name}`);
+            } else {
+                console.log(`⚠️ Parent email ${parentEmail} already exists, skipping account creation.`);
+            }
+        }
+
         // Populate for response
         const populatedPatient = await Patient.findById(patient._id)
             .populate('branchId', 'name address city phone email')
             .populate('assignedTherapist', 'name email');
 
-        res.status(201).json({ success: true, data: populatedPatient });
+        // 🔥 Auto-create initial FeePayment
+        if (patient.totalFee > 0) {
+            await FeePayment.create({
+                patientId: patient._id,
+                branchId: patient.branchId,
+                amount: patient.totalFee,
+                dueAmount: patient.totalFee,
+                status: 'pending',
+                description: 'Initial Therapy Fee',
+                paymentDate: new Date()
+            });
+        }
+
+        res.status(201).json({ success: true, data: populatedPatient, parentAccountCreated: !!parentAccount });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
     }
@@ -124,6 +160,14 @@ const updatePatient = async (req, res) => {
         // Prevent manager from changing the branchId
         delete req.body.branchId;
 
+        const oldPatient = await Patient.findOne({ _id: req.params.id, branchId });
+        if (!oldPatient) {
+            return res.status(404).json({ success: false, message: 'Patient not found in your branch' });
+        }
+
+        const oldFee = oldPatient.totalFee || 0;
+        const newFee = req.body.totalFee !== undefined ? req.body.totalFee : oldFee;
+
         const patient = await Patient.findOneAndUpdate(
             { _id: req.params.id, branchId },
             req.body,
@@ -132,8 +176,18 @@ const updatePatient = async (req, res) => {
             .populate('branchId', 'name')
             .populate('assignedTherapist', 'name email');
 
-        if (!patient) {
-            return res.status(404).json({ success: false, message: 'Patient not found in your branch' });
+        // Check if fee increased (due to new therapy)
+        if (newFee > oldFee) {
+            const difference = newFee - oldFee;
+            await FeePayment.create({
+                patientId: patient._id,
+                branchId: patient.branchId,
+                amount: difference,
+                dueAmount: difference,
+                status: 'pending',
+                description: 'Additional Therapy Added',
+                paymentDate: new Date()
+            });
         }
 
         res.json({ success: true, data: patient });

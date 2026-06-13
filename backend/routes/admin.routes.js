@@ -28,6 +28,7 @@ const {
     createDesignation   // 🔥 NEW: Imported Designation function
 } = require('../controllers/staff.controller');
 const { getServices, createService, updateService, deleteService } = require('../controllers/service.controller');
+const { getAllFeedbacks, replyToFeedback } = require('../controllers/feedback.controller');
 
 // All routes require super_admin
 router.use(protect, authorize('super_admin'));
@@ -67,5 +68,9 @@ router.route('/attendance').get(getAttendance).post(markAttendance);
 // ── Services ──
 router.route('/services').get(getServices).post(createService);
 router.route('/services/:id').put(updateService).delete(deleteService);
+
+// ── Feedbacks ──
+router.get('/feedbacks', getAllFeedbacks);
+router.put('/feedbacks/:id', replyToFeedback);
 
 module.exports = router;

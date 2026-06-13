@@ -20,6 +20,12 @@ const feePaymentSchema = new mongoose.Schema({
     receiptNumber: { type: String },
     collectedBy: { type: mongoose.Schema.ObjectId, ref: 'User' },
     description: { type: String },
+    transactions: [{
+        amountPaid: Number,
+        date: { type: Date, default: Date.now },
+        method: String,
+        transactionId: String
+    }]
 }, { timestamps: true });
 
 // Auto-generate receipt number

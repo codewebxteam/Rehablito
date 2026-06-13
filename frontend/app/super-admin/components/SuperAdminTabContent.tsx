@@ -36,6 +36,9 @@ const ServicesView = dynamic(() => import('../views/ServicesView').then(m => ({ 
 const SettingsView = dynamic(() => import('../views/SettingsView').then(m => ({ default: m.SettingsView })), {
   loading: () => <ViewSkeleton />,
 });
+const FeedbackView = dynamic(() => import('../views/FeedbackView'), {
+  loading: () => <ViewSkeleton />,
+});
 
 function ViewSkeleton() {
   return (
@@ -67,6 +70,7 @@ const SuperAdminTabContent = React.memo(function SuperAdminTabContent({ tab, ini
   if (tab === 'branches') return <BranchesView initialData={initialData} />;
   if (tab === 'services') return <ServicesView />;
   if (tab === 'settings') return <SettingsView />;
+  if (tab === 'feedbacks') return <FeedbackView branches={initialData?.branches || []} />;
 
   return null;
 });

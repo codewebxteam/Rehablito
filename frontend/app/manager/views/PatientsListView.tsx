@@ -301,7 +301,7 @@ function QuickPayModal({ patient, currentDue, currentPaid, onClose, onSave }: { 
 // ── Edit Modal ──
 function EditModal({ patient, billing, onClose, onSave }: { patient: Patient; billing: BillingRecord[]; onClose: () => void; onSave: (p: Patient) => void }) {
   const [form, setForm] = useState({ ...patient });
-  const set = (k: keyof Patient, v: string | number) => {
+  const set = (k: keyof Patient, v: any) => {
     if (k === 'status' && v === 'Discharged') {
       const bills = billing.filter(b => b.patientId === patient.id || b.patientName.toLowerCase() === patient.name.toLowerCase());
       const paid = bills.reduce((s, b) => s + b.amountPaid, 0);
@@ -409,21 +409,41 @@ function EditModal({ patient, billing, onClose, onSave }: { patient: Patient; bi
                   <option value="other">Other</option>
                 </select>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Therapy</label>
-                <select value={form.therapyType || ''} onChange={e => set('therapyType', e.target.value)}
-                  className="w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none appearance-none bg-surface-container-lowest">
-                  <option value="">Select therapy</option>
-                  {THERAPY_OPTIONS.map(([val, lbl]) => <option key={val} value={val}>{lbl}</option>)}
-                </select>
+              <div className="space-y-1.5 col-span-2">
+                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Therapy (Multiple)</label>
+                <div className="flex flex-wrap gap-2">
+                  {THERAPY_OPTIONS.map(([val, lbl]) => {
+                    const isSelected = Array.isArray(form.therapyType) ? form.therapyType.includes(val) : form.therapyType === val;
+                    return (
+                      <label key={val} className={cn("flex items-center gap-2 px-3 py-2 border rounded-xl cursor-pointer text-sm font-semibold transition-colors", isSelected ? "bg-primary/10 border-primary text-primary" : "bg-surface-container-lowest border-outline-variant/30 text-on-surface-variant hover:bg-surface-container-low")}>
+                        <input type="checkbox" className="hidden" checked={isSelected} onChange={(e) => {
+                          const currentArr = Array.isArray(form.therapyType) ? form.therapyType : (form.therapyType ? [form.therapyType] : []);
+                          if (e.target.checked) {
+                            set('therapyType', [...currentArr, val] as any);
+                          } else {
+                            set('therapyType', currentArr.filter((t: string) => t !== val) as any);
+                          }
+                        }} />
+                        {lbl}
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Address</label>
-              <input type="text" value={form.address || ''} onChange={e => set('address', e.target.value)}
-                placeholder="Address"
-                className="w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all bg-surface-container-lowest" />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Address</label>
+                <input type="text" value={form.address || ''} onChange={e => set('address', e.target.value)}
+                  placeholder="Address"
+                  className="w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all bg-surface-container-lowest" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Total Fee (₹)</label>
+                <input type="number" value={form.totalFee || 0} onChange={e => set('totalFee', parseInt(e.target.value) || 0)}
+                  className="w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all bg-surface-container-lowest" />
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -618,9 +638,13 @@ export default function PatientsListView({ patients, billing, onDelete, onUpdate
                   {patient.therapyType && (
                     <div>
                       <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider mb-1 block">Therapy</span>
-                      <p className="text-sm font-semibold text-secondary bg-secondary/5 inline-block px-2.5 py-1 rounded-md">
-                        {THERAPY_LABELS[patient.therapyType] || patient.therapyType}
-                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {(Array.isArray(patient.therapyType) ? patient.therapyType : [patient.therapyType]).map((t: string) => (
+                          <span key={t} className="text-sm font-semibold text-secondary bg-secondary/5 inline-block px-2.5 py-1 rounded-md">
+                            {THERAPY_LABELS[t] || t}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   )}
                   <div>

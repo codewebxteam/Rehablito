@@ -134,6 +134,28 @@ const managerLogin = async (req, res) => {
     }
 };
 
+// @desc    Parent-only login
+// @route   POST /api/auth/parent/login
+// @access  Public
+const parentLogin = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const user = await User.findOne({ email, role: 'parent' }).select('+password');
+
+        if (!user || !(await user.matchPassword(password))) {
+            return res.status(401).json({ success: false, message: 'Invalid parent credentials' });
+        }
+
+        res.json({
+            success: true,
+            token: generateToken(user._id),
+            user: { id: user._id, name: user.name, email: user.email, role: user.role, phone: user.mobileNumber, patientId: user.patientId }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 // @desc    Get current user
 // @route   GET /api/auth/me
 // @access  Private
@@ -145,7 +167,7 @@ const getMe = async (req, res) => {
             return res.status(404).json({ success: false, message: 'User not found' });
         }
 
-        res.json({
+        const response = {
             id: user._id,
             name: user.name,
             email: user.email,
@@ -153,7 +175,14 @@ const getMe = async (req, res) => {
             role: user.role,
             branchId: user.branchId,
             staffId: user.staffId
-        });
+        };
+
+        // Include patientId for parent users
+        if (user.role === 'parent') {
+            response.patientId = user.patientId;
+        }
+
+        res.json(response);
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
@@ -270,6 +299,7 @@ module.exports = {
     login,
     adminLogin,
     managerLogin,
+    parentLogin,
     getMe,
     requestOtp,
     verifyOtp,

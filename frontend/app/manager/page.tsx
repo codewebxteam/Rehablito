@@ -23,7 +23,8 @@ import {
   CheckCircle2,
   AlertCircle,
   LogOut,
-  Activity // Added an extra icon option if needed
+  Activity, // Added an extra icon option if needed
+  MessageSquare
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
@@ -47,6 +48,7 @@ import PatientsListView from './views/PatientsListView';
 import ServicesView from './views/ServicesView';
 // 🔥 NEW: Imported the Patient Attendance View
 import PatientAttendanceView from './views/PatientAttendanceView';
+import FeedbackManagementView from './views/FeedbackManagementView'; // 🔥 NEW: Parent Feedbacks
 
 // ── Lead API types & mappers ──
 type ApiLeadStatus = 'new' | 'contacted' | 'converted' | 'closed';
@@ -212,10 +214,10 @@ export default function ManagerDashboardApp() {
   const [isOnDuty, setIsOnDuty] = useState(false);
   const [checkinLoading, setCheckinLoading] = useState(false);
 
-  // 🔥 UPDATED: Added 'attendance' to valid views
+  // 🔥 UPDATED: Added 'attendance' & 'feedbacks' to valid views
   const resolveViewFromPath = (path: string): ViewType | string => {
     const segment = path.split('/')[2];
-    const validViews: string[] = ['dashboard', 'onboarding', 'patients', 'leads', 'staff', 'billing', 'services', 'attendance'];
+    const validViews: string[] = ['dashboard', 'onboarding', 'patients', 'leads', 'staff', 'billing', 'services', 'attendance', 'feedbacks'];
     return validViews.includes(segment) ? segment : 'dashboard';
   };
 
@@ -580,6 +582,7 @@ export default function ManagerDashboardApp() {
     { id: 'staff', label: 'Staff', icon: UserCheck },
     { id: 'services', label: 'Services', icon: Settings },
     { id: 'billing', label: 'Billing', icon: CreditCard },
+    { id: 'feedbacks', label: 'Feedbacks', icon: MessageSquare },
   ];
 
   return (
@@ -796,7 +799,6 @@ export default function ManagerDashboardApp() {
               <PatientsListView patients={patients} billing={billing} onDelete={deletePatient} onUpdate={updatePatientRecord} onAddPayment={addBilling} isLoading={isLoadingPatients} />
               )}
               
-              {/* 🔥 NEW: Added Patient Attendance View renderer */}
               { currentView === 'attendance' && (
                 <PatientAttendanceView />
               )}
@@ -832,6 +834,7 @@ export default function ManagerDashboardApp() {
                   isLoading={isLoadingBilling}
                 />
               )}
+              {currentView === 'feedbacks' && <FeedbackManagementView />}
             </motion.div>
           </AnimatePresence>
         </div>
