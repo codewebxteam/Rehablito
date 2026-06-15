@@ -13,6 +13,7 @@ export interface Patient {
   totalFee?: number;
   serviceId?: string;
   status?: string;
+  parentPassword?: string;
 }
 
 export interface Lead {

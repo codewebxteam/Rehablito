@@ -371,6 +371,7 @@ function EditModal({ patient, billing, onClose, onSave }: { patient: Patient; bi
                 { label: 'Parent Name', key: 'parentName', type: 'text', placeholder: 'Parent name' },
                 { label: 'Phone Number', key: 'phone', type: 'tel', placeholder: '+91XXXXXXXXXX', masked: true },
                 { label: 'Age', key: 'age', type: 'number', placeholder: 'Age' },
+                { label: 'New Parent Password', key: 'parentPassword', type: 'text', placeholder: '(Optional) New password' },
               ].map(({ label, key, type, placeholder, masked }) => (
                 <div key={key} className="space-y-1.5">
                   <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">{label}</label>
@@ -550,7 +551,8 @@ export default function PatientsListView({ patients, billing, onDelete, onUpdate
 
   const filtered = patients.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||
-    (p.parentName || '').toLowerCase().includes(search.toLowerCase())
+    (p.parentName || '').toLowerCase().includes(search.toLowerCase()) ||
+    (p.patientId || p.id || '').toLowerCase().includes(search.toLowerCase())
   );
 
   const getBillingStats = (patient: Patient) => {

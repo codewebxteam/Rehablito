@@ -47,6 +47,7 @@ interface ApiAttendance {
 interface AttendanceRow {
   userId: string;
   name: string;
+  role: 'staff' | 'branch_manager';
   designation?: string; // 🔥 Added
   branchId: string;
   checkIn: string;
@@ -70,6 +71,7 @@ export const AttendanceView = ({ initialData }: { initialData?: any }) => {
   const [branches, setBranches] = useState<Branch[]>(initialData?.branches || []);
   const [date, setDate] = useState<string>(todayIso());
   const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'manager' | 'staff'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [pendingUser, setPendingUser] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -125,6 +127,7 @@ export const AttendanceView = ({ initialData }: { initialData?: any }) => {
       return {
         userId: s._id,
         name: s.name,
+        role: s.role,
         designation: s.designation, // 🔥 Passed
         branchId: s.branchId,
         checkIn: att?.checkIn || '—',
@@ -138,9 +141,16 @@ export const AttendanceView = ({ initialData }: { initialData?: any }) => {
   const filteredRows = rows.filter(r => {
     const q = search.toLowerCase();
     const branchName = branches.find(b => b._id === r.branchId)?.name || '';
-    return r.name.toLowerCase().includes(q) || 
+    
+    const matchesRole = roleFilter === 'all' || 
+                        (roleFilter === 'manager' && r.role === 'branch_manager') || 
+                        (roleFilter === 'staff' && r.role === 'staff');
+
+    return matchesRole && (
+           r.name.toLowerCase().includes(q) || 
            (r.designation?.toLowerCase().includes(q) ?? false) || 
-           branchName.toLowerCase().includes(q);
+           branchName.toLowerCase().includes(q)
+    );
   });
 
   const pagedRows = filteredRows.slice((page - 1) * PER_PAGE, page * PER_PAGE);
@@ -247,6 +257,22 @@ export const AttendanceView = ({ initialData }: { initialData?: any }) => {
           <h3 className="text-xl font-bold font-headline text-on-surface">Attendance Register</h3>
 
           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+            {/* Role Filter Toggle */}
+            <div className="flex bg-surface-container-low/50 border border-outline-variant/20 rounded-xl p-1 shrink-0 overflow-x-auto">
+              <button 
+                onClick={() => { setRoleFilter('all'); setPage(1); }}
+                className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap", roleFilter === 'all' ? "bg-primary text-white shadow-sm" : "text-on-surface-variant hover:bg-surface-container-high")}
+              >All Staff</button>
+              <button 
+                onClick={() => { setRoleFilter('manager'); setPage(1); }}
+                className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap", roleFilter === 'manager' ? "bg-primary text-white shadow-sm" : "text-on-surface-variant hover:bg-surface-container-high")}
+              >Managers</button>
+              <button 
+                onClick={() => { setRoleFilter('staff'); setPage(1); }}
+                className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap", roleFilter === 'staff' ? "bg-primary text-white shadow-sm" : "text-on-surface-variant hover:bg-surface-container-high")}
+              >Therapists</button>
+            </div>
+
             <div className="relative">
               <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/50" size={18} />
               <input

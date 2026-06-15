@@ -186,7 +186,7 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
     setIsSubmitting(true);
     try {
       const payload = {
-        patientId: formData.patientId,
+        // Do NOT send patientId — let the backend auto-generate RHBT format
         name: formData.name,
         parentName: formData.parentName,
         age: parseInt(formData.age),
@@ -207,7 +207,7 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
 
       const newPatient: Patient = {
         id: data.data._id,
-        patientId: data.data.patientId || formData.patientId,
+        patientId: data.data.patientId, // Use server-generated RHBT ID
         name: data.data.name,
         parentName: data.data.parentName,
         age: data.data.age ?? parseInt(formData.age),
@@ -484,7 +484,7 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
                 <div className="bg-white p-6 rounded-2xl shadow-sm space-y-4 border border-outline-variant/5">
                   <div className="flex justify-between border-b border-surface-container-low pb-3">
                     <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-tighter">Draft ID</span>
-                    <span className="text-xs font-mono font-semibold">{lastOnboarded ? lastOnboarded.id : 'T-9002'}</span>
+                    <span className="text-xs font-mono font-semibold">{lastOnboarded ? (lastOnboarded.patientId || lastOnboarded.id) : 'T-9002'}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { 
   TrendingUp, 
   AlertCircle, 
@@ -9,14 +9,20 @@ import {
   Edit, 
   Trash2, 
   Plus,
-  Filter
+  Filter,
+  CheckCircle,
+  XCircle,
+  Eye
 } from 'lucide-react';
 import { BillingRecord, NewPaymentInput, Patient } from '../types';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import React from 'react';
+import { SearchableSelect } from '../../components/SearchableSelect';
 import { exportToCSV } from '../lib/csvExport';
 import { Button } from '../components/ui/Button';
+import api from '@/lib/api';
+import { toast } from 'sonner';
 
 interface BillingManagementProps {
   billing: BillingRecord[];
@@ -28,7 +34,65 @@ interface BillingManagementProps {
 }
 
 export default function BillingManagementView({ billing, patients, onAddPayment, onDeleteBilling, onUpdateBilling, isLoading = false }: BillingManagementProps) {
+  const [activeTab, setActiveTab] = useState<'all' | 'pending'>('all');
+  const [pendingApprovals, setPendingApprovals] = useState<any[]>([]);
+  const [isLoadingPending, setIsLoadingPending] = useState(false);
+  const [selectedPending, setSelectedPending] = useState<any>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<BillingRecord | null>(billing[0] || null);
+
+  useEffect(() => {
+    if (activeTab === 'pending') {
+      fetchPendingApprovals();
+    }
+  }, [activeTab]);
+
+  const fetchPendingApprovals = async () => {
+    setIsLoadingPending(true);
+    try {
+      const res = await api.get('/manager/billing/pending-approvals');
+      if (res.data.success) {
+        setPendingApprovals(res.data.data);
+      }
+    } catch (err) {
+      toast.error('Failed to load pending approvals');
+    } finally {
+      setIsLoadingPending(false);
+    }
+  };
+
+  const handleApprove = async (id: string) => {
+    if (!window.confirm('Are you sure you want to approve this payment?')) return;
+    setIsProcessing(true);
+    try {
+      const res = await api.put(`/manager/billing/${id}/approve-manual`);
+      if (res.data.success) {
+        toast.success('Payment approved successfully');
+        setPendingApprovals(prev => prev.filter(p => p._id !== id));
+        setSelectedPending(null);
+      }
+    } catch (err) {
+      toast.error('Approval failed');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    if (!window.confirm('Are you sure you want to reject this payment?')) return;
+    setIsProcessing(true);
+    try {
+      const res = await api.put(`/manager/billing/${id}/reject-manual`);
+      if (res.data.success) {
+        toast.success('Payment rejected');
+        setPendingApprovals(prev => prev.filter(p => p._id !== id));
+        setSelectedPending(null);
+      }
+    } catch (err) {
+      toast.error('Rejection failed');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
   
   const selectedPatientContext = useMemo(() => {
     if (!selectedInvoice) return null;
@@ -252,8 +316,29 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
             </div>
           </div>
 
+          {/* Tabs */}
+          <div className="flex gap-4 border-b border-outline-variant/20">
+            <button
+              onClick={() => { setActiveTab('all'); setSelectedPending(null); }}
+              className={cn("pb-3 px-2 text-sm font-bold border-b-2 transition-colors", activeTab === 'all' ? "border-primary text-primary" : "border-transparent text-on-surface-variant hover:text-on-surface")}
+            >
+              All Transactions
+            </button>
+            <button
+              onClick={() => { setActiveTab('pending'); setSelectedInvoice(null); }}
+              className={cn("pb-3 px-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2", activeTab === 'pending' ? "border-primary text-primary" : "border-transparent text-on-surface-variant hover:text-on-surface")}
+            >
+              Pending Approvals
+              {pendingApprovals.length > 0 && (
+                <span className="bg-error text-white text-[10px] px-1.5 py-0.5 rounded-full">{pendingApprovals.length}</span>
+              )}
+            </button>
+          </div>
+
           {/* Table / Cards */}
           <div className="bg-surface-container-low rounded-xl overflow-hidden shadow-sm">
+            {activeTab === 'all' ? (
+              <>
             <div className="p-6 flex justify-between items-center bg-surface-container-high/50">
               <h4 className="font-bold text-lg">Transaction History</h4>
               <span className="text-xs font-bold text-on-surface-variant">{billing.length} records</span>
@@ -397,12 +482,142 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                 </div>
               </div>
             )}
+            </>
+            ) : (
+              <>
+                <div className="p-6 flex justify-between items-center bg-surface-container-high/50">
+                  <h4 className="font-bold text-lg">Pending Approvals</h4>
+                  <span className="text-xs font-bold text-on-surface-variant">{pendingApprovals.length} records</span>
+                </div>
+                
+                {isLoadingPending ? (
+                  <div className="py-20 flex flex-col items-center justify-center">
+                    <div className="w-10 h-10 rounded-full border-4 border-primary/20 border-t-primary animate-spin mb-3"></div>
+                    <p className="text-sm text-on-surface-variant font-medium">Loading pending approvals...</p>
+                  </div>
+                ) : pendingApprovals.length === 0 ? (
+                  <div className="py-20 flex flex-col items-center justify-center text-center">
+                    <CheckCircle className="w-12 h-12 text-secondary mb-3 opacity-50" />
+                    <p className="text-on-surface-variant font-medium">No pending approvals</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-outline-variant/10">
+                    {pendingApprovals.map((record) => (
+                      <div 
+                        key={record._id} 
+                        onClick={() => setSelectedPending(record)}
+                        className={cn(
+                          "p-4 sm:p-6 space-y-4 cursor-pointer transition-colors",
+                          selectedPending?._id === record._id ? "bg-primary/5" : "bg-surface-container-lowest hover:bg-surface-container-low"
+                        )}
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary shrink-0">
+                              <AlertCircle size={20} />
+                            </div>
+                            <div className="min-w-0">
+                              <h4 className="font-bold text-on-surface truncate">{record.patientId?.name || 'Unknown'}</h4>
+                              <p className="text-xs text-on-surface-variant">{new Date(record.createdAt).toLocaleDateString()}</p>
+                            </div>
+                          </div>
+                          <span className="px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700">
+                            Review Required
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest mb-1">Paid Amount</p>
+                            <p className="font-bold text-on-surface">{formatINR(record.amountPaid.toLocaleString())}</p>
+                          </div>
+                          <div className="flex justify-end items-center gap-2">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleApprove(record._id); }}
+                              disabled={isProcessing}
+                              className="p-2 bg-green-100 text-green-700 rounded-full hover:bg-green-200 transition-colors disabled:opacity-50"
+                              title="Approve"
+                            >
+                              <CheckCircle size={18} />
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleReject(record._id); }}
+                              disabled={isProcessing}
+                              className="p-2 bg-red-100 text-red-700 rounded-full hover:bg-red-200 transition-colors disabled:opacity-50"
+                              title="Reject"
+                            >
+                              <XCircle size={18} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
 
-        {/* Right Column: Receipt Preview */}
+        {/* Right Column: Receipt Preview / Pending View */}
         <div className="col-span-12 md:col-span-5 md:sticky md:top-24">
-          {selectedInvoice ? (
+          {activeTab === 'pending' && selectedPending ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="font-bold text-base text-on-surface">Review Payment</h4>
+              </div>
+              <div className="bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/10 overflow-hidden">
+                <div className="bg-amber-50 px-5 py-4 border-b border-amber-100">
+                  <h5 className="font-bold text-amber-800 text-sm">Payment Verification</h5>
+                  <p className="text-amber-700/80 text-xs mt-1">Please verify the payment screenshot and amount.</p>
+                </div>
+                <div className="p-5 space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs font-bold text-on-surface-variant uppercase">Patient</p>
+                      <p className="font-semibold text-sm">{selectedPending.patientId?.name || 'Unknown'}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-on-surface-variant uppercase">Amount</p>
+                      <p className="font-bold text-primary text-sm">{formatINR(selectedPending.amountPaid.toLocaleString())}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-on-surface-variant uppercase mb-2">Screenshot Proof</p>
+                    {selectedPending.screenshot ? (
+                      <div className="border border-outline-variant/20 rounded-xl overflow-hidden bg-surface-container">
+                        <img 
+                          src={selectedPending.screenshot.startsWith('http') ? selectedPending.screenshot : `http://localhost:5000${selectedPending.screenshot}`} 
+                          alt="Payment Proof" 
+                          className="w-full object-contain max-h-[400px]"
+                        />
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-surface-container rounded-xl text-center text-sm text-on-surface-variant">
+                        No screenshot provided
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="p-4 bg-surface-container-low border-t border-outline-variant/10 flex gap-3">
+                  <button
+                    onClick={() => handleReject(selectedPending._id)}
+                    disabled={isProcessing}
+                    className="flex-1 py-2.5 bg-error-container text-on-error-container font-bold rounded-xl shadow-sm hover:opacity-90 transition-all disabled:opacity-50 text-sm"
+                  >
+                    Reject
+                  </button>
+                  <button
+                    onClick={() => handleApprove(selectedPending._id)}
+                    disabled={isProcessing}
+                    className="flex-1 py-2.5 bg-primary text-white font-bold rounded-xl shadow-md hover:opacity-90 transition-all disabled:opacity-50 text-sm flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle size={16} /> Approve
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : activeTab === 'all' && selectedInvoice ? (
             <div className="space-y-4">
               {/* Action bar */}
               <div className="flex items-center justify-between">
@@ -504,7 +719,7 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                     <p className="text-[#004aad] font-bold text-[10px] uppercase tracking-widest">Payment Summary</p>
                   </div>
                   <div className="px-5 py-3 bg-white space-y-2">
-                    {selectedInvoice.items.length > 0 && selectedInvoice.items.map((item, i) => (
+                    {selectedInvoice.items?.length > 0 && selectedInvoice.items.map((item, i) => (
                       <div key={i} className="flex justify-between text-xs">
                         <span className="text-gray-500">{item.description} × {item.sessions}</span>
                         <span className="font-bold text-gray-800">{formatINR(item.price.toLocaleString())}</span>
@@ -789,14 +1004,13 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                   }}
                                     className="flex items-center justify-center gap-2 py-3 rounded-xl border border-[#004aad] text-[#004aad] text-sm font-bold hover:bg-blue-50 transition-colors"
                 >
-                  <Printer size={15} /> Print Receipt
                 </button>
               </div>
             </div>
           ) : (
-            <div className="h-80 flex flex-col items-center justify-center text-on-surface-variant/40 bg-surface-container-low rounded-xl border-2 border-dashed border-outline-variant/20">
-              <FileText size={40} className="mb-3" />
-              <p className="font-bold text-sm">Click a transaction to preview</p>
+            <div className="h-64 flex flex-col items-center justify-center text-on-surface-variant/50 bg-surface-container-lowest rounded-2xl border border-dashed border-outline-variant/20">
+              <FileText size={48} className="mb-4 opacity-50" />
+              <p className="font-medium text-sm">Select a record to view details</p>
             </div>
           )}
         </div>
@@ -817,11 +1031,14 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
               <form onSubmit={handleAddPayment} className="space-y-4">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Patient</label>
-                  <select
-                    required
+                  <SearchableSelect
+                    options={patients.map(p => ({
+                      value: p.id || '',
+                      label: p.name,
+                      subLabel: p.id + (p.totalFee ? ` — ₹${p.totalFee.toLocaleString()} total` : '')
+                    }))}
                     value={newPayment.patientId}
-                    onChange={e => {
-                      const pid = e.target.value;
+                    onChange={pid => {
                       const pat = patients.find(p => p.id === pid);
                       if (pat) {
                         const alreadyPaid = billing
@@ -837,13 +1054,8 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                         setNewPayment(prev => ({ ...prev, patientId: pid, dueAmount: '' }));
                       }
                     }}
-                    className="w-full bg-surface-container-low border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20"
-                  >
-                    <option value="">Select a patient</option>
-                    {patients.map(p => (
-                      <option key={p.id} value={p.id}>{p.name}{p.totalFee ? ` — ₹${p.totalFee.toLocaleString()} total` : ''}</option>
-                    ))}
-                  </select>
+                    placeholder="Select a patient"
+                  />
                   {currentDueForSelected > 0 && (
                     <div className="mt-1.5 flex items-center justify-between px-3 py-2 rounded-lg bg-secondary/8 border border-secondary/20">
                       <span className="text-[10px] font-bold text-secondary uppercase tracking-wider">Current Due</span>

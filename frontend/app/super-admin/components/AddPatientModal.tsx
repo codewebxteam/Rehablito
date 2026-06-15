@@ -48,6 +48,8 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
     name: '',
     parentName: '',
     parentPhone: '',
+    parentEmail: '',
+    parentPassword: '',
     address: '',
     branchId: '',
     serviceIds: [] as string[],
@@ -73,6 +75,8 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
         name: '',
         parentName: '',
         parentPhone: '',
+        parentEmail: '',
+        parentPassword: '',
         address: '',
         branchId: '',
         serviceIds: [],
@@ -97,6 +101,8 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
         branchId: form.branchId,
         parentName: form.parentName.trim(),
         address: form.address.trim(),
+        parentEmail: form.parentEmail.trim(),
+        parentPassword: form.parentPassword,
       };
       
       if (form.parentPhone.trim()) {
@@ -196,6 +202,22 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
                           ))}
                         </select>
                      </div>
+                  </div>
+                </div>
+
+                <div className="p-5 rounded-2xl bg-primary/5 border border-primary/20 space-y-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <h3 className="text-[12px] font-black text-slate-800 uppercase tracking-wider">Parent Portal Account <span className="text-[10px] font-bold text-slate-500 ml-2">(Optional)</span></h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                      <label className={LABEL_CLASS}>Parent Email ID</label>
+                      <input type="email" placeholder="email@example.com" value={form.parentEmail} onChange={(e) => set('parentEmail', e.target.value)} className={INPUT_CLASS} />
+                    </div>
+                    <div>
+                      <label className={LABEL_CLASS}>Create Password</label>
+                      <input type="password" placeholder="Set login password" value={form.parentPassword} onChange={(e) => set('parentPassword', e.target.value)} className={INPUT_CLASS} />
+                    </div>
                   </div>
                 </div>
 

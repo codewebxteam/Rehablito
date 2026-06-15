@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { CreditCard, CheckCircle, Clock, AlertCircle, X } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { CreditCard, CheckCircle, Clock, AlertCircle, X, QrCode, Upload, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { AnimatePresence, motion } from 'motion/react';
 import api from '@/lib/api';
+import { generateAndPrintReceipt } from '@/lib/receiptHelper';
 
 export default function BillingView({ data, onRefresh }: { data: any, onRefresh: () => void }) {
   if (!data) return null;
@@ -32,8 +33,18 @@ export default function BillingView({ data, onRefresh }: { data: any, onRefresh:
   }, [history]);
 
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
   const [amountToPay, setAmountToPay] = useState<number>(0);
+  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const openQrModal = (record: any) => {
+    setSelectedInvoice(record);
+    setAmountToPay(record.dueAmount);
+    setScreenshotFile(null);
+    setQrModalOpen(true);
+  };
 
   const openPaymentModal = (record: any) => {
     setSelectedInvoice(record);
@@ -132,6 +143,42 @@ export default function BillingView({ data, onRefresh }: { data: any, onRefresh:
     handlePayNow(amountToPay, selectedInvoice._id);
   };
 
+  const handleManualPayment = async () => {
+    if (!selectedInvoice) return;
+    if (amountToPay <= 0 || amountToPay > selectedInvoice.dueAmount) {
+        toast.error(`Please enter a valid amount between ₹1 and ₹${selectedInvoice.dueAmount.toLocaleString()}`);
+        return;
+    }
+    if (!screenshotFile) {
+        toast.error('Please upload a screenshot of the payment');
+        return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const formData = new FormData();
+      formData.append('feePaymentId', selectedInvoice._id);
+      formData.append('amount', amountToPay.toString());
+      formData.append('screenshot', screenshotFile);
+
+      const res = await api.post('/payments/manual', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (res.data.success) {
+        toast.success('Payment submitted for approval!');
+        setQrModalOpen(false);
+        onRefresh();
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || err.message || 'Payment submission failed');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <header>
@@ -188,14 +235,38 @@ export default function BillingView({ data, onRefresh }: { data: any, onRefresh:
                   </p>
                 </div>
 
-                {record.status !== 'paid' && record.dueAmount > 0 && (
-                  <button
-                    onClick={() => openPaymentModal(record)}
-                    className="w-full md:w-auto px-6 py-2.5 bg-secondary text-white font-bold rounded-xl shadow-sm hover:bg-secondary/90 transition-colors"
-                  >
-                    Pay Due
-                  </button>
-                )}
+                {record.status !== 'paid' && record.dueAmount > 0 ? (
+                  <div className="w-full md:w-auto flex flex-col sm:flex-row gap-2 mt-4 md:mt-0">
+                    <button
+                      onClick={() => openPaymentModal(record)}
+                      className="px-6 py-2.5 bg-secondary text-white font-bold rounded-xl shadow-sm hover:bg-secondary/90 transition-colors"
+                    >
+                      Pay Online
+                    </button>
+                    <button
+                      onClick={() => openQrModal(record)}
+                      className="px-6 py-2.5 bg-white border border-secondary text-secondary font-bold rounded-xl shadow-sm hover:bg-secondary/5 transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
+                    >
+                      <QrCode size={16} /> Pay via QR
+                    </button>
+                  </div>
+                ) : record.status === 'paid' ? (
+                  <div className="w-full md:w-auto flex flex-col sm:flex-row gap-2 mt-4 md:mt-0">
+                    <button
+                      onClick={() => {
+                        // Pass mock patient context so history shows up in PDF
+                        generateAndPrintReceipt(
+                          record, 
+                          { allPayments: history },
+                          (isProc) => { if(isProc) toast.loading("Generating receipt..."); else toast.dismiss(); }
+                        );
+                      }}
+                      className="px-6 py-2.5 bg-white border border-brand-sage text-brand-sage font-bold rounded-xl shadow-sm hover:bg-brand-sage/5 transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
+                    >
+                      <Download size={16} /> Download Receipt
+                    </button>
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>
@@ -299,6 +370,98 @@ export default function BillingView({ data, onRefresh }: { data: any, onRefresh:
                     className="px-4 py-3 bg-secondary text-white font-bold rounded-xl shadow-md hover:bg-secondary/90 transition-all text-sm flex items-center justify-center disabled:opacity-50"
                   >
                     {isProcessing ? 'Processing...' : 'Proceed'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* QR Payment Modal */}
+      <AnimatePresence>
+        {qrModalOpen && selectedInvoice && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !isProcessing && setQrModalOpen(false)}
+              className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ scale: 0.94, opacity: 0, y: 12 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.94, opacity: 0, y: 12 }}
+              className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 z-10 max-h-[90vh] overflow-y-auto"
+            >
+              <button
+                onClick={() => setQrModalOpen(false)}
+                disabled={isProcessing}
+                className="absolute top-4 right-4 p-2 hover:bg-slate-100 rounded-full transition-colors disabled:opacity-50"
+              >
+                <X className="w-4 h-4 text-slate-400" />
+              </button>
+
+              <div className="space-y-6 text-center">
+                <h3 className="text-xl font-black text-on-background flex items-center justify-center gap-2">
+                  <QrCode className="text-secondary" /> Scan & Pay
+                </h3>
+                
+                <div className="bg-surface-container-low p-4 rounded-2xl inline-block">
+                  <img src="https://ik.imagekit.io/5glnyqfxu/rehablitoqr.png?updatedAt=1781503337305" alt="Clinic QR Code" className="w-48 h-48 object-contain mx-auto border-4 border-white rounded-xl shadow-sm" />
+                  <p className="text-xs font-medium text-on-surface-variant mt-3 text-center">Scan using any UPI app</p>
+                </div>
+
+                <div className="text-left space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Amount Paid (₹)</label>
+                    <input 
+                        type="number"
+                        min="1"
+                        max={selectedInvoice.dueAmount}
+                        value={amountToPay}
+                        onChange={(e) => setAmountToPay(Number(e.target.value))}
+                        disabled={isProcessing}
+                        className="w-full px-4 py-3 bg-surface-container-low border border-outline-variant/30 rounded-xl font-bold focus:outline-none focus:border-secondary transition-colors"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Upload Screenshot</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      ref={fileInputRef}
+                      onChange={(e) => setScreenshotFile(e.target.files?.[0] || null)}
+                      className="hidden"
+                    />
+                    <div 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full px-4 py-6 bg-surface-container-low border-2 border-dashed border-outline-variant/30 rounded-xl cursor-pointer hover:bg-surface-container transition-colors flex flex-col items-center justify-center gap-2"
+                    >
+                      <Upload className="text-secondary w-6 h-6" />
+                      <span className="text-sm font-medium text-on-surface-variant">
+                        {screenshotFile ? screenshotFile.name : 'Click to select screenshot'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
+                  <button
+                    onClick={() => setQrModalOpen(false)}
+                    disabled={isProcessing}
+                    className="px-4 py-3 bg-surface-container text-on-surface font-bold rounded-xl hover:bg-surface-container-high transition-all text-sm disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleManualPayment}
+                    disabled={isProcessing || amountToPay <= 0 || !screenshotFile}
+                    className="px-4 py-3 bg-secondary text-white font-bold rounded-xl shadow-md hover:bg-secondary/90 transition-all text-sm flex items-center justify-center disabled:opacity-50"
+                  >
+                    {isProcessing ? 'Submitting...' : 'Submit Approval'}
                   </button>
                 </div>
               </div>

@@ -20,7 +20,11 @@ interface Patient {
   branchId?: string | { _id: string };
 }
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
+const localDatetime = () => {
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  return now.toISOString().slice(0, 16);
+};
 
 const INPUT_CLASS =
   'w-full h-11 bg-white border border-gray-200 rounded-xl px-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/50 transition-all';
@@ -40,7 +44,7 @@ export function AddTransactionModal() {
     branchId: '',
     patientId: '',
     method: 'cash' as 'cash' | 'upi' | 'bank_transfer' | 'card',
-    date: todayIso(),
+    date: localDatetime(),
     amount: '',
     dueAmount: '',
     status: 'pending' as 'paid' | 'partial' | 'overdue' | 'pending',
@@ -92,7 +96,7 @@ export function AddTransactionModal() {
   // reset on close or load initialPayload on open
   useEffect(() => {
     if (!isOpen) {
-      setForm({ description: '', branchId: '', patientId: '', method: 'cash', date: todayIso(), amount: '', dueAmount: '', status: 'pending' });
+      setForm({ description: '', branchId: '', patientId: '', method: 'cash', date: localDatetime(), amount: '', dueAmount: '', status: 'pending' });
     } else if (initialPayload) {
       setForm(prev => ({
         ...prev,
@@ -118,7 +122,7 @@ export function AddTransactionModal() {
         patientId: form.patientId || undefined,
         branchId: form.branchId,
         method: form.method,
-        paymentDate: form.date || todayIso(),
+        paymentDate: form.date || localDatetime(),
         status: form.status,
         description: form.description || undefined,
       };
@@ -290,9 +294,9 @@ export function AddTransactionModal() {
                     </select>
                   </div>
                   <div>
-                    <label className={LABEL_CLASS}>Payment Date</label>
+                    <label className={LABEL_CLASS}>Payment Date & Time</label>
                     <input
-                      type="date"
+                      type="datetime-local"
                       value={form.date}
                       onChange={e => set('date', e.target.value)}
                       className={INPUT_CLASS}

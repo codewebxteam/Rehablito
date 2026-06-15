@@ -25,6 +25,7 @@ interface Patient {
   status: 'Active' | 'Discharged' | 'Critical';
   lastVisit: string;
   totalFee?: number;
+  parentPassword?: string;
 }
 
 type PatientStatusFilter = 'All' | Patient['status'] | 'Due';
@@ -43,6 +44,7 @@ interface ApiPatient {
   status: 'active' | 'discharged' | 'on_hold';
   admissionDate: string;
   totalFee?: number;
+  patientId?: string;
 }
 
 interface ServiceOption {
@@ -66,7 +68,7 @@ interface Branch {
 export const PatientsView = ({ initialData }: { initialData?: any }) => {
   const transformApiPatients = (data: ApiPatient[]): Patient[] => data.map((p: ApiPatient) => ({
     _id: p._id,
-    id: p._id,
+    id: p.patientId || p._id,
     name: p.name,
     parentName: p.parentName,
     parentPhone: p.parentPhone,
@@ -77,7 +79,7 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
     branch: p.branchId?._id || '',
     status: (p.status === 'active' ? 'Active' : p.status === 'discharged' ? 'Discharged' : 'Critical') as Patient['status'],
     lastVisit: p.admissionDate ? new Date(p.admissionDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A',
-    totalFee: p.totalFee
+    totalFee: p.totalFee || 0
   }));
 
   const hasServerData = !!initialData;
@@ -287,7 +289,7 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
         })
         .reduce((sum, s) => sum + s.price, 0);
 
-      const payload = {
+      const payload: any = {
         name: editingPatient.name,
         age: editingPatient.age,
         diagnosis: editingPatient.condition || '',
@@ -296,6 +298,9 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
         totalFee: calculatedTotalFee,
         status: editingPatient.status === 'Active' ? 'active' : editingPatient.status === 'Discharged' ? 'discharged' : 'on_hold'
       };
+      if (editingPatient.parentPassword) {
+        payload.parentPassword = editingPatient.parentPassword;
+      }
       const { data } = await api.put(`/admin/patients/${editingPatient._id}`, payload);
       if (data.success) {
         toast.success('Patient updated successfully');
@@ -439,7 +444,7 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
                           <span className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">{patient.name}</span>
-                          <span className="text-[10px] text-on-surface-variant uppercase tracking-wider mt-0.5 opacity-60 font-bold">{patient._id?.slice(-8) || patient.id}</span>
+                          <span className="text-[10px] text-on-surface-variant uppercase tracking-wider mt-0.5 opacity-60 font-bold">{patient.id}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm font-medium text-on-surface-variant">{patient.parentName || 'N/A'}</td>
@@ -598,7 +603,7 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
                 </div>
                 <div className="text-right">
                   <p className="text-blue-200 text-[10px]">{new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
-                  <p className="text-blue-100 text-[10px] font-mono">{viewingPatient._id?.slice(-8).toUpperCase() || viewingPatient.id}</p>
+                  <p className="text-blue-100 text-[10px] font-mono">{viewingPatient.id}</p>
                 </div>
                 <button onClick={() => setViewingPatient(null)} className="ml-4 p-1.5 hover:bg-white/20 rounded-lg transition-colors">
                   <X size={18} className="text-white" />
@@ -619,7 +624,7 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
 
                 {/* Info rows - only admin-relevant fields */}
                 {[
-                  { label: 'Patient ID',        value: viewingPatient._id?.slice(-8).toUpperCase() || viewingPatient.id || '—', mono: true },
+                  { label: 'Patient ID',        value: viewingPatient.id || '—', mono: true },
                   { label: 'Child Name',         value: viewingPatient.name },
                   { label: 'Parent / Guardian',  value: viewingPatient.parentName || '—' },
                   { label: 'Phone Contact',      value: viewingPatient.parentPhone || '—' },
@@ -676,7 +681,7 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
                       const branchName = branches.find(b => b._id === p.branch)?.name || '';
                       const doc = await generatePatientPDF({
                         id: p._id || p.id || '',
-                        patientId: p._id?.slice(-8).toUpperCase() || p.id || '',
+                        patientId: p.id || '',
                         name: p.name,
                         parentName: p.parentName,
                         age: p.age,
@@ -839,6 +844,11 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
                   <option value="Discharged">Discharged</option>
                   <option value="Critical">Critical</option>
                 </select>
+
+                <input type="text" value={editingPatient.parentPassword || ''}
+                  onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, parentPassword: e.target.value }) : prev)}
+                  className="sm:col-span-2 w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                  placeholder="New Parent Portal Password (Optional)" />
 
                 <div className="sm:col-span-2 bg-surface-container-low/50 p-3 rounded-xl border border-outline-variant/20">
                   <label className="text-xs font-bold text-on-surface-variant mb-2 block uppercase tracking-wider">Select Services / Therapies</label>

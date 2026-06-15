@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import api from '@/lib/api';
 import { toast } from 'sonner';
 import { useBranch } from '../components/BranchContext';
+import { generateAndPrintReceipt } from '../../../lib/receiptHelper';
 
 // ── API types ──
 interface MonthlyTrendEntry {
@@ -57,7 +58,7 @@ interface ApiFee {
   status: 'paid' | 'partial' | 'overdue' | 'pending';
   description?: string;
   receiptNumber?: string;
-  patientId?: { _id: string; name: string; parentName?: string } | null;
+  patientId?: { _id: string; name: string; parentName?: string; patientId?: string } | null;
   branchId?: { _id: string; name: string } | null;
 }
 
@@ -672,10 +673,11 @@ export const FinanceView = ({ initialData }: { initialData?: any }) => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/70">
-                  {['Transaction', 'Branch', 'Method', 'Date', 'Amount', 'Status'].map(col => (
+                  {['Transaction', 'Branch', 'Method', 'Date', 'Amount', 'Status', 'Actions'].map(col => (
                     <th key={col} className={cn(
                       "px-5 py-3.5 text-[10px] font-black text-slate-400 uppercase tracking-widest",
-                      col === 'Status' && "text-right"
+                      col === 'Status' && "text-right",
+                      col === 'Actions' && "text-center w-20"
                     )}>
                       {col}
                     </th>
@@ -699,8 +701,8 @@ export const FinanceView = ({ initialData }: { initialData?: any }) => {
                           <p className="text-sm font-bold text-slate-700 group-hover:text-indigo-600 transition-colors">
                             {fee.patientId?.name || 'Unknown patient'}
                           </p>
-                          <p className="text-[10px] font-bold text-slate-300 uppercase tracking-wider mt-0.5">
-                            {fee.receiptNumber || fee._id.slice(-8)}
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">
+                            {fee.patientId?.patientId || 'N/A'} • {fee.receiptNumber || fee._id.slice(-8)}
                           </p>
                         </div>
                       </div>
@@ -728,6 +730,21 @@ export const FinanceView = ({ initialData }: { initialData?: any }) => {
                       )}>
                         {STATUS_LABEL[fee.status]}
                       </span>
+                    </td>
+                    <td className="px-5 py-4 text-center">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          generateAndPrintReceipt(fee, null, (isProc) => {
+                            if(isProc) toast.loading("Generating receipt...");
+                            else toast.dismiss();
+                          });
+                        }}
+                        className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors inline-block"
+                        title="Download Receipt"
+                      >
+                        <Download size={16} />
+                      </button>
                     </td>
                   </motion.tr>
                 ))}

@@ -54,6 +54,10 @@ function ShellInner({ children }: SuperAdminShellProps) {
       title: 'Financial Overview',
       subtitle: 'Revenue, expenses, and transaction logs'
     },
+    payments: {
+      title: 'Payments & Approvals',
+      subtitle: 'Review manual payments and invoices'
+    },
     branches: {
       title: 'Branches',
       subtitle: 'Manage and configure branch locations'

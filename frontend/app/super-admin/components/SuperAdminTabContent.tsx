@@ -27,6 +27,9 @@ const PatientAttendanceView = dynamic(() => import('../views/PatientAttendanceVi
 const FinanceView = dynamic(() => import('../views/FinanceView').then(m => ({ default: m.FinanceView })), {
   loading: () => <ViewSkeleton />,
 });
+const PaymentsView = dynamic(() => import('../views/PaymentsView').then(m => ({ default: m.PaymentsView })), {
+  loading: () => <ViewSkeleton />,
+});
 const BranchesView = dynamic(() => import('../views/BranchesView').then(m => ({ default: m.BranchesView })), {
   loading: () => <ViewSkeleton />,
 });
@@ -67,6 +70,7 @@ const SuperAdminTabContent = React.memo(function SuperAdminTabContent({ tab, ini
   if (tab === 'attendance') return <AttendanceView initialData={initialData} />;
   if (tab === 'patient-attendance') return <PatientAttendanceView />; // 🔥 NEW: Route to new view
   if (tab === 'finance') return <FinanceView initialData={initialData} />;
+  if (tab === 'payments') return <PaymentsView />;
   if (tab === 'branches') return <BranchesView initialData={initialData} />;
   if (tab === 'services') return <ServicesView />;
   if (tab === 'settings') return <SettingsView />;

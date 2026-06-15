@@ -6,6 +6,7 @@ export const SUPER_ADMIN_TABS = [
   'staff',
   'attendance',
   'finance',
+  'payments',
   'branches',
   'services',
   'feedbacks',
@@ -22,6 +23,7 @@ export const TAB_LABELS: Record<SuperAdminTab, string> = {
   staff: 'Staff',
   attendance: 'Staff Attendance', // (Optional) Thoda clear karne ke liye isko 'Staff Attendance' kar sakte ho, ya sirf 'Attendance' rehne do
   finance: 'Finance',
+  payments: 'Payments',
   branches: 'Branches',
   services: 'Services',
   feedbacks: 'Feedbacks',
