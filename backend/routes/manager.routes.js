@@ -55,6 +55,9 @@ const {
     downloadInvoice,
     getBillingSummary,
     getPatientPayments,
+    getPendingApprovals,
+    approveManualPayment,
+    rejectManualPayment,
 } = require('../controllers/manager.billing.controller');
 
 // ─── All routes require authentication + branch_manager or super_admin ───
@@ -186,12 +189,21 @@ router.get('/billing/patient/:patientId', getPatientPayments);
 // POST   /api/manager/billing           → Record new payment
 router.route('/billing').get(getPayments).post(createPayment);
 
+// GET    /api/manager/billing/pending-approvals → List pending manual payments
+router.get('/billing/pending-approvals', getPendingApprovals);
+
 // GET    /api/manager/billing/:id       → Get single payment
 // PUT    /api/manager/billing/:id       → Update payment
 router.route('/billing/:id').get(getPayment).put(updatePayment);
 
 // GET    /api/manager/billing/:id/invoice → Download invoice/receipt PDF
 router.get('/billing/:id/invoice', downloadInvoice);
+
+// PUT    /api/manager/billing/:id/approve-manual → Approve manual QR payment
+router.put('/billing/:id/approve-manual', approveManualPayment);
+
+// PUT    /api/manager/billing/:id/reject-manual → Reject manual QR payment
+router.put('/billing/:id/reject-manual', rejectManualPayment);
 
 // ════════════════════════════════════════════════
 // ██  Parent Feedback Management

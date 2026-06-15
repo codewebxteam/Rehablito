@@ -8,12 +8,14 @@ const { getBranches, getBranch, createBranch, updateBranch, deleteBranch } = req
 const { getLeads, createLead, updateLead, getLeadStats } = require('../controllers/lead.controller');
 const { 
     getPatients, 
+    getPatient, // 🔥 Imported
     createPatient, 
     updatePatient, 
+    deletePatient,
     getPatientStats,
     getGlobalPatientAttendance // 🔥 NEW: Imported Attendance Controller
 } = require('../controllers/patient.controller');
-const { getFees, createFee, getFeeSummary } = require('../controllers/fee.controller');
+const { getFees, createFee, getFeeSummary, getPendingApprovals, approveManualPayment, rejectManualPayment } = require('../controllers/fee.controller');
 const { getDashboardData } = require('../controllers/dashboard.controller');
 const { 
     getStaff, 
@@ -48,13 +50,16 @@ router.route('/leads/:id').put(updateLead);
 // ── Patients ──
 router.get('/patients/stats', getPatientStats);
 router.route('/patients').get(getPatients).post(createPatient);
-router.route('/patients/:id').put(updatePatient);
+router.route('/patients/:id').get(getPatient).put(updatePatient).delete(deletePatient);
 
 // 🔥 NEW: Patient Attendance 
 router.get('/patient-attendance', getGlobalPatientAttendance);
 
-// ── Fees ──
+// ── Fees & Payments ──
 router.get('/fees/summary', getFeeSummary);
+router.get('/fees/pending-approvals', getPendingApprovals);
+router.put('/fees/:id/approve-manual', approveManualPayment);
+router.put('/fees/:id/reject-manual', rejectManualPayment);
 router.route('/fees').get(getFees).post(createFee);
 
 // ── Staff, Designations & Attendance ──

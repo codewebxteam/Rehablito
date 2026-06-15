@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Patient, BillingRecord } from '../types';
 import { cn } from '../lib/utils';
 import { generatePatientPDF } from '../lib/generatePatientPDF';
+import api from '@/lib/api';
 
 const THERAPY_LABELS: Record<string, string> = {
   physiotherapy: 'Physiotherapy',
@@ -95,7 +96,7 @@ function ViewModal({ patient, billing, onClose }: { patient: Patient; billing: B
   const totalDue = Math.max(0, (patient.totalFee || 0) - totalPaid);
 
   const downloadPDF = async () => {
-    const doc = await generatePatientPDF(patient, 'Patient Registration Record');
+    const doc = await generatePatientPDF(patient, 'Patient Registration Record', { hidePhone: true });
     doc.save(`Patient_${patient.name.replace(/\s/g, '_')}.pdf`);
   };
 
@@ -106,7 +107,7 @@ function ViewModal({ patient, billing, onClose }: { patient: Patient; billing: B
     { label: 'Age',              value: `${patient.age} Years` },
     { label: 'Gender',           value: patient.gender ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1) : '—' },
     { label: 'Contact No.',      value: maskPhone(patient.phone || '') },
-    { label: 'Therapy Type',     value: THERAPY_LABELS[patient.therapyType || ''] || patient.therapyType || '—' },
+    { label: 'Therapy Type',     value: Array.isArray(patient.therapyType) ? patient.therapyType.map(t => THERAPY_LABELS[t] || t.replace(/_/g, ' ')).join(', ') : (patient.therapyType ? (THERAPY_LABELS[patient.therapyType] || String(patient.therapyType).replace(/_/g, ' ')) : '—') },
     { label: 'Address',          value: patient.address || '—' },
     { label: 'Onboarding Date',  value: new Date(patient.onboardedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) },
     { label: 'Status',           value: patient.status || 'Active', badge: true },
@@ -301,6 +302,17 @@ function QuickPayModal({ patient, currentDue, currentPaid, onClose, onSave }: { 
 // ── Edit Modal ──
 function EditModal({ patient, billing, onClose, onSave }: { patient: Patient; billing: BillingRecord[]; onClose: () => void; onSave: (p: Patient) => void }) {
   const [form, setForm] = useState({ ...patient });
+  const [phoneInput, setPhoneInput] = useState('');
+  const [services, setServices] = useState<{ _id: string; name: string; price: number }[]>([]);
+
+  useEffect(() => {
+    api.get('/manager/services')
+      .then(({ data }) => {
+        if (data.success) setServices(data.data);
+      })
+      .catch(() => {});
+  }, []);
+
   const set = (k: keyof Patient, v: any) => {
     if (k === 'status' && v === 'Discharged') {
       const bills = billing.filter(b => b.patientId === patient.id || b.patientName.toLowerCase() === patient.name.toLowerCase());
@@ -366,27 +378,58 @@ function EditModal({ patient, billing, onClose, onSave }: { patient: Patient; bi
 
           <div className="overflow-y-auto flex-1 px-8 py-6 space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              {[
-                { label: 'Patient Name', key: 'name', type: 'text', placeholder: 'Patient name' },
-                { label: 'Parent Name', key: 'parentName', type: 'text', placeholder: 'Parent name' },
-                { label: 'Phone Number', key: 'phone', type: 'tel', placeholder: '+91XXXXXXXXXX', masked: true },
-                { label: 'Age', key: 'age', type: 'number', placeholder: 'Age' },
-                { label: 'New Parent Password', key: 'parentPassword', type: 'text', placeholder: '(Optional) New password' },
-              ].map(({ label, key, type, placeholder, masked }) => (
-                <div key={key} className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">{label}</label>
-                  {masked ? (
-                    <input type="text" readOnly
-                      value={maskPhone(String((form as Record<string, unknown>)[key] ?? ''))}
-                      className="w-full border border-outline-variant/20 rounded-xl px-4 py-3 text-sm bg-surface-container-low text-on-surface-variant cursor-not-allowed font-mono" />
-                  ) : (
-                    <input type={type} value={String((form as Record<string, unknown>)[key] ?? '')}
-                      onChange={e => set(key as keyof Patient, type === 'number' ? parseInt(e.target.value) || 0 : e.target.value)}
-                      placeholder={placeholder}
-                      className="w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all bg-surface-container-lowest" />
-                  )}
-                </div>
-              ))}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Patient Name</label>
+                <input type="text" value={form.name || ''}
+                  onChange={e => set('name', e.target.value)}
+                  placeholder="Patient name"
+                  className="w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all bg-surface-container-lowest" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Parent Name</label>
+                <input type="text" value={form.parentName || ''}
+                  onChange={e => set('parentName', e.target.value)}
+                  placeholder="Parent name"
+                  className="w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all bg-surface-container-lowest" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Phone Number</label>
+                <input type="tel" value={phoneInput}
+                  onChange={e => setPhoneInput(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                  placeholder={`${maskPhone(form.phone || '')} (Type new 10-digit number to change)`}
+                  className="w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all bg-surface-container-lowest" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Parent Email</label>
+                <input type="email" value={form.parentEmail || ''}
+                  onChange={e => set('parentEmail', e.target.value)}
+                  placeholder="parent@example.com"
+                  className="w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all bg-surface-container-lowest" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Age</label>
+                <input type="number" value={form.age || 0}
+                  onChange={e => set('age', parseInt(e.target.value) || 0)}
+                  placeholder="Age"
+                  className="w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all bg-surface-container-lowest" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Gender</label>
+                <select value={(form.gender || '').toLowerCase()} onChange={e => set('gender', e.target.value)}
+                  className="w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none appearance-none bg-surface-container-lowest">
+                  <option value="" disabled>Select Gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">New Parent Password</label>
+                <input type="text" value={form.parentPassword || ''}
+                  onChange={e => set('parentPassword', e.target.value)}
+                  placeholder="(Optional) New password"
+                  className="w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all bg-surface-container-lowest" />
+              </div>
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Status</label>
                 <select 
@@ -400,38 +443,119 @@ function EditModal({ patient, billing, onClose, onSave }: { patient: Patient; bi
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Gender</label>
-                <select value={form.gender.toLowerCase()} onChange={e => set('gender', e.target.value)}
-                  className="w-full border border-outline-variant/30 rounded-xl px-4 py-3 text-sm focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none appearance-none bg-surface-container-lowest">
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              <div className="space-y-1.5 col-span-2">
-                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Therapy (Multiple)</label>
-                <div className="flex flex-wrap gap-2">
-                  {THERAPY_OPTIONS.map(([val, lbl]) => {
-                    const isSelected = Array.isArray(form.therapyType) ? form.therapyType.includes(val) : form.therapyType === val;
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Therapy / Services (Multiple)</label>
+              <div className="flex flex-wrap gap-2">
+                {services.length === 0 ? (
+                  <p className="text-xs text-on-surface-variant/50 italic">Loading services...</p>
+                ) : (
+                  services.map((s) => {
+                    const therapyVal = s.name.toLowerCase().replace(/ /g, '_');
+                    const isSelected = Array.isArray(form.therapyType) && form.therapyType.includes(therapyVal);
                     return (
-                      <label key={val} className={cn("flex items-center gap-2 px-3 py-2 border rounded-xl cursor-pointer text-sm font-semibold transition-colors", isSelected ? "bg-primary/10 border-primary text-primary" : "bg-surface-container-lowest border-outline-variant/30 text-on-surface-variant hover:bg-surface-container-low")}>
+                      <label key={s._id} className={cn("flex items-center gap-2 px-3 py-2 border rounded-xl cursor-pointer text-sm font-semibold transition-colors", isSelected ? "bg-primary/10 border-primary text-primary" : "bg-surface-container-lowest border-outline-variant/30 text-on-surface-variant hover:bg-surface-container-low")}>
                         <input type="checkbox" className="hidden" checked={isSelected} onChange={(e) => {
-                          const currentArr = Array.isArray(form.therapyType) ? form.therapyType : (form.therapyType ? [form.therapyType] : []);
+                          const currentArr = Array.isArray(form.therapyType) ? form.therapyType : [];
+                          let updated: string[];
                           if (e.target.checked) {
-                            set('therapyType', [...currentArr, val] as any);
+                            updated = [...currentArr, therapyVal];
                           } else {
-                            set('therapyType', currentArr.filter((t: string) => t !== val) as any);
+                            updated = currentArr.filter((t: string) => t !== therapyVal);
                           }
+                          
+                          let updatedDetails = Array.isArray(form.therapyDetails) ? [...form.therapyDetails] : [];
+                          if (e.target.checked) {
+                            if (!updatedDetails.some(d => d.therapy === therapyVal)) {
+                              updatedDetails.push({ therapy: therapyVal, discount: 0 });
+                            }
+                          } else {
+                            updatedDetails = updatedDetails.filter(d => d.therapy !== therapyVal);
+                          }
+
+                          const selectedFee = services
+                            .filter(srv => {
+                              const srvVal = srv.name.toLowerCase().replace(/ /g, '_');
+                              return updated.includes(srvVal);
+                            })
+                            .reduce((sum, srv) => {
+                              const srvVal = srv.name.toLowerCase().replace(/ /g, '_');
+                              const detail = updatedDetails.find(d => d.therapy === srvVal);
+                              const discount = detail ? (Number(detail.discount) || 0) : 0;
+                              return sum + Math.max(0, srv.price - discount);
+                            }, 0);
+                          setForm(p => ({ ...p, therapyType: updated, therapyDetails: updatedDetails, totalFee: selectedFee }));
                         }} />
-                        {lbl}
+                        <span className="flex items-center gap-2">
+                          <span>{s.name}</span>
+                          <span className="text-xs opacity-60">(₹{s.price})</span>
+                        </span>
                       </label>
                     );
-                  })}
-                </div>
+                  })
+                )}
               </div>
             </div>
+
+            {/* Service Discounts List */}
+            {services.length > 0 && Array.isArray(form.therapyType) && form.therapyType.length > 0 && (
+              <div className="space-y-3 p-4 rounded-2xl bg-surface-container-low border border-outline-variant/20">
+                <h4 className="text-[11px] font-black uppercase text-secondary tracking-wider">Service Discounts</h4>
+                <div className="space-y-2">
+                  {services
+                    .filter(s => {
+                      const val = s.name.toLowerCase().replace(/ /g, '_');
+                      return (form.therapyType || []).includes(val);
+                    })
+                    .map(s => {
+                      const val = s.name.toLowerCase().replace(/ /g, '_');
+                      const detail = (form.therapyDetails || []).find(d => d.therapy === val);
+                      const discountVal = detail ? detail.discount : 0;
+                      return (
+                        <div key={s._id} className="flex items-center justify-between gap-4 p-2 rounded-xl bg-white border border-outline-variant/10 text-xs">
+                          <div>
+                            <p className="font-bold text-on-surface">{s.name}</p>
+                            <p className="text-[10px] text-on-surface-variant/70">Catalog: ₹{s.price}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-on-surface-variant text-[10px]">Discount:</span>
+                            <input
+                              type="number"
+                              min={0}
+                              max={s.price}
+                              value={discountVal || ''}
+                              onChange={e => {
+                                const newDiscount = Math.min(s.price, Math.max(0, Number(e.target.value) || 0));
+                                const updatedDetails = (form.therapyDetails || []).map(d => 
+                                  d.therapy === val ? { ...d, discount: newDiscount } : d
+                                );
+                                if (!updatedDetails.some(d => d.therapy === val)) {
+                                  updatedDetails.push({ therapy: val, discount: newDiscount });
+                                }
+                                
+                                const selectedFee = services
+                                  .filter(srv => {
+                                    const srvVal = srv.name.toLowerCase().replace(/ /g, '_');
+                                    return (form.therapyType || []).includes(srvVal);
+                                  })
+                                  .reduce((sum, srv) => {
+                                    const srvVal = srv.name.toLowerCase().replace(/ /g, '_');
+                                    const d = updatedDetails.find(dt => dt.therapy === srvVal);
+                                    const disc = d ? (Number(d.discount) || 0) : 0;
+                                    return sum + Math.max(0, srv.price - disc);
+                                  }, 0);
+
+                                setForm(prev => ({ ...prev, therapyDetails: updatedDetails, totalFee: selectedFee }));
+                              }}
+                              className="w-20 bg-surface-container-lowest border border-outline-variant/30 rounded-lg py-1 px-2 text-right focus:outline-none focus:border-secondary transition-all font-semibold"
+                              placeholder="0"
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -472,7 +596,17 @@ function EditModal({ patient, billing, onClose, onSave }: { patient: Patient; bi
                     return;
                   }
                 }
-                onSave(form); 
+                
+                let finalForm = { ...form };
+                if (phoneInput.trim() !== '') {
+                  if (!/^\d{10}$/.test(phoneInput)) {
+                    toast.error('Enter exactly 10 digits for the phone number.');
+                    return;
+                  }
+                  finalForm.phone = `+91${phoneInput}`;
+                }
+
+                onSave(finalForm); 
                 onClose(); 
               }}
               className="flex-1 py-3 rounded-xl bg-gradient-to-r from-secondary to-primary text-white font-bold text-sm hover:opacity-90 transition-opacity">
@@ -621,7 +755,10 @@ export default function PatientsListView({ patients, billing, onDelete, onUpdate
                         {patient.status || 'Active'}
                       </span>
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-on-surface-variant font-medium">
+                    <div className="text-[10px] font-bold font-mono text-on-surface-variant bg-surface-container-low px-1.5 py-0.5 rounded inline-block w-fit opacity-75 select-all">
+                      {patient.patientId || patient.id}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-on-surface-variant font-medium pt-0.5">
                       <span>{patient.age} yrs • {patient.gender}</span>
                       <span className="flex items-center gap-1"><Phone size={10} />{maskPhone(patient.phone || '')}</span>
                     </div>
@@ -643,7 +780,7 @@ export default function PatientsListView({ patients, billing, onDelete, onUpdate
                       <div className="flex flex-wrap gap-1">
                         {(Array.isArray(patient.therapyType) ? patient.therapyType : [patient.therapyType]).map((t: string) => (
                           <span key={t} className="text-sm font-semibold text-secondary bg-secondary/5 inline-block px-2.5 py-1 rounded-md">
-                            {THERAPY_LABELS[t] || t}
+                            {THERAPY_LABELS[t] || t.replace(/_/g, ' ')}
                           </span>
                         ))}
                       </div>

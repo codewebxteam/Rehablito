@@ -23,8 +23,8 @@ export const MobileNav = () => {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden px-4 pb-4 focus:outline-none">
-      <div className="bg-surface-container-low/80 backdrop-blur-xl border border-outline-variant/10 shadow-2xl rounded-3xl p-2 flex items-center justify-around h-16 relative overflow-hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 lg:hidden px-6 pb-6 pt-2 bg-gradient-to-t from-surface-container-lowest via-surface-container-lowest/80 to-transparent pointer-events-none">
+      <div className="bg-surface-container-low/90 backdrop-blur-2xl border border-outline-variant/20 shadow-2xl rounded-[2rem] p-1.5 flex items-center justify-between h-[72px] relative overflow-hidden pointer-events-auto max-w-md mx-auto">
         {navItems.map((item) => {
           const isActive = pathname === item.path;
           return (
@@ -32,19 +32,19 @@ export const MobileNav = () => {
               key={item.id}
               href={item.path}
               className={cn(
-                "relative flex flex-col items-center justify-center p-2 rounded-2xl w-full transition-all duration-300",
+                "relative flex flex-col items-center justify-center h-full rounded-[1.5rem] flex-1 transition-all duration-300",
                 isActive ? "text-primary" : "text-on-surface-variant hover:text-on-surface"
               )}
             >
-              <div className="relative z-10 flex flex-col items-center gap-0.5">
-                <item.icon className={cn("w-5 h-5", isActive ? "scale-110" : "scale-100")} />
-                <span className="text-[10px] font-bold tracking-tight">{item.label}</span>
+              <div className="relative z-10 flex flex-col items-center gap-1">
+                <item.icon className={cn("w-[22px] h-[22px] transition-transform duration-300", isActive ? "scale-110 mb-0.5" : "scale-100 opacity-60")} />
+                {isActive && <span className="text-[9px] font-black tracking-widest uppercase">{item.label}</span>}
               </div>
               {isActive && (
                 <motion.div
-                  layoutId="active-pill"
-                  className="absolute inset-0 bg-primary/5 rounded-2xl border-t border-primary/20"
-                  transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+                  layoutId="active-nav-pill"
+                  className="absolute inset-0 bg-primary/10 rounded-[1.5rem]"
+                  transition={{ type: "spring", bounce: 0.25, duration: 0.5 }}
                 />
               )}
             </Link>

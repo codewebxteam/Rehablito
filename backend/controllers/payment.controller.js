@@ -1,6 +1,14 @@
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
+const path = require('path');
 const FeePayment = require('../models/FeePayment');
+const ImageKit = require('imagekit');
+
+const imagekit = new ImageKit({
+    publicKey: process.env.IMAGEKIT_PUBLIC_KEY || "public_WLfL24xlJbdNIpk+5F3PgakGSCM=",
+    privateKey: process.env.IMAGEKIT_PRIVATE_KEY || "private_b+6zHi1L6gBxZXbQ9Scq+VTdPG0=",
+    urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT || "https://ik.imagekit.io/5glnyqfxu"
+});
 
 const instance = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID || 'rzp_test_placeholder',
@@ -121,6 +129,57 @@ exports.verifyPayment = async (req, res) => {
         }
     } catch (error) {
         console.error('Razorpay Verify Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// 3. Submit Manual QR Payment
+exports.submitManualPayment = async (req, res) => {
+    try {
+        const { amount, feePaymentId, transactionId } = req.body;
+
+        if (!amount || !feePaymentId) {
+            return res.status(400).json({ error: 'Amount and feePaymentId are required' });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ error: 'Payment screenshot is required' });
+        }
+
+        const feePayment = await FeePayment.findById(feePaymentId);
+        if (!feePayment) {
+            return res.status(404).json({ error: 'Fee payment not found' });
+        }
+
+        // Upload the file buffer to ImageKit
+        const uploadResponse = await new Promise((resolve, reject) => {
+            imagekit.upload({
+                file: req.file.buffer.toString('base64'),
+                fileName: `payment_${feePaymentId}_${Date.now()}${path.extname(req.file.originalname) || '.png'}`,
+                folder: '/rehablito/payments'
+            }, function(error, result) {
+                if(error) reject(error);
+                else resolve(result);
+            });
+        });
+
+        feePayment.method = 'qr_scan';
+        feePayment.approvalStatus = 'pending';
+        feePayment.screenshot = uploadResponse.url;
+
+        // Push a transaction record marking it as pending approval
+        feePayment.transactions.push({
+            amountPaid: Number(amount),
+            date: new Date(),
+            method: 'qr_scan',
+            transactionId: transactionId || 'pending_approval'
+        });
+
+        await feePayment.save();
+
+        res.json({ success: true, message: 'Manual payment submitted for approval' });
+    } catch (error) {
+        console.error('Manual Payment Error:', error);
         res.status(500).json({ error: error.message });
     }
 };

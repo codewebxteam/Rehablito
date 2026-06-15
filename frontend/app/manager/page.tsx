@@ -101,6 +101,7 @@ interface ApiStaff {
   role: 'staff' | 'branch_manager';
   staffId?: string;
   mobileNumber?: string;
+  designation?: string;
   branchId?: { _id: string; name: string } | string | null;
   todayStatus?: 'present' | 'absent' | 'leave' | 'half_day' | 'on_duty' | 'not_marked';
 }
@@ -111,7 +112,8 @@ const apiStaffToUi = (s: ApiStaff): Staff => ({
   email: s.email,
   staffId: s.staffId,
   mobileNumber: s.mobileNumber,
-  role: s.role === 'branch_manager' ? 'Admin' : 'Physio',
+  designation: s.designation,
+  role: s.role === 'branch_manager' ? 'Admin' : 'Therapist',
   status: s.todayStatus && s.todayStatus !== 'not_marked' && s.todayStatus !== 'absent' ? 'Active' : 'Inactive',
   attendance: [],
 });
@@ -133,6 +135,7 @@ interface ApiPatient {
   totalFee?: number;
   serviceId?: string;
   status?: string;
+  therapyDetails?: { therapy: string; addedAt?: string; discount: number }[];
 }
 
 const capitalize = (s?: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
@@ -144,7 +147,7 @@ const apiPatientToUi = (p: ApiPatient): Patient => ({
   parentName: p.parentName,
   age: p.age ?? 0,
   gender: capitalize(p.gender),
-  therapyType: p.therapyType?.[0],
+  therapyType: Array.isArray(p.therapyType) ? p.therapyType : (p.therapyType ? [p.therapyType] : []),
   condition: p.diagnosis || '',
   address: p.address,
   phone: p.parentPhone || '',
@@ -152,6 +155,7 @@ const apiPatientToUi = (p: ApiPatient): Patient => ({
   totalFee: p.totalFee ?? 0,
   serviceId: p.serviceId,
   status: p.status,
+  therapyDetails: p.therapyDetails || [],
 });
 
 // ── Billing API types & mappers ──
@@ -443,6 +447,7 @@ export default function ManagerDashboardApp() {
         password: input.password,
         staffId: input.staffId,
         mobileNumber: input.mobileNumber,
+        designation: input.designation,
       };
       const { data } = await api.post('/manager/staff', payload);
       if (data.success) {
@@ -475,6 +480,7 @@ export default function ManagerDashboardApp() {
         email: updatedStaff.email,
         staffId: updatedStaff.staffId,
         mobileNumber: updatedStaff.mobileNumber,
+        designation: updatedStaff.designation,
         password: updatedStaff.password || undefined,
       };
       const { data } = await api.put(`/manager/staff/${updatedStaff.id}`, payload);
@@ -528,7 +534,9 @@ export default function ManagerDashboardApp() {
         parentName: updated.parentName,
         age: updated.age,
         gender: updated.gender.toLowerCase(),
-        therapyType: updated.therapyType ? [updated.therapyType] : [],
+        therapyType: updated.therapyType || [],
+        therapyDetails: updated.therapyDetails || [],
+        totalFee: updated.totalFee || 0,
         diagnosis: updated.condition,
         address: updated.address,
         parentPhone: updated.phone,
@@ -579,7 +587,7 @@ export default function ManagerDashboardApp() {
     { id: 'patients', label: 'Patients', icon: ClipboardList },
     { id: 'attendance', label: 'Patient Attendance', icon: Calendar },
     { id: 'leads', label: 'Leads', icon: Users },
-    { id: 'staff', label: 'Staff', icon: UserCheck },
+    { id: 'staff', label: 'Therapist', icon: UserCheck },
     { id: 'services', label: 'Services', icon: Settings },
     { id: 'billing', label: 'Billing', icon: CreditCard },
     { id: 'feedbacks', label: 'Feedbacks', icon: MessageSquare },

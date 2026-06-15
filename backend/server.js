@@ -2,6 +2,7 @@ const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const connectDB = require('./config/db');
+const path = require('path');
 
 // Load env vars
 dotenv.config({ quiet: true });
@@ -17,6 +18,9 @@ app.use(cors({
   origin: true,
   credentials: true
 }));
+
+// Serve static files from the uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Route files
 const authRoutes = require('./routes/auth.routes');

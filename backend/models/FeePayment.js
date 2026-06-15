@@ -9,7 +9,7 @@ const feePaymentSchema = new mongoose.Schema({
     dueDate: { type: Date },
     method: {
         type: String,
-        enum: ['cash', 'upi', 'bank_transfer', 'card'],
+        enum: ['cash', 'upi', 'bank_transfer', 'card', 'qr_scan'],
         default: 'cash'
     },
     status: {
@@ -20,6 +20,12 @@ const feePaymentSchema = new mongoose.Schema({
     receiptNumber: { type: String },
     collectedBy: { type: mongoose.Schema.ObjectId, ref: 'User' },
     description: { type: String },
+    approvalStatus: {
+        type: String,
+        enum: ['none', 'pending', 'approved', 'rejected'],
+        default: 'none'
+    },
+    screenshot: { type: String },
     transactions: [{
         amountPaid: Number,
         date: { type: Date, default: Date.now },

@@ -222,6 +222,10 @@ export default function BillingView({ data, onRefresh }: { data: any, onRefresh:
                       <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-100">
                         <CheckCircle size={10} /> Paid
                       </span>
+                    ) : record.approvalStatus === 'pending' ? (
+                      <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100 shadow-sm animate-pulse">
+                        <AlertCircle size={10} /> Verification Pending
+                      </span>
                     ) : (
                       <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-100">
                         <Clock size={10} /> Pending
@@ -235,7 +239,7 @@ export default function BillingView({ data, onRefresh }: { data: any, onRefresh:
                   </p>
                 </div>
 
-                {record.status !== 'paid' && record.dueAmount > 0 ? (
+                {record.status !== 'paid' && record.dueAmount > 0 && record.approvalStatus !== 'pending' ? (
                   <div className="w-full md:w-auto flex flex-col sm:flex-row gap-2 mt-4 md:mt-0">
                     <button
                       onClick={() => openPaymentModal(record)}
@@ -249,6 +253,11 @@ export default function BillingView({ data, onRefresh }: { data: any, onRefresh:
                     >
                       <QrCode size={16} /> Pay via QR
                     </button>
+                  </div>
+                ) : record.status !== 'paid' && record.approvalStatus === 'pending' ? (
+                  <div className="w-full md:w-auto mt-4 md:mt-0 px-4 py-2 bg-surface-container-low rounded-xl text-center md:text-right border border-outline-variant/20 shadow-sm">
+                    <p className="text-xs font-bold text-on-surface-variant">Under Review</p>
+                    <p className="text-[10px] text-on-surface-variant/70 mt-0.5">Please wait for manager approval</p>
                   </div>
                 ) : record.status === 'paid' ? (
                   <div className="w-full md:w-auto flex flex-col sm:flex-row gap-2 mt-4 md:mt-0">

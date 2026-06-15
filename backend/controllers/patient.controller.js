@@ -1,5 +1,36 @@
 const Patient = require('../models/Patient');
-const PatientAttendance = require('../models/PatientAttendance'); // 🔥 NEW: Imported Attendance Model
+const PatientAttendance = require('../models/PatientAttendance');
+const User = require('../models/User'); // 🔥 Parent Portal
+const FeePayment = require('../models/FeePayment');
+const Service = require('../models/Service');
+
+async function processTherapyUpdates(patient, newTherapies, newDetails) {
+    if (!newTherapies) return;
+    if (!patient.therapyDetails) patient.therapyDetails = [];
+
+    const existingTherapies = patient.therapyDetails.map(td => td.therapy);
+    const addedTherapies = newTherapies.filter(t => !existingTherapies.includes(t));
+
+    for (const therapy of addedTherapies) {
+        const detailInput = newDetails ? newDetails.find(d => d.therapy === therapy) : null;
+        const discount = detailInput ? (Number(detailInput.discount) || 0) : 0;
+
+        patient.therapyDetails.push({ 
+            therapy, 
+            addedAt: new Date(), 
+            discount 
+        });
+    }
+
+    if (newDetails) {
+        for (const td of patient.therapyDetails) {
+            const detailInput = newDetails.find(d => d.therapy === td.therapy);
+            if (detailInput) {
+                td.discount = Number(detailInput.discount) || 0;
+            }
+        }
+    }
+}
 
 // GET /api/admin/patients?branch=ID&status=active&page=1&limit=20
 const getPatients = async (req, res) => {
@@ -39,11 +70,45 @@ const getPatients = async (req, res) => {
 // POST /api/admin/patients
 const createPatient = async (req, res) => {
     try {
+        if (req.body.therapyDetails) {
+            req.body.therapyDetails = req.body.therapyDetails.map(td => ({
+                therapy: td.therapy,
+                addedAt: td.addedAt ? new Date(td.addedAt) : new Date(),
+                discount: Number(td.discount) || 0
+            }));
+        } else if (req.body.therapyType) {
+            req.body.therapyDetails = req.body.therapyType.map(t => ({
+                therapy: t,
+                addedAt: new Date(),
+                discount: 0
+            }));
+        }
         const created = await Patient.create(req.body);
+
+        // 🔥 Parent Portal: Auto-create parent account if parentEmail + parentPassword are provided
+        let parentAccount = null;
+        const { parentEmail, parentPassword, parentName, parentPhone } = req.body;
+        if (parentEmail && parentPassword) {
+            const existingParent = await User.findOne({ email: parentEmail });
+            if (!existingParent) {
+                parentAccount = await User.create({
+                    name: parentName || created.name + "'s Parent",
+                    email: parentEmail,
+                    password: parentPassword,
+                    role: 'parent',
+                    patientId: created._id,
+                    mobileNumber: parentPhone || undefined,
+                });
+                console.log(`✅ Parent account created: ${parentEmail} for patient ${created.name}`);
+            } else {
+                console.log(`⚠️ Parent email ${parentEmail} already exists, skipping account creation.`);
+            }
+        }
+
         const patient = await Patient.findById(created._id)
             .populate('branchId', 'name')
             .populate('assignedTherapist', 'name');
-        res.status(201).json({ success: true, data: patient });
+        res.status(201).json({ success: true, data: patient, parentAccountCreated: !!parentAccount });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
     }
@@ -52,13 +117,49 @@ const createPatient = async (req, res) => {
 // PUT /api/admin/patients/:id
 const updatePatient = async (req, res) => {
     try {
-        const patient = await Patient.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
+        const patient = await Patient.findById(req.params.id);
+        if (!patient) return res.status(404).json({ success: false, message: 'Patient not found' });
+
+        if (req.body.therapyType) {
+            await processTherapyUpdates(patient, req.body.therapyType, req.body.therapyDetails);
+        }
+
+        Object.assign(patient, req.body);
+        await patient.save();
+
+        const populated = await Patient.findById(patient._id)
             .populate('branchId', 'name')
             .populate('assignedTherapist', 'name');
-        if (!patient) return res.status(404).json({ success: false, message: 'Patient not found' });
-        res.json({ success: true, data: patient });
+
+        // 🔥 Parent Portal: Update password if provided
+        const { parentPassword } = req.body;
+        if (parentPassword) {
+            const parentUser = await User.findOne({ patientId: patient._id });
+            if (parentUser) {
+                parentUser.password = parentPassword;
+                await parentUser.save();
+                console.log(`✅ Parent password updated for patient ${patient.name}`);
+            }
+        }
+
+        res.json({ success: true, data: populated });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
+    }
+};
+
+// DELETE /api/admin/patients/:id
+const deletePatient = async (req, res) => {
+    try {
+        const patient = await Patient.findByIdAndDelete(req.params.id);
+        if (!patient) return res.status(404).json({ success: false, message: 'Patient not found' });
+        
+        // Also delete parent account if exists
+        await User.findOneAndDelete({ patientId: req.params.id });
+
+        res.json({ success: true, message: 'Patient deleted successfully' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
     }
 };
 
@@ -149,10 +250,25 @@ const getGlobalPatientAttendance = async (req, res) => {
     }
 };
 
+// GET /api/admin/patients/:id
+const getPatient = async (req, res) => {
+    try {
+        const patient = await Patient.findById(req.params.id)
+            .populate('branchId', 'name')
+            .populate('assignedTherapist', 'name');
+        if (!patient) return res.status(404).json({ success: false, message: 'Patient not found' });
+        res.json({ success: true, data: patient });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
 module.exports = { 
     getPatients, 
+    getPatient, // 🔥 Added export
     createPatient, 
     updatePatient, 
+    deletePatient,
     getPatientStats,
     getGlobalPatientAttendance // 🔥 NEW EXPORT
 };

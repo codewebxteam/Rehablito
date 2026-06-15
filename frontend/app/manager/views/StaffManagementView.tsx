@@ -67,7 +67,7 @@ function RowMenu({ memberId, onView, onEdit, onDelete }: { memberId: string; onV
 export default function StaffManagementView({ staff, onToggleStatus, onDeleteStaff, onUpdateStaff, onAddStaff, isLoading = false }: StaffManagementProps) {
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [newStaff, setNewStaff] = useState({ name: '', email: '', password: '', staffId: '', mobileNumber: '' });
+  const [newStaff, setNewStaff] = useState({ name: '', email: '', password: '', staffId: '', mobileNumber: '', designation: '' });
   const [editingStaff, setEditingStaff] = useState<(Staff & { password?: string }) | null>(null);
   const [showAddPass, setShowAddPass] = useState(false);
   const [showEditPass, setShowEditPass] = useState(false);
@@ -86,6 +86,8 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
   const capacityPercent = attendanceStats?.today.totalStaff
     ? Math.round((attendanceStats.today.present / attendanceStats.today.totalStaff) * 100) : 0;
 
+  const availableDesignations = Array.from(new Set(staff.map(s => s.designation).filter(Boolean)));
+
   return (
     <div className="space-y-6 w-full min-w-0">
 
@@ -102,7 +104,7 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
           </button> */}
           <button onClick={() => setIsAddModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:opacity-90 transition-opacity">
-            <Plus size={15} /> Add Physiotherapist
+            <Plus size={15} /> Add Therapist
           </button>
         </div>
       </div>
@@ -140,7 +142,7 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
                         <tr>
                           <td colSpan={5} className="py-20 text-center">
                             <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin mx-auto mb-4"></div>
-                            <p className="text-on-surface-variant font-medium">Loading Physiotherapist...</p>
+                            <p className="text-on-surface-variant font-medium">Loading Therapist...</p>
                           </td>
                         </tr>
                       ) : (
@@ -159,10 +161,10 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
                           </td>
                           <td className="px-5 py-3">
                             <span className={cn('px-2 py-1 rounded-md text-[11px] font-bold uppercase whitespace-nowrap',
-                              member.role === 'Physio' ? 'bg-primary/10 text-primary' :
+                              member.role === 'Therapist' ? 'bg-primary/10 text-primary' :
                               member.role === 'Admin' ? 'bg-secondary/10 text-secondary' :
                               'bg-surface-container-high text-on-surface-variant')}>
-                              {member.role}
+                              {member.designation || member.role}
                             </span>
                           </td>
                           <td className="px-5 py-3">
@@ -196,7 +198,7 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
                   {isLoading ? (
                     <div className="py-20 flex flex-col items-center justify-center">
                       <div className="w-10 h-10 rounded-full border-4 border-primary/20 border-t-primary animate-spin mb-3"></div>
-                      <p className="text-sm text-on-surface-variant font-medium">Loading Physiotherapist...</p>
+                      <p className="text-sm text-on-surface-variant font-medium">Loading Therapist...</p>
                     </div>
                   ) : (
                     staff.map(member => (
@@ -218,10 +220,10 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
                       </div>
                       <div className="flex flex-wrap items-center gap-3">
                         <span className={cn('px-2 py-1 rounded-md text-[11px] font-bold uppercase',
-                          member.role === 'Physio' ? 'bg-primary/10 text-primary' :
+                          member.role === 'Therapist' ? 'bg-primary/10 text-primary' :
                           member.role === 'Admin' ? 'bg-secondary/10 text-secondary' :
                           'bg-surface-container-high text-on-surface-variant')}>
-                          {member.role}
+                          {member.designation || member.role}
                         </span>
                         {member.status === 'Active'
                           ? <span className="flex items-center gap-1 text-secondary font-bold text-xs"><MapPin size={12} />Active</span>
@@ -269,7 +271,7 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
                     <div className="bg-primary h-full rounded-full transition-all" style={{ width: `${Math.min(capacityPercent, 100)}%` }} />
                   </div>
                   <p className="text-[10px] text-on-surface-variant mt-1.5">
-                    {capacityPercent}% today · {attendanceStats?.today.present ?? 0}/{attendanceStats?.today.totalStaff ?? 0} physiotherapist
+                    {capacityPercent}% today · {attendanceStats?.today.present ?? 0}/{attendanceStats?.today.totalStaff ?? 0} therapist(s)
                   </p>
                 </div>
 
@@ -306,7 +308,7 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
             <div className="relative z-10">
               <div className="flex items-center gap-2 mb-2">
                 <MapPin className="text-secondary shrink-0" size={18} />
-                <h3 className="font-bold text-base">Physiotherapist Map</h3>
+                <h3 className="font-bold text-base">Therapist Map</h3>
               </div>
               <p className="text-xs text-white/60 mb-4">Real-time GPS for active therapists.</p>
               <div className="space-y-2.5 mb-4">
@@ -419,13 +421,13 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
               className="bg-white rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl">
-              <h3 className="text-lg font-bold mb-5">Add New Physiotherapist</h3>
+              <h3 className="text-lg font-bold mb-5">Add New Therapist</h3>
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 setIsProcessing(true);
                 await onAddStaff(newStaff);
                 setIsAddModalOpen(false);
-                setNewStaff({ name: '', email: '', password: '', staffId: '', mobileNumber: '' });
+                setNewStaff({ name: '', email: '', password: '', staffId: '', mobileNumber: '', designation: '' });
                 setShowAddPass(false);
                 setIsProcessing(false);
               }} className="space-y-4">
@@ -470,6 +472,15 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
                       className="w-full bg-surface-container-low rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" placeholder="+91..." />
                   </div>
                 </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Role / Designation</label>
+                  <input list="designations" type="text" value={newStaff.designation || ''}
+                    onChange={e => setNewStaff(p => ({ ...p, designation: e.target.value }))}
+                    className="w-full bg-surface-container-low rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" placeholder="e.g. Physiotherapist, Speech Therapist" />
+                  <datalist id="designations">
+                    {availableDesignations.map(d => <option key={d} value={d} />)}
+                  </datalist>
+                </div>
                 <div className="flex gap-3 pt-2">
                   <button type="button" onClick={() => setIsAddModalOpen(false)}
                     className="flex-1 py-3 rounded-xl border border-outline-variant/30 text-sm font-semibold text-on-surface-variant hover:bg-surface-container-low transition-colors">
@@ -492,7 +503,7 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
               className="bg-white rounded-3xl p-6 md:p-8 w-full max-w-md shadow-2xl">
-              <h3 className="text-lg font-bold mb-5">Edit Physiotherapist Member</h3>
+              <h3 className="text-lg font-bold mb-5">Edit Therapist</h3>
               <form onSubmit={async (e) => {
                 e.preventDefault();
                 setIsProcessing(true);
@@ -541,6 +552,15 @@ export default function StaffManagementView({ staff, onToggleStatus, onDeleteSta
                       onChange={e => setEditingStaff(p => p ? { ...p, mobileNumber: e.target.value } : null)}
                       className="w-full bg-surface-container-low rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" />
                   </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Role / Designation</label>
+                  <input list="designations" type="text" value={editingStaff.designation || ''}
+                    onChange={e => setEditingStaff(p => p ? { ...p, designation: e.target.value } : null)}
+                    className="w-full bg-surface-container-low rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/20" placeholder="e.g. Physiotherapist, Speech Therapist" />
+                  <datalist id="designations">
+                    {availableDesignations.map(d => <option key={d} value={d} />)}
+                  </datalist>
                 </div>
                 <div className="flex gap-3 pt-2">
                   <button type="button" onClick={() => { setEditingStaff(null); setShowEditPass(false); }}

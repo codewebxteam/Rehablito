@@ -59,7 +59,7 @@ export default function HistoryPage() {
     record.status.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const totalHours = records.reduce((acc, r) => acc + (r.totalHours || 0), 0);
+  const totalHours = records.reduce((acc, r) => acc + (r.dutyHours || r.totalHours || 0), 0);
   const avgHours = totalHours / (records.length || 1);
 
   return (
@@ -156,15 +156,20 @@ export default function HistoryPage() {
                           record.status === 'present' ? "bg-secondary" : "bg-primary"
                         )}></div>
                       </div>
-                      <p className="text-[10px] font-bold text-on-surface-variant/50 leading-none truncate uppercase tracking-widest">
-                        {safeFormat(record.checkIn, 'hh:mm a')} — {record.checkOut ? safeFormat(record.checkOut, 'hh:mm a') : 'On-going'}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-[10px] font-bold text-on-surface-variant/50 leading-none truncate uppercase tracking-widest">
+                          {safeFormat(record.checkIn, 'hh:mm a')} — {record.checkOut ? safeFormat(record.checkOut, 'hh:mm a') : 'On-going'}
+                        </p>
+                        {record.autoCheckedOut && (
+                          <span className="bg-error/10 text-error text-[8px] px-1.5 py-0.5 rounded-sm font-bold uppercase tracking-widest">Auto</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   
                   <div className="text-right shrink-0">
                     <p className="text-lg font-headline font-black text-on-surface tracking-tighter leading-none">
-                      {record.totalHours ? `${Math.floor(record.totalHours)}h` : '--'}
+                      {(record.dutyHours || record.totalHours) ? `${Math.floor(record.dutyHours || record.totalHours || 0)}h` : '--'}
                     </p>
                     <p className="text-[8px] font-bold text-on-surface-variant/40 uppercase tracking-widest">Duration</p>
                   </div>

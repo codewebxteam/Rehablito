@@ -108,6 +108,119 @@ function CustomSelect({
   );
 }
 
+interface MultiSelectOption {
+  value: string;
+  label: string;
+  price?: number;
+}
+
+function CustomMultiSelect({
+  selectedValues,
+  onChange,
+  options,
+  placeholder,
+  error
+}: {
+  selectedValues: string[];
+  onChange: (values: string[]) => void;
+  options: MultiSelectOption[];
+  placeholder: string;
+  error?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  const toggleOption = (val: string) => {
+    if (selectedValues.includes(val)) {
+      onChange(selectedValues.filter(v => v !== val));
+    } else {
+      onChange([...selectedValues, val]);
+    }
+  };
+
+  const selectedLabels = options
+    .filter(o => selectedValues.includes(o.value))
+    .map(o => o.label);
+
+  const displayLabel = selectedLabels.length > 0
+    ? selectedLabels.join(', ')
+    : placeholder;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(p => !p)}
+        className={cn(
+          'w-full flex items-center justify-between gap-3 px-5 py-4 rounded-2xl border bg-surface-container-lowest transition-all outline-none text-left',
+          open ? 'border-primary ring-4 ring-primary/10' : error ? 'border-error' : 'border-outline-variant/30',
+          'hover:border-primary/50'
+        )}
+      >
+        <span className={cn('text-sm font-medium truncate flex-1 block', selectedValues.length > 0 ? 'text-on-surface' : 'text-on-surface-variant/50')}>
+          {displayLabel}
+        </span>
+        <ChevronDown size={16} className={cn('text-on-surface-variant transition-transform shrink-0', open && 'rotate-180')} />
+      </button>
+
+      {open && (
+        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-outline-variant/15 z-50 overflow-hidden max-h-60 overflow-y-auto">
+          <div className="h-0.5 bg-gradient-to-r from-primary via-secondary to-primary/30" />
+          <div className="py-1.5">
+            {options.length === 0 ? (
+              <p className="text-xs text-on-surface-variant/50 italic px-5 py-3">No services available...</p>
+            ) : (
+              options.map((opt) => {
+                const isSelected = selectedValues.includes(opt.value);
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => toggleOption(opt.value)}
+                    className={cn(
+                      'w-full flex items-center justify-between gap-3 px-5 py-3 text-sm transition-all text-left group',
+                      isSelected
+                        ? 'bg-primary/8 text-primary font-semibold'
+                        : 'text-on-surface font-medium hover:bg-surface-container-low'
+                    )}
+                  >
+                    <span className="flex items-center gap-3">
+                      <div className={cn(
+                        "w-4 h-4 rounded border flex items-center justify-center transition-colors shrink-0",
+                        isSelected 
+                          ? "border-primary bg-primary text-white" 
+                          : "border-outline-variant/50 bg-white"
+                      )}>
+                        {isSelected && <Check size={12} strokeWidth={3} className="text-white" />}
+                      </div>
+                      <span>{opt.label}</span>
+                    </span>
+                    {opt.price !== undefined && (
+                      <span className={cn('text-xs font-semibold shrink-0', isSelected ? 'text-primary' : 'text-on-surface-variant')}>
+                        ₹{opt.price.toLocaleString()}
+                      </span>
+                    )}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface PatientOnboardingProps {
   onOnboard: (patient: Patient) => void;
 }
@@ -120,7 +233,7 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
     parentName: '',
     age: '',
     gender: '',
-    serviceId: '',
+    serviceIds: [] as string[],
     therapyType: '',
     diagnosis: '',
     address: '',
@@ -135,12 +248,17 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
   const [services, setServices] = useState<ServiceOption[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [therapyDiscounts, setTherapyDiscounts] = useState<Record<string, number>>({});
   
   // Changed to any so it can hold the branchName for PDF generation
   const [lastOnboarded, setLastOnboarded] = useState<any>(null);
 
-  // Derived: selected service object
-  const selectedService = services.find(s => s._id === formData.serviceId) || null;
+  // Derived: selected services and calculated total fee
+  const selectedServices = services.filter(s => formData.serviceIds.includes(s._id));
+  const totalFee = selectedServices.reduce((sum, s) => {
+    const discount = therapyDiscounts[s._id] || 0;
+    return sum + Math.max(0, s.price - discount);
+  }, 0);
 
   useEffect(() => {
     api.get('/manager/branches').then(({ data }) => {
@@ -152,7 +270,8 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
     }).catch(() => {});
 
     // Auto-generate patient ID
-    const id = `RX-${Date.now().toString().slice(-6)}`;
+    const year = new Date().getFullYear().toString().slice(-2);
+    const id = `RHBT${year}XXXX`;
     setFormData(prev => ({ ...prev, patientId: id, branchId: user?.branchId || prev.branchId }));
   }, [user]);
 
@@ -162,7 +281,7 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
     if (!formData.parentName) newErrors.parentName = 'Parent name is required';
     if (!formData.age) newErrors.age = 'Age is required';
     if (!formData.gender) newErrors.gender = 'Gender is required';
-    if (!formData.serviceId) newErrors.serviceId = 'Service is required';
+    if (formData.serviceIds.length === 0) newErrors.serviceIds = 'At least one service is required';
     if (!formData.address) newErrors.address = 'Address is required';
     if (!formData.branchId) newErrors.branchId = 'Branch is required';
     if (!formData.phone) {
@@ -191,9 +310,13 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
         parentName: formData.parentName,
         age: parseInt(formData.age),
         gender: formData.gender.toLowerCase(),
-        therapyType: selectedService ? [selectedService.name.toLowerCase().replace(/ /g, '_')] : [],
-        serviceId: formData.serviceId || undefined,
-        totalFee: selectedService ? selectedService.price : 0,
+        therapyType: selectedServices.map(s => s.name.toLowerCase().replace(/ /g, '_')),
+        therapyDetails: selectedServices.map(s => ({
+          therapy: s.name.toLowerCase().replace(/ /g, '_'),
+          discount: therapyDiscounts[s._id] || 0
+        })),
+        serviceId: formData.serviceIds.length > 0 ? formData.serviceIds[0] : undefined,
+        totalFee: totalFee,
         diagnosis: formData.diagnosis,
         address: formData.address,
         branchId: formData.branchId,
@@ -212,13 +335,17 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
         parentName: data.data.parentName,
         age: data.data.age ?? parseInt(formData.age),
         gender: formData.gender,
-        therapyType: selectedService?.name || formData.serviceId,
+        therapyType: selectedServices.map(s => s.name.toLowerCase().replace(/ /g, '_')),
+        therapyDetails: selectedServices.map(s => ({
+          therapy: s.name.toLowerCase().replace(/ /g, '_'),
+          discount: therapyDiscounts[s._id] || 0
+        })),
         condition: data.data.diagnosis ?? formData.diagnosis,
         address: data.data.address ?? formData.address,
         phone: data.data.parentPhone ?? `+91${formData.phone}`,
         onboardedAt: data.data.admissionDate || data.data.createdAt || new Date().toISOString(),
-        totalFee: data.data.totalFee ?? (selectedService ? selectedService.price : 0),
-        serviceId: formData.serviceId || undefined,
+        totalFee: data.data.totalFee ?? totalFee,
+        serviceId: formData.serviceIds.length > 0 ? formData.serviceIds[0] : undefined,
       };
 
       // ── FIXED: Added Branch Details to the PDF payload ──
@@ -235,10 +362,12 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
       onOnboard(newPatient);
       setLastOnboarded(pdfPayload);
       
-      const newId = `RX-${Date.now().toString().slice(-6)}`;
-      setFormData({ patientId: newId, name: '', parentName: '', age: '', gender: '', serviceId: '', therapyType: '', diagnosis: '', address: '', branchId: '', phone: '', parentEmail: '', parentPassword: '' });
+      const year = new Date().getFullYear().toString().slice(-2);
+      const newId = `RHBT${year}XXXX`;
+      setFormData({ patientId: newId, name: '', parentName: '', age: '', gender: '', serviceIds: [], therapyType: '', diagnosis: '', address: '', branchId: '', phone: '', parentEmail: '', parentPassword: '' });
+      setTherapyDiscounts({});
 
-      const doc = await generatePatientPDF(pdfPayload as any, 'Patient Onboarding Record');
+      const doc = await generatePatientPDF(pdfPayload as any, 'Patient Onboarding Record', { hidePhone: true });
       doc.save(`Onboarding_${newPatient.name.replace(/\s/g, '_')}.pdf`);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
@@ -250,7 +379,7 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
 
   const handleDownload = async () => {
     if (lastOnboarded) {
-      const doc = await generatePatientPDF(lastOnboarded, 'Patient Onboarding Record');
+      const doc = await generatePatientPDF(lastOnboarded, 'Patient Onboarding Record', { hidePhone: true });
       doc.save(`Onboarding_${lastOnboarded.name.replace(/\s/g, '_')}.pdf`);
     }
   };
@@ -377,19 +506,48 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
               </div>
 
               <div className="space-y-2">
-                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Service / Therapy</label>
-                <CustomSelect
-                  value={formData.serviceId}
-                  onChange={v => setFormData(prev => ({ ...prev, serviceId: v }))}
-                  options={services.map(s => ({ value: s._id, label: `${s.name} — ₹${s.price.toLocaleString()} / ${s.unit}` }))}
-                  placeholder={services.length === 0 ? 'No services available' : 'Select service'}
-                  error={!!errors.serviceId}
+                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Select Services / Therapies *</label>
+                <CustomMultiSelect
+                  selectedValues={formData.serviceIds}
+                  onChange={values => setFormData(prev => ({ ...prev, serviceIds: values }))}
+                  options={services.map(s => ({ value: s._id, label: s.name, price: s.price }))}
+                  placeholder="Select services / therapies"
+                  error={!!errors.serviceIds}
                 />
-                {errors.serviceId && <p className="text-[10px] text-error font-medium flex items-center gap-1 mt-1 px-1"><AlertCircle size={14} />{errors.serviceId}</p>}
-                {selectedService && (
-                  <div className="mt-2 px-4 py-3 rounded-xl bg-secondary/8 border border-secondary/20 flex items-center justify-between">
-                    <span className="text-xs font-bold text-secondary">Total Fee</span>
-                    <span className="text-base font-black text-on-surface">₹{selectedService.price.toLocaleString()} <span className="text-xs font-normal text-on-surface-variant">/ {selectedService.unit}</span></span>
+                {errors.serviceIds && <p className="text-[10px] text-error font-medium flex items-center gap-1 mt-1 px-1"><AlertCircle size={14} />{errors.serviceIds}</p>}
+                
+                {selectedServices.length > 0 && (
+                  <div className="space-y-3 mt-4 p-4 rounded-2xl bg-surface-container-low border border-outline-variant/20">
+                    <h4 className="text-[11px] font-black uppercase text-secondary tracking-wider">Service Discounts</h4>
+                    <div className="space-y-2.5">
+                      {selectedServices.map(s => (
+                        <div key={s._id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-xl bg-white border border-outline-variant/10">
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-on-surface truncate">{s.name}</p>
+                            <p className="text-xs text-on-surface-variant/70">Catalog Price: ₹{s.price.toLocaleString()}</p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-xs font-bold text-on-surface-variant">Discount (₹):</span>
+                            <input
+                              type="number"
+                              min={0}
+                              max={s.price}
+                              value={therapyDiscounts[s._id] ?? ''}
+                              onChange={e => {
+                                const val = Math.min(s.price, Math.max(0, Number(e.target.value) || 0));
+                                setTherapyDiscounts(prev => ({ ...prev, [s._id]: val }));
+                              }}
+                              className="w-24 bg-surface-container-lowest border border-outline-variant/30 rounded-lg py-1 px-2 text-sm text-right focus:outline-none focus:border-secondary transition-all"
+                              placeholder="0"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between pt-3 border-t border-outline-variant/10">
+                      <span className="text-xs font-bold text-secondary">Final Combined Total Fee</span>
+                      <span className="text-base font-black text-on-surface">₹{totalFee.toLocaleString()}</span>
+                    </div>
                   </div>
                 )}
               </div>

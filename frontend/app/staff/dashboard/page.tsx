@@ -49,6 +49,12 @@ interface DashboardData {
   profile: { name: string; staffId?: string; email?: string; branch?: { name?: string } | null };
   today: DashboardToday;
   monthly: DashboardMonthly;
+  weeklyTrend?: {
+    date: string;
+    dutyHours: number;
+    status: string;
+    autoCheckedOut: boolean;
+  }[];
 }
 
 const container = {
@@ -107,6 +113,12 @@ export default function DashboardPage() {
     const hrs = (ms / (1000 * 60 * 60)).toFixed(1);
     return `${hrs}h`;
   };
+
+  const yesterdayData = data?.weeklyTrend?.find((t) => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    return new Date(t.date).toDateString() === yesterday.toDateString();
+  });
 
   return (
     <motion.div 
@@ -177,6 +189,24 @@ export default function DashboardPage() {
           </div>
         </div>
       </motion.div>
+
+      {/* Yesterday's Quick Summary */}
+      {yesterdayData && (
+        <motion.div variants={item} className="bg-surface-container-low rounded-[2rem] p-5 border border-outline-variant/10 shadow-sm flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-on-surface-variant/60 mb-1">Yesterday's Shift</p>
+            <div className="flex items-center gap-2">
+              <h4 className="text-2xl font-headline font-black tracking-tight">{yesterdayData.dutyHours ? yesterdayData.dutyHours.toFixed(1) : 0}h</h4>
+              {yesterdayData.autoCheckedOut && (
+                <span className="px-1.5 py-0.5 rounded-sm bg-error/10 text-error text-[8px] font-black uppercase tracking-widest">Auto C/O</span>
+              )}
+            </div>
+          </div>
+          <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <ClipboardList className="w-6 h-6" />
+          </div>
+        </motion.div>
+      )}
 
       {/* High-Density Stat Grid: Highly Compact */}
       <motion.div variants={item} className="grid grid-cols-2 lg:grid-cols-4 gap-3">

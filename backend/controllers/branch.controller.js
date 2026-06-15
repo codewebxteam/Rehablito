@@ -7,7 +7,17 @@ const getBranches = async (req, res) => {
         const branches = await Branch.find()
             .populate('managerId', 'name email')
             .sort({ createdAt: -1 });
-        res.json({ success: true, count: branches.length, data: branches });
+
+        const branchesWithManager = await Promise.all(branches.map(async (branch) => {
+            const b = branch.toObject();
+            if (!b.managerId) {
+                const manager = await User.findOne({ branchId: b._id, role: 'branch_manager' }).select('name email');
+                if (manager) b.managerId = manager;
+            }
+            return b;
+        }));
+
+        res.json({ success: true, count: branches.length, data: branchesWithManager });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }
@@ -18,7 +28,14 @@ const getBranch = async (req, res) => {
     try {
         const branch = await Branch.findById(req.params.id).populate('managerId', 'name email');
         if (!branch) return res.status(404).json({ success: false, message: 'Branch not found' });
-        res.json({ success: true, data: branch });
+
+        const b = branch.toObject();
+        if (!b.managerId) {
+            const manager = await User.findOne({ branchId: b._id, role: 'branch_manager' }).select('name email');
+            if (manager) b.managerId = manager;
+        }
+
+        res.json({ success: true, data: b });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }

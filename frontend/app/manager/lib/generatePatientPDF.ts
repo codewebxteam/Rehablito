@@ -34,7 +34,7 @@ export const generatePatientPDF = async (patient: Patient & {
   branchAddress?: string;
   branchPhone?: string;
   branchEmail?: string;
-}, title = 'Patient Registration Record') => {
+}, title = 'Patient Registration Record', options?: { hidePhone?: boolean }) => {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = 210;
 
@@ -120,30 +120,26 @@ export const generatePatientPDF = async (patient: Patient & {
 
   const isAdminView = !!patient.branchName;
 
-  const leftRows = isAdminView ? [
+  const leftRows = [
     ['Patient ID',        patient.patientId || patient.id],
     ['Child Name',        patient.name],
     ['Parent / Guardian', patient.parentName || '—'],
-    ['Phone Contact',     maskPhone(patient.phone || '')],
-  ] : [
-    ['Patient ID',        patient.patientId || patient.id],
-    ['Patient Name',      patient.name],
-    ['Parent / Guardian', patient.parentName || '—'],
-    ['Age',               `${patient.age} Years`],
-    ['Gender',            patient.gender ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1) : '—'],
+    ['Phone Contact',     options?.hidePhone ? maskPhone(patient.phone || '') : (patient.phone || '—')],
+    ['Address',           patient.address || '—'],
   ];
 
   const rightRows = isAdminView ? [
-    ['Service / Therapy', THERAPY_LABELS[patient.therapyType || ''] || patient.therapyType || '—'],
+    ['Age',               patient.age ? `${patient.age} Years` : '—'],
+    ['Gender',            patient.gender ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1) : '—'],
+    ['Service / Therapy', Array.isArray(patient.therapyType) ? patient.therapyType.map(t => THERAPY_LABELS[t] || t.replace(/_/g, ' ')).join(', ') : (patient.therapyType ? (THERAPY_LABELS[patient.therapyType] || String(patient.therapyType).replace(/_/g, ' ')) : '—')],
     ['Branch',            patient.branchName || '—'],
-    ['Address',           patient.address || '—'],
     ['Onboarding Date',   new Date(patient.onboardedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })],
   ] : [
-    ['Contact No.',       maskPhone(patient.phone || '')],
-    ['Therapy Type',      THERAPY_LABELS[patient.therapyType || ''] || patient.therapyType || '—'],
+    ['Age',               patient.age ? `${patient.age} Years` : '—'],
+    ['Gender',            patient.gender ? patient.gender.charAt(0).toUpperCase() + patient.gender.slice(1) : '—'],
+    ['Therapy Type',      Array.isArray(patient.therapyType) ? patient.therapyType.map(t => THERAPY_LABELS[t] || t.replace(/_/g, ' ')).join(', ') : (patient.therapyType ? (THERAPY_LABELS[patient.therapyType] || String(patient.therapyType).replace(/_/g, ' ')) : '—')],
     ['Onboarding Date',   new Date(patient.onboardedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })],
     ['Status',            'Active'],
-    ['Address',           patient.address || '—'],
   ];
 
   const rowH = 14;

@@ -16,34 +16,34 @@ export default function DashboardView({ data, messages = [] }: { data: any, mess
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-outline-variant/20 shadow-sm">
-          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-            <Activity className="w-5 h-5 text-primary" />
+        <motion.div whileHover={{ y: -2 }} className="bg-white p-5 rounded-3xl border border-outline-variant/10 shadow-lg shadow-primary/5">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center mb-3 border border-primary/10">
+            <Activity className="w-6 h-6 text-primary" />
           </div>
-          <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1">Total Sessions</p>
-          <p className="text-2xl font-black text-on-background">{stats.totalSessions}</p>
-        </div>
-        <div className="bg-white p-4 rounded-2xl border border-outline-variant/20 shadow-sm">
-          <div className="w-10 h-10 rounded-full bg-brand-sage/10 flex items-center justify-center mb-3">
-            <CheckCircle2 className="w-5 h-5 text-brand-sage" />
+          <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">Total Sessions</p>
+          <p className="text-3xl font-black text-on-background tracking-tight">{stats.totalSessions}</p>
+        </motion.div>
+        <motion.div whileHover={{ y: -2 }} className="bg-white p-5 rounded-3xl border border-outline-variant/10 shadow-lg shadow-brand-sage/5">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-brand-sage/10 to-brand-sage/5 flex items-center justify-center mb-3 border border-brand-sage/10">
+            <CheckCircle2 className="w-6 h-6 text-brand-sage" />
           </div>
-          <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1">Attended</p>
-          <p className="text-2xl font-black text-on-background">{stats.completedSessions}</p>
-        </div>
-        <div className="bg-white p-4 rounded-2xl border border-outline-variant/20 shadow-sm">
-          <div className="w-10 h-10 rounded-full bg-secondary-container/30 flex items-center justify-center mb-3">
-            <Clock className="w-5 h-5 text-secondary" />
+          <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">Attended</p>
+          <p className="text-3xl font-black text-on-background tracking-tight">{stats.completedSessions}</p>
+        </motion.div>
+        <motion.div whileHover={{ y: -2 }} className="bg-white p-5 rounded-3xl border border-outline-variant/10 shadow-lg shadow-secondary/5">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-secondary/10 to-secondary/5 flex items-center justify-center mb-3 border border-secondary/10">
+            <Clock className="w-6 h-6 text-secondary" />
           </div>
-          <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1">Days Enrolled</p>
-          <p className="text-2xl font-black text-on-background">{stats.daysSinceAdmission}</p>
-        </div>
-        <div className="bg-white p-4 rounded-2xl border border-outline-variant/20 shadow-sm">
-          <div className="w-10 h-10 rounded-full bg-error/10 flex items-center justify-center mb-3">
-            <MessageSquareIcon className="w-5 h-5 text-error" />
+          <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">Days Enrolled</p>
+          <p className="text-3xl font-black text-on-background tracking-tight">{stats.daysSinceAdmission}</p>
+        </motion.div>
+        <motion.div whileHover={{ y: -2 }} className="bg-white p-5 rounded-3xl border border-outline-variant/10 shadow-lg shadow-error/5">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-error/10 to-error/5 flex items-center justify-center mb-3 border border-error/10">
+            <MessageSquareIcon className="w-6 h-6 text-error" />
           </div>
-          <p className="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-1">Pending Feedbacks</p>
-          <p className="text-2xl font-black text-on-background">{stats.pendingFeedbacks}</p>
-        </div>
+          <p className="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest mb-1">Pending Feedbacks</p>
+          <p className="text-3xl font-black text-on-background tracking-tight">{stats.pendingFeedbacks}</p>
+        </motion.div>
       </div>
 
       {/* Therapy Details */}

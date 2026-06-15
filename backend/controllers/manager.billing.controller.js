@@ -387,6 +387,101 @@ const getPatientPayments = async (req, res) => {
     }
 };
 
+// ─────────────────────────────────────────────
+// GET /api/manager/billing/pending-approvals
+// List all pending manual QR payments
+// ─────────────────────────────────────────────
+const getPendingApprovals = async (req, res) => {
+    try {
+        const branchId = getManagerBranchId(req);
+
+        const pendingPayments = await FeePayment.find({ 
+            branchId, 
+            approvalStatus: 'pending' 
+        })
+            .populate('patientId', 'name parentName parentPhone')
+            .sort({ updatedAt: -1 });
+
+        res.json({
+            success: true,
+            count: pendingPayments.length,
+            data: pendingPayments,
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+// ─────────────────────────────────────────────
+// PUT /api/manager/billing/:id/approve-manual
+// Approve a manual QR payment
+// ─────────────────────────────────────────────
+const approveManualPayment = async (req, res) => {
+    try {
+        const branchId = getManagerBranchId(req);
+        
+        const payment = await FeePayment.findOne({ _id: req.params.id, branchId });
+        if (!payment) {
+            return res.status(404).json({ success: false, message: 'Payment record not found' });
+        }
+        if (payment.approvalStatus !== 'pending') {
+            return res.status(400).json({ success: false, message: 'Payment is not pending approval' });
+        }
+
+        // Find the pending transaction to get the amount paid
+        const pendingTx = payment.transactions.find(tx => tx.transactionId === 'pending_approval') || payment.transactions[payment.transactions.length - 1];
+        
+        let amountPaid = 0;
+        if (pendingTx) {
+            amountPaid = pendingTx.amountPaid;
+            pendingTx.transactionId = 'approved_' + Date.now();
+        } else {
+            amountPaid = payment.dueAmount;
+        }
+
+        payment.dueAmount -= amountPaid;
+        if (payment.dueAmount <= 0) {
+            payment.dueAmount = 0;
+            payment.status = 'paid';
+        } else {
+            payment.status = 'partial';
+        }
+        
+        payment.approvalStatus = 'approved';
+        await payment.save();
+
+        res.json({ success: true, message: 'Payment approved successfully', data: payment });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+// ─────────────────────────────────────────────
+// PUT /api/manager/billing/:id/reject-manual
+// Reject a manual QR payment
+// ─────────────────────────────────────────────
+const rejectManualPayment = async (req, res) => {
+    try {
+        const branchId = getManagerBranchId(req);
+        
+        const payment = await FeePayment.findOne({ _id: req.params.id, branchId });
+        if (!payment) {
+            return res.status(404).json({ success: false, message: 'Payment record not found' });
+        }
+        
+        payment.approvalStatus = 'rejected';
+        
+        // Remove the pending transaction
+        payment.transactions = payment.transactions.filter(tx => tx.transactionId !== 'pending_approval');
+        
+        await payment.save();
+
+        res.json({ success: true, message: 'Payment rejected' });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+
 module.exports = {
     getPayments,
     getPayment,
@@ -395,4 +490,7 @@ module.exports = {
     downloadInvoice,
     getBillingSummary,
     getPatientPayments,
+    getPendingApprovals,
+    approveManualPayment,
+    rejectManualPayment,
 };

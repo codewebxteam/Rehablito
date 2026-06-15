@@ -116,9 +116,15 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
     const totalFee = p.totalFee || 0;
     const paidAtTime = Math.max(0, totalFee - selectedInvoice.dueAmount);
     
+    const therapyDetails = p.therapyDetails || [];
+    const totalDiscount = therapyDetails.reduce((sum: number, d: any) => sum + (Number(d.discount) || 0), 0);
+    const totalBasePrice = totalFee + totalDiscount;
+    
     return {
       patient: p,
       totalFee,
+      totalBasePrice,
+      totalDiscount,
       totalPaidAtTime: paidAtTime,
       outstandingAtTime: selectedInvoice.dueAmount,
       allPayments: patientBills
@@ -726,6 +732,14 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                       </div>
                     ))}
                     <div className="flex justify-between text-xs pt-1 border-t border-gray-100">
+                      <span className="font-bold text-gray-500">Total Base Fee</span>
+                      <span className="font-bold text-gray-800">{formatINR((selectedPatientContext?.totalBasePrice || 0).toLocaleString())}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="font-bold text-gray-500">Discount Applied</span>
+                      <span className="font-bold text-green-600">- {formatINR((selectedPatientContext?.totalDiscount || 0).toLocaleString())}</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
                       <span className="font-bold text-gray-500">Total Service Fee</span>
                       <span className="font-bold text-gray-800">{formatINR((selectedPatientContext?.totalFee || 0).toLocaleString())}</span>
                     </div>
@@ -838,6 +852,8 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
 
                       const hasBalance = (selectedPatientContext?.outstandingAtTime || 0) > 0;
                       const summaryRows = [
+                        ['Total Base Fee', `Rs. ${(selectedPatientContext?.totalBasePrice || 0).toLocaleString()}`, false],
+                        ['Discount Applied', `- Rs. ${(selectedPatientContext?.totalDiscount || 0).toLocaleString()}`, false],
                         ['Total Service Fee', `Rs. ${(selectedPatientContext?.totalFee || 0).toLocaleString()}`, false],
                         ['Amount Paid (This Tx)', `Rs. ${inv.amountPaid.toLocaleString()}`, true],
                         ['Total Paid to Date', `Rs. ${(selectedPatientContext?.totalPaidAtTime || 0).toLocaleString()}`, false],
@@ -850,8 +866,19 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                         const sy = y + 4 + i * 11;
                         doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...lc);
                         doc.text(String(label),14,sy+4);
-                        doc.setTextColor(red ? 200 : highlight ? 0 : 20, red ? 0 : highlight ? 74 : 25, red ? 0 : highlight ? 173 : 35);
-                        doc.setFontSize(highlight ? 9 : 8);
+
+                        let r = 20, g = 25, b = 35;
+                        let fontSize = highlight ? 9 : 8;
+                        if (red) {
+                          r = 200; g = 0; b = 0;
+                        } else if (highlight) {
+                          r = 0; g = 74; b = 173;
+                        } else if (String(label).includes('Discount')) {
+                          r = 16; g = 124; b = 65; // Green for discount row
+                        }
+
+                        doc.setTextColor(r, g, b);
+                        doc.setFontSize(fontSize);
                         doc.text(String(val), W-12, sy+4, { align:'right' });
                       });
                       y += sumBoxH + 5;
@@ -930,19 +957,20 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                     // Summary rows
                     const hasBalance = (selectedPatientContext && (selectedPatientContext.outstandingAtTime || 0) > 0);
                     const summaryRows = [
-                      ['Total Service Fee', 'Rs. '+((selectedPatientContext && selectedPatientContext.totalFee) || 0).toLocaleString(), false, false],
-                      ['Amount Paid (This Tx)', 'Rs. '+inv.amountPaid.toLocaleString(), true, false],
-                      ['Total Paid to Date', 'Rs. '+((selectedPatientContext && selectedPatientContext.totalPaidAtTime) || 0).toLocaleString(), false, false],
+                      ['Total Base Fee', 'Rs. '+((selectedPatientContext && selectedPatientContext.totalBasePrice) || 0).toLocaleString(), false, false, false],
+                      ['Discount Applied', '- Rs. '+((selectedPatientContext && selectedPatientContext.totalDiscount) || 0).toLocaleString(), false, false, true],
+                      ['Total Service Fee', 'Rs. '+((selectedPatientContext && selectedPatientContext.totalFee) || 0).toLocaleString(), false, false, false],
+                      ['Amount Paid (This Tx)', 'Rs. '+inv.amountPaid.toLocaleString(), true, false, false],
+                      ['Total Paid to Date', 'Rs. '+((selectedPatientContext && selectedPatientContext.totalPaidAtTime) || 0).toLocaleString(), false, false, false],
                     ];
-                    if (hasBalance) summaryRows.push(['Remaining Balance', 'Rs. '+((selectedPatientContext && selectedPatientContext.outstandingAtTime) || 0).toLocaleString(), false, true]);
+                    if (hasBalance) summaryRows.push(['Remaining Balance', 'Rs. '+((selectedPatientContext && selectedPatientContext.outstandingAtTime) || 0).toLocaleString(), false, true, false]);
                     const summaryHtml = summaryRows.map(function(r, i) {
                       const bg = i%2===0 ? '#f0f5ff' : '#ffffff';
-                      const valColor = r[3] ? '#dc2626' : r[2] ? '#004aad' : '#141919';
+                      const valColor = r[4] ? '#16a34a' : r[3] ? '#dc2626' : r[2] ? '#004aad' : '#141919';
                       const valSize = r[2] ? '18px' : '15px';
                       return '<div style="display:flex;justify-content:space-between;align-items:center;padding:13px 20px;background:'+bg+';border-bottom:1px solid #e8f0ff">'
                         + '<span style="color:#6b7280;font-weight:700;font-size:13px">'+r[0]+'</span>'
                         + '<span style="color:'+valColor+';font-weight:800;font-size:'+valSize+'">'+r[1]+'</span>'
-                        + '</div>';
                     }).join('');
 
                     const html = '<!DOCTYPE html><html><head><title>Receipt - '+receiptNo+'</title><meta charset="utf-8">'

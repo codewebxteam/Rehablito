@@ -4,8 +4,37 @@ const Lead = require('../models/Lead');
 const User = require('../models/User'); // 🔥 Parent Portal: Auto-create parent accounts
 const PatientAttendance = require('../models/PatientAttendance'); // 🔥 NEW: Added Attendance Model
 const FeePayment = require('../models/FeePayment'); // 🔥 NEW: Added FeePayment Model
+const Service = require('../models/Service');
 const mongoose = require('mongoose');
 const { generatePatientRegistrationPDF } = require('../utils/pdfGenerator');
+
+async function processTherapyUpdates(patient, newTherapies, newDetails) {
+    if (!newTherapies) return;
+    if (!patient.therapyDetails) patient.therapyDetails = [];
+
+    const existingTherapies = patient.therapyDetails.map(td => td.therapy);
+    const addedTherapies = newTherapies.filter(t => !existingTherapies.includes(t));
+
+    for (const therapy of addedTherapies) {
+        const detailInput = newDetails ? newDetails.find(d => d.therapy === therapy) : null;
+        const discount = detailInput ? (Number(detailInput.discount) || 0) : 0;
+
+        patient.therapyDetails.push({ 
+            therapy, 
+            addedAt: new Date(), 
+            discount 
+        });
+    }
+
+    if (newDetails) {
+        for (const td of patient.therapyDetails) {
+            const detailInput = newDetails.find(d => d.therapy === td.therapy);
+            if (detailInput) {
+                td.discount = Number(detailInput.discount) || 0;
+            }
+        }
+    }
+}
 
 // ─── Helper: Get manager's branch ID ───
 const getManagerBranchId = (req) => {
@@ -91,6 +120,20 @@ const createPatient = async (req, res) => {
     try {
         const branchId = getManagerBranchId(req);
 
+        if (req.body.therapyDetails) {
+            req.body.therapyDetails = req.body.therapyDetails.map(td => ({
+                therapy: td.therapy,
+                addedAt: td.addedAt ? new Date(td.addedAt) : new Date(),
+                discount: Number(td.discount) || 0
+            }));
+        } else if (req.body.therapyType) {
+            req.body.therapyDetails = req.body.therapyType.map(t => ({
+                therapy: t,
+                addedAt: new Date(),
+                discount: 0
+            }));
+        }
+
         // Force the patient to the manager's branch
         const patientData = {
             ...req.body,
@@ -130,19 +173,6 @@ const createPatient = async (req, res) => {
             .populate('branchId', 'name address city phone email')
             .populate('assignedTherapist', 'name email');
 
-        // 🔥 Auto-create initial FeePayment
-        if (patient.totalFee > 0) {
-            await FeePayment.create({
-                patientId: patient._id,
-                branchId: patient.branchId,
-                amount: patient.totalFee,
-                dueAmount: patient.totalFee,
-                status: 'pending',
-                description: 'Initial Therapy Fee',
-                paymentDate: new Date()
-            });
-        }
-
         res.status(201).json({ success: true, data: populatedPatient, parentAccountCreated: !!parentAccount });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
@@ -160,34 +190,31 @@ const updatePatient = async (req, res) => {
         // Prevent manager from changing the branchId
         delete req.body.branchId;
 
-        const oldPatient = await Patient.findOne({ _id: req.params.id, branchId });
-        if (!oldPatient) {
+        const patient = await Patient.findOne({ _id: req.params.id, branchId });
+        if (!patient) {
             return res.status(404).json({ success: false, message: 'Patient not found in your branch' });
         }
 
-        const oldFee = oldPatient.totalFee || 0;
-        const newFee = req.body.totalFee !== undefined ? req.body.totalFee : oldFee;
+        if (req.body.therapyType) {
+            await processTherapyUpdates(patient, req.body.therapyType, req.body.therapyDetails);
+        }
 
-        const patient = await Patient.findOneAndUpdate(
-            { _id: req.params.id, branchId },
-            req.body,
-            { new: true, runValidators: true }
-        )
+        Object.assign(patient, req.body);
+        await patient.save();
+
+        const populated = await Patient.findById(patient._id)
             .populate('branchId', 'name')
             .populate('assignedTherapist', 'name email');
 
-        // Check if fee increased (due to new therapy)
-        if (newFee > oldFee) {
-            const difference = newFee - oldFee;
-            await FeePayment.create({
-                patientId: patient._id,
-                branchId: patient.branchId,
-                amount: difference,
-                dueAmount: difference,
-                status: 'pending',
-                description: 'Additional Therapy Added',
-                paymentDate: new Date()
-            });
+        // 🔥 Parent Portal: Update password if provided
+        const { parentPassword } = req.body;
+        if (parentPassword) {
+            const parentUser = await User.findOne({ patientId: patient._id });
+            if (parentUser) {
+                parentUser.password = parentPassword;
+                await parentUser.save();
+                console.log(`✅ Parent password updated for patient ${patient.name} by manager`);
+            }
         }
 
         res.json({ success: true, data: patient });

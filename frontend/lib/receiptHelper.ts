@@ -34,29 +34,42 @@ export const generateAndPrintReceipt = async (selectedInvoice: any, selectedPati
 
     const patientObj = patientData || (typeof selectedInvoice.patientId === 'object' ? selectedInvoice.patientId : null);
     
-    // Calculate Total Service Fee based on assigned services
-    let totalServiceFee = 0;
+    // Calculate Total Service Fee and discounts based on assigned services
+    let totalBasePrice = 0;
+    let totalDiscount = 0;
     const therapyTypes = patientObj?.therapyType || [];
+    const therapyDetails = patientObj?.therapyDetails || [];
     
-    if (typeof window !== 'undefined' && window.location.pathname.includes('/super-admin') && therapyTypes.length > 0) {
+    const isSuperAdmin = typeof window !== 'undefined' && window.location.pathname.includes('/super-admin');
+    const isManager = typeof window !== 'undefined' && window.location.pathname.includes('/manager');
+    
+    if (typeof window !== 'undefined' && (isSuperAdmin || isManager) && therapyTypes.length > 0) {
       try {
-        const servicesRes = await api.get('/admin/services');
+        const servicesRes = await api.get(isSuperAdmin ? '/admin/services' : '/manager/services');
         if (servicesRes.data?.success && servicesRes.data.data) {
           const servicesList = servicesRes.data.data;
-          totalServiceFee = servicesList
+          totalBasePrice = servicesList
             .filter((s: any) => {
               const val = s.name.toLowerCase().replace(/ /g, '_');
               return therapyTypes.includes(val);
             })
             .reduce((sum: number, s: any) => sum + s.price, 0);
+            
+          totalDiscount = therapyDetails
+            .filter((d: any) => therapyTypes.includes(d.therapy))
+            .reduce((sum: number, d: any) => sum + (Number(d.discount) || 0), 0);
         }
       } catch (err) {
         console.error("Failed to calculate service fee from catalog", err);
       }
     }
     
-    if (!totalServiceFee) {
-      totalServiceFee = patientObj?.totalFee || selectedInvoice.patientId?.totalFee || selectedInvoice.amount || 0;
+    if (!totalBasePrice) {
+      totalBasePrice = patientObj?.totalFee || selectedInvoice.patientId?.totalFee || selectedInvoice.amount || 0;
+      totalDiscount = therapyDetails.reduce((sum: number, d: any) => sum + (Number(d.discount) || 0), 0);
+      if (totalDiscount > 0) {
+        totalBasePrice = totalBasePrice + totalDiscount;
+      }
     }
 
     // Fetch payment history
@@ -182,11 +195,15 @@ export const generateAndPrintReceipt = async (selectedInvoice: any, selectedPati
       servicesVal = patientObj.therapyType.map((t: string) => t.replace(/_/g, ' ').toUpperCase()).join(', ');
     }
 
+    const ageVal = patientObj?.age ? `${patientObj.age} Years` : '—';
+    const genderVal = patientObj?.gender ? patientObj.gender.charAt(0).toUpperCase() + patientObj.gender.slice(1) : '—';
+
     const leftRows = [
       ['Patient ID', patientId],
       ['Patient Name', patientName],
       ['Payment Method', method],
       ['Services', servicesVal],
+      ['Age', ageVal],
     ];
 
     const rightRows = [
@@ -194,6 +211,7 @@ export const generateAndPrintReceipt = async (selectedInvoice: any, selectedPati
       ['Date', formattedDate],
       ['Description', desc],
       ['Status', statusVal],
+      ['Gender', genderVal],
     ];
 
     const rowH = 14;
@@ -354,7 +372,7 @@ export const generateAndPrintReceipt = async (selectedInvoice: any, selectedPati
     }
 
     // ── Payment Summary ─────────────────────────────────────
-    if (y + 70 > 220) {
+    if (y + 90 > 220) {
        drawPageDecorations(currentPage);
        doc.addPage();
        currentPage += 1;
@@ -371,12 +389,15 @@ export const generateAndPrintReceipt = async (selectedInvoice: any, selectedPati
     doc.text('PAYMENT SUMMARY', 14, y + 7);
     y += 16;
 
+    const discountedFee = Math.max(0, totalBasePrice - totalDiscount);
     const amountPaidThisTx = selectedInvoice.amount || 0;
     const remainingBalance = selectedInvoice.dueAmount ?? 0;
-    const totalPaidToDate = Math.max(0, totalServiceFee - remainingBalance);
+    const totalPaidToDate = Math.max(0, discountedFee - remainingBalance);
 
     const summaryRows = [
-      ['Total Service Fee', `Rs. ${totalServiceFee.toLocaleString()}`, false],
+      ['Total Base Fee', `Rs. ${totalBasePrice.toLocaleString()}`, false],
+      ['Discount Applied', `- Rs. ${totalDiscount.toLocaleString()}`, false],
+      ['Total Service Fee', `Rs. ${discountedFee.toLocaleString()}`, false],
       ['Amount Paid (This Tx)', `Rs. ${amountPaidThisTx.toLocaleString()}`, true],
       ['Total Paid to Date', `Rs. ${totalPaidToDate.toLocaleString()}`, false],
       ['Remaining Balance', `Rs. ${remainingBalance.toLocaleString()}`, false, true],
@@ -393,8 +414,20 @@ export const generateAndPrintReceipt = async (selectedInvoice: any, selectedPati
       doc.setTextColor(...labelColor);
       doc.text(String(label), 14, sy + 5);
 
-      doc.setTextColor(red ? 200 : highlight ? 0 : 20, red ? 0 : highlight ? 74 : 25, red ? 0 : highlight ? 173 : 35);
-      doc.setFontSize(highlight || red ? 11 : 10);
+      let r = 20, g = 25, b = 35;
+      let fontSize = 10;
+      if (red) {
+        r = 200; g = 0; b = 0;
+        fontSize = 11;
+      } else if (highlight) {
+        r = 0; g = 74; b = 173;
+        fontSize = 11;
+      } else if (String(label).includes('Discount')) {
+        r = 16; g = 124; b = 65; // Green for discount
+        fontSize = 10;
+      }
+      doc.setTextColor(r, g, b);
+      doc.setFontSize(fontSize);
       doc.text(String(val), W - 14, sy + 5, { align: 'right' });
     });
 

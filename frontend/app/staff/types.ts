@@ -19,6 +19,7 @@ export interface AttendanceRecord {
   checkOut?: string; // ISO timestamp
   totalHours?: number;
   dutyHours?: number;
+  autoCheckedOut?: boolean;
   status: 'present' | 'absent' | 'leave' | 'half_day' | 'on_duty';
   ward: string;
 }

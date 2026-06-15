@@ -134,8 +134,14 @@ export default function AttendancePage() {
                   <button
                     onClick={handleCheckOut}
                     disabled={isProcessing}
-                    className="w-full py-5 bg-error text-white rounded-2xl font-black text-lg shadow-xl shadow-error/20 hover:bg-error/90 active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                    className="w-full py-5 bg-error text-white rounded-2xl font-black text-lg shadow-xl shadow-error/20 hover:bg-error/90 active:scale-[0.98] transition-all flex items-center justify-center gap-3 disabled:opacity-50 relative overflow-hidden"
                   >
+                    <motion.div
+                      className="absolute inset-0 bg-white/20"
+                      initial={{ scale: 0, opacity: 0 }}
+                      whileTap={{ scale: 2, opacity: 1 }}
+                      transition={{ duration: 0.3 }}
+                    />
                     {isProcessing ? <Loader2 className="animate-spin w-6 h-6" /> : <LogOut className="w-6 h-6" />}
                     {isProcessing ? 'Processing...' : 'Clock-Out Now'}
                   </button>
@@ -168,8 +174,14 @@ export default function AttendancePage() {
                     <button
                       onClick={handleCheckIn}
                       disabled={!isInsideOffice || isProcessing}
-                      className="w-full py-5 bg-secondary text-white rounded-2xl font-black text-lg shadow-xl shadow-secondary/20 hover:bg-secondary/90 disabled:opacity-50 disabled:grayscale active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+                      className="w-full py-5 bg-secondary text-white rounded-2xl font-black text-lg shadow-xl shadow-secondary/20 hover:bg-secondary/90 disabled:opacity-50 disabled:grayscale active:scale-[0.98] transition-all flex items-center justify-center gap-3 relative overflow-hidden"
                     >
+                      <motion.div
+                        className="absolute inset-0 bg-white/20"
+                        initial={{ scale: 0, opacity: 0 }}
+                        whileTap={{ scale: 2, opacity: 1 }}
+                        transition={{ duration: 0.3 }}
+                      />
                       {isProcessing ? <Loader2 className="animate-spin w-6 h-6" /> : <LogIn className="w-6 h-6" />}
                       {isProcessing ? 'Processing...' : 'Clock-In Now'}
                     </button>

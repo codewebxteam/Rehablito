@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Home, Calendar, MessageSquare, User, LogOut, Stethoscope, CreditCard } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../manager/lib/utils';
 import api from '@/lib/api';
+import { Download } from 'lucide-react';
 
 // Views
 import DashboardView from './views/DashboardView';
@@ -28,6 +29,10 @@ export default function ParentDashboardApp() {
   const [billingData, setBillingData] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // PWA Install Prompt State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
 
   const fetchDashboard = async () => {
     try {
@@ -97,7 +102,31 @@ export default function ParentDashboardApp() {
       setIsLoading(false);
     };
     loadAllData();
+
+    // Listen for PWA install prompt
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setShowInstallBanner(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
   }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setShowInstallBanner(false);
+      }
+      setDeferredPrompt(null);
+    }
+  };
 
   const navItems = [
     { id: 'dashboard', label: 'Home', icon: Home },
@@ -162,17 +191,47 @@ export default function ParentDashboardApp() {
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto">
         {/* Mobile Header */}
-        <header className="md:hidden sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-outline-variant/20 px-6 py-4 flex items-center justify-between">
+        <header className="md:hidden sticky top-0 z-40 bg-white/80 backdrop-blur-2xl border-b border-outline-variant/10 px-5 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-brand-sage flex items-center justify-center">
-              <Stethoscope className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 rounded-[14px] bg-gradient-to-tr from-brand-sage to-brand-sage/80 shadow-md shadow-brand-sage/20 flex items-center justify-center">
+              <Stethoscope className="w-5 h-5 text-white" strokeWidth={2.5} />
             </div>
-            <span className="font-bold tracking-tight">Parents Portal</span>
+            <span className="font-black text-lg tracking-tight text-on-surface">Parents Portal</span>
           </div>
-          <button onClick={logout} className="text-on-surface-variant p-2 rounded-full hover:bg-surface-container-low">
-            <LogOut size={20} />
+          <button onClick={logout} className="text-on-surface-variant p-2 rounded-full hover:bg-surface-container transition-colors active:scale-95">
+            <LogOut size={20} strokeWidth={2.5} />
           </button>
         </header>
+
+        {/* PWA Install Banner */}
+        <AnimatePresence>
+          {showInstallBanner && (
+            <motion.div 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="md:hidden overflow-hidden bg-brand-sage"
+            >
+              <div className="px-5 py-3 flex items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-white font-bold text-sm truncate">Install Rehablito App</p>
+                  <p className="text-white/80 text-[10px] font-medium leading-tight mt-0.5">Get the best experience on your phone.</p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <button 
+                    onClick={handleInstallClick}
+                    className="px-4 py-1.5 bg-white text-brand-sage text-xs font-black rounded-full shadow-sm active:scale-95 transition-transform flex items-center gap-1.5"
+                  >
+                    <Download size={14} /> Get
+                  </button>
+                  <button onClick={() => setShowInstallBanner(false)} className="p-1 text-white/60 hover:text-white">
+                    <LogOut className="w-4 h-4 rotate-45" /> {/* Close icon lookalike */}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div className="p-4 md:p-8 max-w-5xl mx-auto">
           {activeTab === 'dashboard' && <DashboardView data={dashboardData} messages={messages} />}
@@ -184,21 +243,47 @@ export default function ParentDashboardApp() {
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-outline-variant/20 pb-safe z-50 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]">
-        <div className="flex justify-around items-center h-16">
-          {navItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={cn(
-                "flex flex-col items-center justify-center w-full h-full space-y-1 transition-colors",
-                activeTab === item.id ? "text-brand-sage" : "text-on-surface-variant hover:text-on-surface"
-              )}
-            >
-              <item.icon size={20} strokeWidth={activeTab === item.id ? 2.5 : 2} />
-              <span className="text-[10px] font-bold">{item.label}</span>
-            </button>
-          ))}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50">
+        <div className="absolute inset-0 bg-surface/80 backdrop-blur-2xl border-t border-outline-variant/10 shadow-[0_-10px_40px_rgba(0,0,0,0.05)]" />
+        <div className="relative flex justify-around items-center px-2 pb-safe pt-2 h-20">
+          {navItems.map(item => {
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className="relative flex flex-col items-center justify-center w-full h-full pb-2 active:scale-95 transition-transform"
+              >
+                <div className={cn(
+                  "relative w-12 h-8 flex items-center justify-center rounded-full mb-1 transition-all duration-300",
+                  isActive ? "bg-brand-sage/15 text-brand-sage" : "text-on-surface-variant/70"
+                )}>
+                  <item.icon 
+                    size={20} 
+                    strokeWidth={isActive ? 2.5 : 2} 
+                    className={cn(
+                      "transition-all duration-300",
+                      isActive ? "scale-110" : "scale-100 group-hover:scale-110"
+                    )}
+                  />
+                  {isActive && (
+                    <motion.div
+                      layoutId="activeTabIndicatorParent"
+                      className="absolute inset-0 border-2 border-brand-sage rounded-full"
+                      initial={false}
+                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    />
+                  )}
+                </div>
+                <span className={cn(
+                  "text-[10px] tracking-wide transition-all duration-300",
+                  isActive ? "font-black text-brand-sage" : "font-semibold text-on-surface-variant/70"
+                )}>
+                  {item.label}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </nav>
     </div>

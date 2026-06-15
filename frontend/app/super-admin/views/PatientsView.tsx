@@ -17,9 +17,12 @@ interface Patient {
   name: string;        // Child Name
   parentName?: string;
   parentPhone?: string;
+  parentEmail?: string;
   address?: string;
   therapyType?: string[];
+  therapyDetails?: { therapy: string; addedAt?: string; discount: number }[];
   age: number;
+  gender?: string;
   condition: string;
   branch: string;
   status: 'Active' | 'Discharged' | 'Critical';
@@ -35,9 +38,12 @@ interface ApiPatient {
   name: string;
   parentName?: string;
   parentPhone?: string;
+  parentEmail?: string;
   address?: string;
   therapyType?: any;
+  therapyDetails?: { therapy: string; addedAt?: string; discount: number }[];
   age: number;
+  gender?: string;
   condition?: string;
   diagnosis?: string;
   branchId?: { _id: string; name: string } | null;
@@ -65,16 +71,27 @@ interface Branch {
   name: string;
 }
 
-export const PatientsView = ({ initialData }: { initialData?: any }) => {
+interface PatientsViewProps {
+  initialData?: {
+    patients?: ApiPatient[];
+    branches?: Branch[];
+    services?: ServiceOption[];
+  };
+}
+
+export const PatientsView = ({ initialData }: PatientsViewProps) => {
   const transformApiPatients = (data: ApiPatient[]): Patient[] => data.map((p: ApiPatient) => ({
     _id: p._id,
     id: p.patientId || p._id,
     name: p.name,
     parentName: p.parentName,
     parentPhone: p.parentPhone,
+    parentEmail: p.parentEmail || '',
     address: p.address,
     therapyType: Array.isArray(p.therapyType) ? p.therapyType : (typeof p.therapyType === 'string' && p.therapyType ? [p.therapyType] : []),
+    therapyDetails: p.therapyDetails || [],
     age: p.age,
+    gender: p.gender || '',
     condition: p.diagnosis || p.condition || '',
     branch: p.branchId?._id || '',
     status: (p.status === 'active' ? 'Active' : p.status === 'discharged' ? 'Discharged' : 'Critical') as Patient['status'],
@@ -267,7 +284,7 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
 
   const handleSaveEditedPatient = async () => {
     if (!editingPatient || !editingPatient._id) return;
-    if (!(editingPatient.name || "").trim() || !(editingPatient.branch || "").trim() || editingPatient.age <= 0) {
+    if (!(editingPatient.name || "").trim() || !(editingPatient.branch || "").trim() || editingPatient.age <= 0 || !editingPatient.gender) {
       return;
     }
     if (editingPatient.status === 'Discharged') {
@@ -287,14 +304,21 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
           const val = service.name.toLowerCase().replace(/ /g, '_');
           return (editingPatient.therapyType || []).includes(val);
         })
-        .reduce((sum, s) => sum + s.price, 0);
+        .reduce((sum, s) => {
+          const val = s.name.toLowerCase().replace(/ /g, '_');
+          const detail = (editingPatient.therapyDetails || []).find((d: any) => d.therapy === val);
+          const discount = detail ? (Number(detail.discount) || 0) : 0;
+          return sum + Math.max(0, s.price - discount);
+        }, 0);
 
       const payload: any = {
         name: editingPatient.name,
         age: editingPatient.age,
+        gender: editingPatient.gender.toLowerCase(),
         diagnosis: editingPatient.condition || '',
         branchId: editingPatient.branch,
         therapyType: editingPatient.therapyType || [],
+        therapyDetails: editingPatient.therapyDetails || [],
         totalFee: calculatedTotalFee,
         status: editingPatient.status === 'Active' ? 'active' : editingPatient.status === 'Discharged' ? 'discharged' : 'on_hold'
       };
@@ -626,6 +650,8 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
                 {[
                   { label: 'Patient ID',        value: viewingPatient.id || '—', mono: true },
                   { label: 'Child Name',         value: viewingPatient.name },
+                  { label: 'Age',                value: viewingPatient.age ? `${viewingPatient.age} years` : '—' },
+                  { label: 'Gender',             value: viewingPatient.gender ? viewingPatient.gender.charAt(0).toUpperCase() + viewingPatient.gender.slice(1) : '—' },
                   { label: 'Parent / Guardian',  value: viewingPatient.parentName || '—' },
                   { label: 'Phone Contact',      value: viewingPatient.parentPhone || '—' },
                   { label: 'Service / Therapy',  value: Array.isArray(viewingPatient.therapyType) ? viewingPatient.therapyType.map(t => t.replace(/_/g, ' ')).join(', ') : '—' },
@@ -685,8 +711,8 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
                         name: p.name,
                         parentName: p.parentName,
                         age: p.age,
-                        gender: '',
-                        therapyType: Array.isArray(p.therapyType) ? p.therapyType[0] : '',
+                        gender: p.gender || '',
+                        therapyType: Array.isArray(p.therapyType) ? p.therapyType : (p.therapyType ? [p.therapyType] : []),
                         condition: p.condition || '',
                         address: p.address,
                         phone: p.parentPhone || '',
@@ -725,211 +751,351 @@ export const PatientsView = ({ initialData }: { initialData?: any }) => {
         }} 
       />
 
-      <AnimatePresence>
-        {deletingPatient && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9990] bg-black/40 backdrop-blur-sm flex items-start justify-center pt-20 sm:pt-24 pb-8 overflow-y-auto px-4"
-            onClick={() => setDeletingPatient(null)}
-          >
+      {mounted && createPortal(
+        <AnimatePresence>
+          {deletingPatient && (
             <motion.div
-              initial={{ opacity: 0, y: 8, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 8, scale: 0.98 }}
-              transition={{ duration: 0.16 }}
-              className="w-full max-w-[540px] rounded-xl bg-surface-container-lowest border border-outline-variant/20 shadow-2xl p-6"
-              onClick={(e) => e.stopPropagation()}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[99999] bg-black/40 backdrop-blur-sm flex items-start justify-center pt-20 sm:pt-24 pb-8 overflow-y-auto px-4"
+              onClick={() => setDeletingPatient(null)}
             >
-              <div className="flex items-start justify-between gap-4 mb-4">
-                <div>
-                  <h4 className="text-lg font-extrabold text-on-surface">Delete Patient</h4>
-                  <p className="text-sm text-on-surface-variant mt-1">This action cannot be undone.</p>
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                transition={{ duration: 0.16 }}
+                className="w-full max-w-[540px] rounded-xl bg-surface-container-lowest border border-outline-variant/20 shadow-2xl p-6"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-start justify-between gap-4 mb-4">
+                  <div>
+                    <h4 className="text-lg font-extrabold text-on-surface">Delete Patient</h4>
+                    <p className="text-sm text-on-surface-variant mt-1">This action cannot be undone.</p>
+                  </div>
+                  <button
+                    onClick={() => setDeletingPatient(null)}
+                    className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low"
+                    aria-label="Close delete patient modal"
+                  >
+                    <X size={16} />
+                  </button>
                 </div>
-                <button
-                  onClick={() => setDeletingPatient(null)}
-                  className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low"
-                  aria-label="Close delete patient modal"
-                >
-                  <X size={16} />
-                </button>
-              </div>
 
-              <p className="text-sm text-on-surface-variant">
-                Are you sure you want to remove
-                <span className="font-bold text-on-surface"> {deletingPatient.name}</span>?
-              </p>
+                <p className="text-sm text-on-surface-variant">
+                  Are you sure you want to remove
+                  <span className="font-bold text-on-surface"> {deletingPatient.name}</span>?
+                </p>
 
-              <div className="mt-6 flex justify-end gap-3">
-                <button
-                  onClick={() => setDeletingPatient(null)}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold text-on-surface-variant border border-outline-variant/30 hover:text-on-surface hover:bg-surface-container-low transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeletePatient}
-                  className="px-4 py-2 rounded-xl text-sm font-bold bg-red-600 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-200 transition-colors"
-                >
-                  Delete
-                </button>
-              </div>
+                <div className="mt-6 flex justify-end gap-3">
+                  <button
+                    onClick={() => setDeletingPatient(null)}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold text-on-surface-variant border border-outline-variant/30 hover:text-on-surface hover:bg-surface-container-low transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDeletePatient}
+                    className="px-4 py-2 rounded-xl text-sm font-bold bg-red-600 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-200 transition-colors"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
-      <AnimatePresence>
-        {editingPatient && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[99999] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={() => setEditingPatient(null)}
-          >
+      {mounted && createPortal(
+        <AnimatePresence>
+          {editingPatient && (
             <motion.div
-              initial={{ opacity: 0, y: 8, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 8, scale: 0.98 }}
-              transition={{ duration: 0.16 }}
-              className="w-full max-w-[540px] rounded-xl bg-surface-container-lowest border border-outline-variant/20 shadow-2xl p-6"
-              onClick={(e) => e.stopPropagation()}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[99999] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+              onClick={() => setEditingPatient(null)}
             >
-              <div className="flex items-start justify-between gap-4 mb-5">
-                <div>
-                  <h4 className="text-lg font-extrabold text-on-surface">Edit Patient</h4>
-                  <p className="text-sm text-on-surface-variant mt-1">Update patient details.</p>
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                transition={{ duration: 0.16 }}
+                className="w-full max-w-2xl rounded-xl bg-surface-container-lowest border border-outline-variant/20 shadow-2xl p-6 max-h-[92vh] flex flex-col overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-start justify-between gap-4 mb-4 shrink-0">
+                  <div>
+                    <h4 className="text-lg font-extrabold text-on-surface">Edit Patient</h4>
+                    <p className="text-sm text-on-surface-variant mt-1">Update patient and parent contact details.</p>
+                  </div>
+                  <button onClick={() => setEditingPatient(null)} className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low">
+                    <X size={16} />
+                  </button>
                 </div>
-                <button onClick={() => setEditingPatient(null)} className="p-2 rounded-lg text-on-surface-variant hover:bg-surface-container-low">
-                  <X size={16} />
-                </button>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <input type="text" value={editingPatient.name}
-                  onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, name: e.target.value }) : prev)}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Full name" />
-                <input type="number" min={1} value={editingPatient.age || ''}
-                  onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, age: Number(e.target.value) || 0 }) : prev)}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Age" />
-                <input type="text" value={editingPatient.condition}
-                  onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, condition: e.target.value }) : prev)}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="Condition" />
-                <select value={editingPatient.branch}
-                  onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, branch: e.target.value }) : prev)}
-                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25">
-                  <option value="">Select Branch</option>
-                  {branches.map(branch => (
-                    <option key={branch._id} value={branch._id}>{branch.name}</option>
-                  ))}
-                </select>
-                <select value={editingPatient.status}
-                  onChange={(e) => {
-                    const newStatus = e.target.value as Patient['status'];
-                    if (newStatus === 'Discharged') {
-                      const due = calculateDueAmount(editingPatient._id || '', editingPatient.totalFee || 0);
-                      if (due > 0) {
-                        toast.warning(`Note: Due balance of ₹${due.toLocaleString()} must be cleared before saving as Discharged.`);
-                      }
-                    }
-                    setEditingPatient(prev => prev ? ({ ...prev, status: newStatus }) : prev);
-                  }}
-                  className="sm:col-span-2 w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25">
-                  <option value="Active">Active</option>
-                  <option value="Discharged">Discharged</option>
-                  <option value="Critical">Critical</option>
-                </select>
+                <div className="flex-1 overflow-y-auto space-y-4 pr-1 my-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">Child Name *</label>
+                      <input type="text" value={editingPatient.name}
+                        onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, name: e.target.value }) : prev)}
+                        className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                        placeholder="Full name" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">Age *</label>
+                      <input type="number" min={1} value={editingPatient.age || ''}
+                        onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, age: Number(e.target.value) || 0 }) : prev)}
+                        className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                        placeholder="Age" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">Gender *</label>
+                      <select value={editingPatient.gender || ''}
+                        onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, gender: e.target.value }) : prev)}
+                        className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25">
+                        <option value="" disabled>Select Gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">Parent / Guardian Name</label>
+                      <input type="text" value={editingPatient.parentName || ''}
+                        onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, parentName: e.target.value }) : prev)}
+                        className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                        placeholder="Parent Name" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">Parent Phone Contact</label>
+                      <input type="text" value={editingPatient.parentPhone || ''}
+                        onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, parentPhone: e.target.value }) : prev)}
+                        className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                        placeholder="Parent Phone" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">Parent Email ID</label>
+                      <input type="email" value={editingPatient.parentEmail || ''}
+                        onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, parentEmail: e.target.value }) : prev)}
+                        className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                        placeholder="email@example.com" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">Center Branch *</label>
+                      <select value={editingPatient.branch}
+                        onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, branch: e.target.value }) : prev)}
+                        className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25">
+                        <option value="">Select Branch</option>
+                        {branches.map(branch => (
+                          <option key={branch._id} value={branch._id}>{branch.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">Admission Status</label>
+                      <select value={editingPatient.status}
+                        onChange={(e) => {
+                          const newStatus = e.target.value as Patient['status'];
+                          if (newStatus === 'Discharged') {
+                            const due = calculateDueAmount(editingPatient._id || '', editingPatient.totalFee || 0);
+                            if (due > 0) {
+                              toast.warning(`Note: Due balance of ₹${due.toLocaleString()} must be cleared before saving as Discharged.`);
+                            }
+                          }
+                          setEditingPatient(prev => prev ? ({ ...prev, status: newStatus }) : prev);
+                        }}
+                        className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25">
+                        <option value="Active">Active</option>
+                        <option value="Discharged">Discharged</option>
+                        <option value="Critical">Critical</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1 sm:col-span-2">
+                      <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">Diagnosis / Condition Notes</label>
+                      <input type="text" value={editingPatient.condition}
+                        onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, condition: e.target.value }) : prev)}
+                        className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                        placeholder="Condition" />
+                    </div>
+                    <div className="space-y-1 sm:col-span-2">
+                      <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">Residential Address</label>
+                      <input type="text" value={editingPatient.address || ''}
+                        onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, address: e.target.value }) : prev)}
+                        className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                        placeholder="Residential address" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">Total Fee Override (₹)</label>
+                      <input type="number" min={0} value={editingPatient.totalFee ?? ''}
+                        onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, totalFee: Number(e.target.value) || 0 }) : prev)}
+                        className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                        placeholder="Manual fee override" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider block">New Parent Portal Password (Optional)</label>
+                      <input type="text" value={editingPatient.parentPassword || ''}
+                        onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, parentPassword: e.target.value }) : prev)}
+                        className="w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
+                        placeholder="Set new password" />
+                    </div>
 
-                <input type="text" value={editingPatient.parentPassword || ''}
-                  onChange={(e) => setEditingPatient(prev => prev ? ({ ...prev, parentPassword: e.target.value }) : prev)}
-                  className="sm:col-span-2 w-full bg-surface-container-low border border-outline-variant/30 rounded-xl py-2.5 px-3 text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/25"
-                  placeholder="New Parent Portal Password (Optional)" />
+                    <div className="sm:col-span-2 bg-surface-container-low/50 p-3 rounded-xl border border-outline-variant/20">
+                      <label className="text-xs font-bold text-on-surface-variant mb-2 block uppercase tracking-wider">Select Services / Therapies</label>
+                      <div className="flex flex-wrap gap-2">
+                        {services.length === 0 ? (
+                          <p className="text-xs text-slate-500 italic">No services available...</p>
+                        ) : (
+                          services.map(service => {
+                            const therapyValue = service.name.toLowerCase().replace(/ /g, '_');
+                            const safeTherapyType = Array.isArray(editingPatient.therapyType) 
+                              ? editingPatient.therapyType 
+                              : (typeof editingPatient.therapyType === 'string' && editingPatient.therapyType ? [editingPatient.therapyType] : []);
+                              
+                            const isSelected = safeTherapyType.includes(therapyValue);
+                            
+                            return (
+                              <button
+                                type="button"
+                                key={service._id}
+                                onClick={() => {
+                                  setEditingPatient(prev => {
+                                    if (!prev) return prev;
+                                    
+                                    const currentArray = Array.isArray(prev.therapyType) 
+                                      ? prev.therapyType 
+                                      : (typeof prev.therapyType === 'string' && prev.therapyType ? [prev.therapyType] : []);
+                                      
+                                    const isCurrentlySelected = currentArray.includes(therapyValue);
+                                    
+                                    const updated = isCurrentlySelected 
+                                      ? currentArray.filter(t => t !== therapyValue)
+                                      : [...currentArray, therapyValue];
+                                      
+                                    let updatedDetails = Array.isArray(prev.therapyDetails) ? [...prev.therapyDetails] : [];
+                                    if (isCurrentlySelected) {
+                                      updatedDetails = updatedDetails.filter(d => d.therapy !== therapyValue);
+                                    } else {
+                                      if (!updatedDetails.some(d => d.therapy === therapyValue)) {
+                                        updatedDetails.push({ therapy: therapyValue, discount: 0 });
+                                      }
+                                    }
 
-                <div className="sm:col-span-2 bg-surface-container-low/50 p-3 rounded-xl border border-outline-variant/20">
-                  <label className="text-xs font-bold text-on-surface-variant mb-2 block uppercase tracking-wider">Select Services / Therapies</label>
-                  <div className="flex flex-wrap gap-2">
-                    {services.length === 0 ? (
-                      <p className="text-xs text-slate-500 italic">No services available...</p>
-                    ) : (
-                      services.map(service => {
-                        const therapyValue = service.name.toLowerCase().replace(/ /g, '_');
-                        const safeTherapyType = Array.isArray(editingPatient.therapyType) 
-                          ? editingPatient.therapyType 
-                          : (typeof editingPatient.therapyType === 'string' && editingPatient.therapyType ? [editingPatient.therapyType] : []);
-                          
-                        const isSelected = safeTherapyType.includes(therapyValue);
-                        
-                        return (
-                          <button
-                            type="button"
-                            key={service._id}
-                            onClick={() => {
-                              setEditingPatient(prev => {
-                                if (!prev) return prev;
-                                
-                                const currentArray = Array.isArray(prev.therapyType) 
-                                  ? prev.therapyType 
-                                  : (typeof prev.therapyType === 'string' && prev.therapyType ? [prev.therapyType] : []);
-                                  
-                                const isCurrentlySelected = currentArray.includes(therapyValue);
-                                
-                                const updated = isCurrentlySelected 
-                                  ? currentArray.filter(t => t !== therapyValue)
-                                  : [...currentArray, therapyValue];
-                                  
-                                return { ...prev, therapyType: updated };
-                              });
-                            }}
-                            className={cn(
-                              "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border text-left",
-                              isSelected 
-                                ? "bg-primary text-white border-primary shadow-md shadow-primary/20" 
-                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                            )}
-                          >
-                            {isSelected && <CheckCircle2 size={12} className="inline mr-1 -mt-0.5" />}
-                            {service.name}
-                          </button>
-                        );
-                      })
+                                    // Recalculate combined price
+                                    const newFee = services
+                                      .filter(s => {
+                                        const val = s.name.toLowerCase().replace(/ /g, '_');
+                                        return updated.includes(val);
+                                      })
+                                      .reduce((sum, s) => {
+                                        const val = s.name.toLowerCase().replace(/ /g, '_');
+                                        const detail = updatedDetails.find(d => d.therapy === val);
+                                        const discount = detail ? (Number(detail.discount) || 0) : 0;
+                                        return sum + Math.max(0, s.price - discount);
+                                      }, 0);
+
+                                    return { ...prev, therapyType: updated, therapyDetails: updatedDetails, totalFee: newFee };
+                                  });
+                                }}
+                                className={cn(
+                                  "px-3 py-1.5 rounded-lg text-xs font-bold transition-all border text-left",
+                                  isSelected 
+                                    ? "bg-primary text-white border-primary shadow-md shadow-primary/20" 
+                                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                                )}
+                              >
+                                {isSelected && <CheckCircle2 size={12} className="inline mr-1 -mt-0.5" />}
+                                {service.name}
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Service Discounts List */}
+                    {services.length > 0 && Array.isArray(editingPatient.therapyType) && editingPatient.therapyType.length > 0 && (
+                      <div className="sm:col-span-2 bg-surface-container-low/30 p-3 rounded-xl border border-outline-variant/15 space-y-2">
+                        <label className="text-xs font-bold text-on-surface-variant uppercase tracking-wider block">Service Discounts</label>
+                        <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                          {services
+                            .filter(s => {
+                              const val = s.name.toLowerCase().replace(/ /g, '_');
+                              return (editingPatient.therapyType || []).includes(val);
+                            })
+                            .map(s => {
+                              const val = s.name.toLowerCase().replace(/ /g, '_');
+                              const detail = (editingPatient.therapyDetails || []).find(d => d.therapy === val);
+                              const discountVal = detail ? detail.discount : 0;
+                              return (
+                                <div key={s._id} className="flex items-center justify-between gap-3 p-2 rounded-xl bg-white border border-outline-variant/10 text-xs">
+                                  <span className="font-bold text-slate-700 truncate">{s.name} (Catalog: ₹{s.price})</span>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <span className="text-[10px] font-bold text-slate-400">Discount (₹):</span>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      max={s.price}
+                                      value={discountVal || ''}
+                                      onChange={e => {
+                                        const newDiscount = Math.min(s.price, Math.max(0, Number(e.target.value) || 0));
+                                        setEditingPatient(prev => {
+                                          if (!prev) return prev;
+                                          const updatedDetails = (prev.therapyDetails || []).map(d => 
+                                            d.therapy === val ? { ...d, discount: newDiscount } : d
+                                          );
+                                          if (!updatedDetails.some(d => d.therapy === val)) {
+                                            updatedDetails.push({ therapy: val, discount: newDiscount });
+                                          }
+                                          
+                                          const selectedFee = services
+                                            .filter(srv => {
+                                              const srvVal = srv.name.toLowerCase().replace(/ /g, '_');
+                                              return (prev.therapyType || []).includes(srvVal);
+                                            })
+                                            .reduce((sum, srv) => {
+                                              const srvVal = srv.name.toLowerCase().replace(/ /g, '_');
+                                              const d = updatedDetails.find(dt => dt.therapy === srvVal);
+                                              const disc = d ? (Number(d.discount) || 0) : 0;
+                                              return sum + Math.max(0, srv.price - disc);
+                                            }, 0);
+
+                                          return { ...prev, therapyDetails: updatedDetails, totalFee: selectedFee };
+                                        });
+                                      }}
+                                      className="w-20 bg-slate-50 border border-slate-200 rounded-lg py-1 px-2 text-right focus:outline-none focus:border-primary transition-all font-semibold"
+                                      placeholder="0"
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
                     )}
                   </div>
-                  {Array.isArray(editingPatient.therapyType) && editingPatient.therapyType.length > 0 && (
-                    <div className="flex items-center justify-between px-3 py-2 mt-3 rounded-xl bg-primary/10 border border-primary/20">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-primary">Recalculated Total Fee</span>
-                      <span className="text-sm font-black text-on-surface">
-                        ₹{services
-                          .filter(service => {
-                            const val = service.name.toLowerCase().replace(/ /g, '_');
-                            return editingPatient.therapyType?.includes(val);
-                          })
-                          .reduce((sum, s) => sum + s.price, 0)
-                          .toLocaleString()}
-                      </span>
-                    </div>
-                  )}
                 </div>
-              </div>
 
-              <div className="mt-6 flex justify-end gap-3">
-                <button onClick={() => setEditingPatient(null)}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold text-on-surface-variant border border-outline-variant/30 hover:text-on-surface hover:bg-surface-container-low transition-colors">
-                  Cancel
-                </button>
-                <button onClick={handleSaveEditedPatient}
-                  className="px-4 py-2 rounded-xl text-sm font-bold border border-primary/40 text-primary hover:bg-primary/10 transition-colors">
-                  Save Changes
-                </button>
-              </div>
+                <div className="mt-4 flex justify-end gap-3 shrink-0 pt-3 border-t border-outline-variant/10">
+                  <button onClick={() => setEditingPatient(null)}
+                    className="px-4 py-2 rounded-xl text-sm font-semibold text-on-surface-variant border border-outline-variant/30 hover:text-on-surface hover:bg-surface-container-low transition-colors">
+                    Cancel
+                  </button>
+                  <button onClick={handleSaveEditedPatient}
+                    className="px-4 py-2 rounded-xl text-sm font-bold border border-primary/40 text-primary hover:bg-primary/10 transition-colors">
+                    Save Changes
+                  </button>
+                </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
     </div>
   );
 };

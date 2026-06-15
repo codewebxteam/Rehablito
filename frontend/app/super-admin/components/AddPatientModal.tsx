@@ -53,6 +53,8 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
     address: '',
     branchId: '',
     serviceIds: [] as string[],
+    age: '',
+    gender: '',
   });
 
   // FILTER LOGIC: Sirf wahi services dikhen jo Global hain (branchIds.length === 0) 
@@ -64,9 +66,14 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
     );
   }, [form.branchId, services]);
 
+  const [therapyDiscounts, setTherapyDiscounts] = useState<Record<string, number>>({});
+
   // Derived: selected services and calculated total fee
   const selectedServices = filteredServices.filter(s => form.serviceIds.includes(s._id));
-  const totalFee = selectedServices.reduce((sum, s) => sum + s.price, 0);
+  const totalFee = selectedServices.reduce((sum, s) => {
+    const discount = therapyDiscounts[s._id] || 0;
+    return sum + Math.max(0, s.price - discount);
+  }, 0);
 
   // reset on close
   useEffect(() => {
@@ -80,7 +87,10 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
         address: '',
         branchId: '',
         serviceIds: [],
+        age: '',
+        gender: '',
       });
+      setTherapyDiscounts({});
     }
   }, [isOpen]);
 
@@ -89,7 +99,7 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
     if (isOpen) setTimeout(() => firstRef.current?.focus(), 80);
   }, [isOpen]);
 
-  const isValid = form.name.trim() !== '' && form.branchId.trim() !== '';
+  const isValid = form.name.trim() !== '' && form.branchId.trim() !== '' && form.age.trim() !== '' && form.gender !== '';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,6 +113,8 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
         address: form.address.trim(),
         parentEmail: form.parentEmail.trim(),
         parentPassword: form.parentPassword,
+        age: parseInt(form.age) || undefined,
+        gender: form.gender.toLowerCase() || undefined,
       };
       
       if (form.parentPhone.trim()) {
@@ -114,6 +126,10 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
         payload.serviceId = form.serviceIds[0]; 
         payload.totalFee = totalFee;
         payload.therapyType = selectedServices.map(s => s.name.toLowerCase().replace(/ /g, '_'));
+        payload.therapyDetails = selectedServices.map(s => ({
+          therapy: s.name.toLowerCase().replace(/ /g, '_'),
+          discount: therapyDiscounts[s._id] || 0,
+        }));
       }
 
       const { data } = await api.post('/admin/patients', payload);
@@ -203,6 +219,22 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
                         </select>
                      </div>
                   </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                      <label className={LABEL_CLASS}>Age *</label>
+                      <input type="number" min={1} max={120} placeholder="e.g. 6" value={form.age} onChange={(e) => set('age', e.target.value)} className={INPUT_CLASS} required />
+                    </div>
+                    <div>
+                      <label className={LABEL_CLASS}>Gender *</label>
+                      <select required value={form.gender} onChange={(e) => set('gender', e.target.value)} className={cn(INPUT_CLASS, 'appearance-none cursor-pointer bg-white')}>
+                        <option value="" disabled>Select Gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="p-5 rounded-2xl bg-primary/5 border border-primary/20 space-y-4">
@@ -261,11 +293,39 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
                            </div>
                            
                            {selectedServices.length > 0 && (
-                             <div className="flex items-center justify-between px-3 py-2 mt-3 rounded-xl bg-blue-50 border border-blue-100">
-                               <span className="text-[10px] font-black uppercase tracking-wider text-blue-600">Combined Total Fee</span>
-                               <span className="text-sm font-black text-slate-800">₹{totalFee.toLocaleString()}</span>
-                             </div>
-                           )}
+                              <div className="space-y-2 mt-3">
+                                <span className="block text-[10px] font-black uppercase tracking-wider text-slate-500">Service Discounts</span>
+                                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                                  {selectedServices.map(s => (
+                                    <div key={s._id} className="flex items-center justify-between gap-3 p-2 rounded-xl bg-white border border-slate-200/60 text-xs">
+                                      <span className="font-bold text-slate-700 truncate">{s.name}</span>
+                                      <div className="flex items-center gap-1.5 shrink-0">
+                                        <span className="text-[10px] font-bold text-slate-400">Discount (₹):</span>
+                                        <input
+                                          type="number"
+                                          min={0}
+                                          max={s.price}
+                                          value={therapyDiscounts[s._id] ?? ''}
+                                          onChange={e => {
+                                            const val = Math.min(s.price, Math.max(0, Number(e.target.value) || 0));
+                                            setTherapyDiscounts(prev => ({ ...prev, [s._id]: val }));
+                                          }}
+                                          className="w-20 bg-slate-50 border border-slate-200 rounded-lg py-1 px-2 text-right focus:outline-none focus:border-primary transition-all font-semibold"
+                                          placeholder="0"
+                                        />
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {selectedServices.length > 0 && (
+                              <div className="flex items-center justify-between px-3 py-2 mt-3 rounded-xl bg-blue-50 border border-blue-100">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-blue-600">Final Combined Total Fee</span>
+                                <span className="text-sm font-black text-slate-800">₹{totalFee.toLocaleString()}</span>
+                              </div>
+                            )}
                         </div>
                      </div>
 

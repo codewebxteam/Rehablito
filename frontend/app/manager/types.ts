@@ -5,15 +5,17 @@ export interface Patient {
   parentName?: string;
   age: number;
   gender: string;
-  therapyType?: string;
+  therapyType?: string[];
   condition: string;
   address?: string;
   phone: string;
+  parentEmail?: string;
   onboardedAt: string;
   totalFee?: number;
   serviceId?: string;
   status?: string;
   parentPassword?: string;
+  therapyDetails?: { therapy: string; addedAt?: string; discount: number }[];
 }
 
 export interface Lead {
@@ -32,11 +34,12 @@ export interface Lead {
 export interface Staff {
   id: string;
   name: string;
-  role: 'Physio' | 'Admin' | 'Support';
+  role: 'Therapist' | 'Admin' | 'Support';
   status: 'Active' | 'Inactive';
   email: string;
   staffId?: string;
   mobileNumber?: string;
+  designation?: string;
   attendance: AttendanceRecord[];
 }
 

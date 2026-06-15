@@ -348,7 +348,7 @@ const getAttendanceStats = async (req, res) => {
 // ─────────────────────────────────────────────
 const createStaff = async (req, res) => {
     try {
-        const { name, email, password, staffId, mobileNumber } = req.body;
+        const { name, email, password, staffId, mobileNumber, designation } = req.body;
         const branchId = getManagerBranchId(req);
 
         if (!branchId) {
@@ -367,7 +367,8 @@ const createStaff = async (req, res) => {
             role: 'staff', // Managers can only create staff
             branchId,
             staffId,
-            mobileNumber
+            mobileNumber,
+            designation
         });
 
         const populated = await User.findById(user._id)
@@ -386,7 +387,7 @@ const createStaff = async (req, res) => {
 // ─────────────────────────────────────────────
 const updateStaff = async (req, res) => {
     try {
-        const { name, email, staffId, mobileNumber, password } = req.body;
+        const { name, email, staffId, mobileNumber, password, designation } = req.body;
         const branchId = getManagerBranchId(req);
 
         const user = await User.findOne({
@@ -409,6 +410,7 @@ const updateStaff = async (req, res) => {
         if (staffId !== undefined) user.staffId = staffId;
         if (mobileNumber !== undefined) user.mobileNumber = mobileNumber;
         if (password) user.password = password;
+        if (designation !== undefined) user.designation = designation;
 
         await user.save();
 
