@@ -9,9 +9,17 @@ export default function DashboardView({ data, messages = [] }: { data: any, mess
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl md:text-3xl font-headline font-bold text-on-background">Hi, {patient.name}'s Parent!</h1>
-        <p className="text-on-surface-variant font-medium mt-1">Here is the latest progress for your child.</p>
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-outline-variant/10 shadow-lg shadow-primary/5">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-headline font-bold text-on-background">Hi, {patient.name}'s Parent!</h1>
+          <p className="text-on-surface-variant font-medium mt-1 text-sm md:text-base">Here is the latest progress for your child.</p>
+        </div>
+        {patient.patientId && (
+          <div className="bg-brand-sage/10 border border-brand-sage/20 px-5 py-2.5 rounded-2xl flex flex-col justify-center items-start sm:items-end w-fit">
+            <span className="text-[10px] font-bold text-brand-sage uppercase tracking-wider">Patient ID</span>
+            <span className="text-lg font-black text-brand-sage font-mono leading-none mt-1">{patient.patientId}</span>
+          </div>
+        )}
       </header>
 
       {/* Stats Cards */}
@@ -71,6 +79,76 @@ export default function DashboardView({ data, messages = [] }: { data: any, mess
               )}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* 🔥 NEW: Registration & Documents */}
+      <div className="bg-white rounded-3xl border border-outline-variant/20 shadow-sm p-6">
+        <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+          Registration & Documents
+        </h2>
+        <div className="flex flex-col sm:flex-row flex-wrap gap-4">
+          <button 
+            onClick={async () => {
+              try {
+                const { generatePatientPDF } = await import('@/app/manager/lib/generatePatientPDF');
+                const pdfData = {
+                  id: patient._id || patient.patientId,
+                  patientId: patient.patientId,
+                  name: patient.name,
+                  parentName: patient.parentName || "Parent",
+                  age: patient.age,
+                  gender: patient.gender,
+                  therapyType: patient.therapyType || [],
+                  condition: patient.diagnosis || '',
+                  diagnosis: patient.diagnosis || '',
+                  address: patient.address || '',
+                  phone: patient.parentPhone || '',
+                  parentEmail: patient.parentEmail || '',
+                  onboardedAt: patient.admissionDate || new Date().toISOString(),
+                  branchName: patient.branch?.name,
+                  branchAddress: patient.branch?.address,
+                  branchPhone: patient.branch?.phone,
+                  branchEmail: patient.branch?.email || 'rehablito@gmail.com',
+                  diagnosisReportUrl: patient.diagnosisReportUrl,
+                  consentFormUrl: patient.consentFormUrl,
+                };
+                const doc = await generatePatientPDF(pdfData as any, 'Patient Registration Record', { hidePhone: false });
+                doc.save(`Registration_${patient.name.replace(/\s/g, '_')}.pdf`);
+              } catch (error) {
+                console.error("Failed to generate PDF:", error);
+              }
+            }}
+            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-brand-sage/10 text-brand-sage font-bold hover:bg-brand-sage/20 transition-colors border border-brand-sage/20"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Download Registration Form
+          </button>
+          
+          {patient.diagnosisReportUrl && (
+            <a 
+              href={patient.diagnosisReportUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-primary/10 text-primary font-bold hover:bg-primary/20 transition-colors border border-primary/20"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              View Diagnosis Report
+            </a>
+          )}
+          
+          {patient.consentFormUrl && (
+            <a 
+              href={patient.consentFormUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-primary/10 text-primary font-bold hover:bg-primary/20 transition-colors border border-primary/20"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              View Consent Form
+            </a>
+          )}
         </div>
       </div>
 

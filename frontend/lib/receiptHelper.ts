@@ -1,6 +1,11 @@
 import api from '@/lib/api';
 
-export const generateAndPrintReceipt = async (selectedInvoice: any, selectedPatientContext: any, isProcessingCallback: (processing: boolean) => void) => {
+export const generateAndPrintReceipt = async (
+  selectedInvoice: any,
+  selectedPatientContext: any,
+  isProcessingCallback: (processing: boolean) => void,
+  selectedTransaction?: any
+) => {
   isProcessingCallback(true);
   try {
     const { jsPDF } = await import('jspdf');
@@ -16,8 +21,14 @@ export const generateAndPrintReceipt = async (selectedInvoice: any, selectedPati
     if (patientIdValue) {
       try {
         const isSuperAdmin = typeof window !== 'undefined' && window.location.pathname.includes('/super-admin');
+        const isManager = typeof window !== 'undefined' && window.location.pathname.includes('/manager');
         if (isSuperAdmin) {
           const res = await api.get(`/admin/patients/${patientIdValue}`);
+          if (res.data?.success) {
+            patientData = res.data.data;
+          }
+        } else if (isManager) {
+          const res = await api.get(`/manager/patients/${patientIdValue}`);
           if (res.data?.success) {
             patientData = res.data.data;
           }
@@ -73,14 +84,26 @@ export const generateAndPrintReceipt = async (selectedInvoice: any, selectedPati
     }
 
     // Fetch payment history
+    // Fetch payment history
     let patientAllPayments = selectedPatientContext?.allPayments || [];
     
-    if ((!patientAllPayments || patientAllPayments.length === 0) && patientIdValue) {
+    // Check if the passed payments are mapped BillingRecords (which don't have MongoDB's _id or transactions)
+    // or if the list is empty. If they are mapped, we want to fetch the raw FeePayment documents to have accurate transaction history.
+    const isMapped = patientAllPayments.length > 0 && patientAllPayments.some((p: any) => p.id && !p._id);
+
+    if ((!patientAllPayments || patientAllPayments.length === 0 || isMapped) && patientIdValue) {
       try {
         const isSuperAdmin = typeof window !== 'undefined' && window.location.pathname.includes('/super-admin');
-        const feesRes = await api.get(isSuperAdmin ? `/admin/fees?patientId=${patientIdValue}` : '/parent/billing');
+        const isManager = typeof window !== 'undefined' && window.location.pathname.includes('/manager');
+        let url = '/parent/billing';
+        if (isSuperAdmin) {
+          url = `/admin/fees?patientId=${patientIdValue}`;
+        } else if (isManager) {
+          url = `/manager/billing?patientId=${patientIdValue}`;
+        }
+        const feesRes = await api.get(url);
         if (feesRes.data?.success) {
-          patientAllPayments = isSuperAdmin ? feesRes.data.data : feesRes.data.data.history;
+          patientAllPayments = (isSuperAdmin || isManager) ? feesRes.data.data : feesRes.data.data.history;
         }
       } catch (e) {
         console.error("Failed to fetch patient payments history", e);
@@ -89,6 +112,14 @@ export const generateAndPrintReceipt = async (selectedInvoice: any, selectedPati
     
     if (!patientAllPayments || patientAllPayments.length === 0) {
       patientAllPayments = [selectedInvoice];
+    }
+
+    // Resolve mapped selectedInvoice to its raw DB counterpart if available
+    if (selectedInvoice && selectedInvoice.id && !selectedInvoice._id && patientAllPayments.length > 0) {
+      const matchedRaw = patientAllPayments.find((p: any) => p._id === selectedInvoice.id);
+      if (matchedRaw) {
+        selectedInvoice = matchedRaw;
+      }
     }
 
     const getLogoBase64 = async (): Promise<string | null> => {
@@ -149,9 +180,48 @@ export const generateAndPrintReceipt = async (selectedInvoice: any, selectedPati
     doc.setLineWidth(0.5);
     doc.line(12, 48, W - 12, 48);
 
+    // Define receipt details dynamically
+    let receiptNo = selectedInvoice.receiptNumber || selectedInvoice._id?.slice(-8).toUpperCase() || 'N/A';
+    let method = selectedInvoice.method ? selectedInvoice.method.replace(/_/g, ' ').toUpperCase() : 'CASH';
     const dateStr = selectedInvoice.date || selectedInvoice.paymentDate || selectedInvoice.createdAt;
-    const formattedDate = dateStr ? new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleDateString('en-IN');
-    const receiptNo = selectedInvoice.receiptNumber || selectedInvoice._id?.slice(-8).toUpperCase() || 'N/A';
+    let formattedDate = dateStr ? new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleDateString('en-IN');
+
+    // Amount paid this transaction
+    let amountPaidThisTx = selectedInvoice.amount || 0;
+
+    if (selectedTransaction) {
+      amountPaidThisTx = selectedTransaction.amountPaid || selectedTransaction.amount || 0;
+      method = (selectedTransaction.method || method).replace(/_/g, ' ').toUpperCase();
+      if (selectedTransaction.date) {
+        formattedDate = new Date(selectedTransaction.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      }
+      if (selectedTransaction.transactionId && selectedTransaction.status !== 'pending' && !selectedTransaction.transactionId.startsWith('approved_')) {
+        receiptNo = selectedTransaction.transactionId;
+      }
+    } else if (selectedInvoice.transactions && selectedInvoice.transactions.length > 0) {
+      // Default to the last approved transaction if no specific transaction is passed
+      const approvedTxs = selectedInvoice.transactions.filter((t: any) => t.status !== 'pending');
+      if (approvedTxs.length > 0) {
+        const sortedApproved = [...approvedTxs].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        amountPaidThisTx = sortedApproved[0].amountPaid || 0;
+        method = (sortedApproved[0].method || method).replace(/_/g, ' ').toUpperCase();
+        if (sortedApproved[0].date) {
+          formattedDate = new Date(sortedApproved[0].date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+        if (sortedApproved[0].transactionId && !sortedApproved[0].transactionId.startsWith('approved_')) {
+          receiptNo = sortedApproved[0].transactionId;
+        }
+      } else {
+        const lastTx = selectedInvoice.transactions[selectedInvoice.transactions.length - 1];
+        amountPaidThisTx = lastTx.amountPaid || 0;
+        method = (lastTx.method || method).replace(/_/g, ' ').toUpperCase();
+        if (lastTx.date) {
+          formattedDate = new Date(lastTx.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+        }
+      }
+    } else if (selectedInvoice.amountPaid !== undefined) {
+      amountPaidThisTx = selectedInvoice.amountPaid;
+    }
 
     doc.setFontSize(8);
     doc.setTextColor(100, 110, 130);
@@ -183,7 +253,6 @@ export const generateAndPrintReceipt = async (selectedInvoice: any, selectedPati
     const labelColor: [number, number, number] = [100, 110, 130];
     const valueColor: [number, number, number] = [20, 25, 35];
 
-    const method = selectedInvoice.method ? selectedInvoice.method.replace(/_/g, ' ').toUpperCase() : 'CASH';
     const desc = selectedInvoice.description || selectedInvoice.items?.[0]?.description || 'Therapy Fee';
 
     const patientName = selectedInvoice.patientName || patientObj?.name || selectedInvoice.patientId?.name || 'Unknown';
@@ -390,7 +459,6 @@ export const generateAndPrintReceipt = async (selectedInvoice: any, selectedPati
     y += 16;
 
     const discountedFee = Math.max(0, totalBasePrice - totalDiscount);
-    const amountPaidThisTx = selectedInvoice.amount || 0;
     const remainingBalance = selectedInvoice.dueAmount ?? 0;
     const totalPaidToDate = Math.max(0, discountedFee - remainingBalance);
 

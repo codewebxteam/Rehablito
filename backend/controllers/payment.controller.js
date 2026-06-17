@@ -136,7 +136,7 @@ exports.verifyPayment = async (req, res) => {
 // 3. Submit Manual QR Payment
 exports.submitManualPayment = async (req, res) => {
     try {
-        const { amount, feePaymentId, transactionId } = req.body;
+        const { amount, feePaymentId, transactionId, method } = req.body;
 
         if (!amount || !feePaymentId) {
             return res.status(400).json({ error: 'Amount and feePaymentId are required' });
@@ -163,7 +163,8 @@ exports.submitManualPayment = async (req, res) => {
             });
         });
 
-        feePayment.method = 'qr_scan';
+        const selectedMethod = method || 'qr_scan';
+        feePayment.method = selectedMethod;
         feePayment.approvalStatus = 'pending';
         feePayment.screenshot = uploadResponse.url;
 
@@ -171,8 +172,9 @@ exports.submitManualPayment = async (req, res) => {
         feePayment.transactions.push({
             amountPaid: Number(amount),
             date: new Date(),
-            method: 'qr_scan',
-            transactionId: transactionId || 'pending_approval'
+            method: selectedMethod,
+            transactionId: transactionId || 'N/A',
+            status: 'pending'
         });
 
         await feePayment.save();

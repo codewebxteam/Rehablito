@@ -35,6 +35,9 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
   const [isSaving, setIsSaving] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [services, setServices] = useState<ServiceOption[]>([]);
+  const [diagnosisReport, setDiagnosisReport] = useState<File | null>(null); // 🔥 NEW
+  const [consentForm, setConsentForm] = useState<File | null>(null); // 🔥 NEW
+  const [uploadingDocs, setUploadingDocs] = useState(false); // 🔥 NEW
 
   useEffect(() => {
     setMounted(true);
@@ -51,6 +54,7 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
     parentEmail: '',
     parentPassword: '',
     address: '',
+    condition: '', // 🔥 NEW
     branchId: '',
     serviceIds: [] as string[],
     age: '',
@@ -85,12 +89,15 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
         parentEmail: '',
         parentPassword: '',
         address: '',
+        condition: '', // 🔥 NEW
         branchId: '',
         serviceIds: [],
         age: '',
         gender: '',
       });
       setTherapyDiscounts({});
+      setDiagnosisReport(null); // 🔥 NEW
+      setConsentForm(null); // 🔥 NEW
     }
   }, [isOpen]);
 
@@ -101,20 +108,49 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
 
   const isValid = form.name.trim() !== '' && form.branchId.trim() !== '' && form.age.trim() !== '' && form.gender !== '';
 
+  const uploadFile = async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('folder', '/rehablito/documents');
+    const { data } = await api.post('/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    if (data.success) return data.url;
+    throw new Error(data.message || 'Upload failed');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValid) return;
     try {
       setIsSaving(true);
+      setUploadingDocs(true);
+
+      let diagnosisReportUrl;
+      let consentFormUrl;
+      
+      try {
+        if (diagnosisReport) diagnosisReportUrl = await uploadFile(diagnosisReport);
+        if (consentForm) consentFormUrl = await uploadFile(consentForm);
+      } catch (uploadErr) {
+        toast.error('Failed to upload documents. Please try again.');
+        setIsSaving(false);
+        setUploadingDocs(false);
+        return;
+      }
+
       const payload: any = {
         name: form.name.trim(),
         branchId: form.branchId,
         parentName: form.parentName.trim(),
         address: form.address.trim(),
+        diagnosis: form.condition.trim(), // 🔥 NEW
         parentEmail: form.parentEmail.trim(),
         parentPassword: form.parentPassword,
         age: parseInt(form.age) || undefined,
         gender: form.gender.toLowerCase() || undefined,
+        diagnosisReportUrl, // 🔥 NEW
+        consentFormUrl, // 🔥 NEW
       };
       
       if (form.parentPhone.trim()) {
@@ -145,6 +181,7 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
       toast.error(err?.response?.data?.message || 'Failed to add patient');
     } finally {
       setIsSaving(false);
+      setUploadingDocs(false);
     }
   };
 
@@ -330,15 +367,78 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
                      </div>
 
                      <div className="space-y-4">
-                       <h4 className="text-[12px] font-black uppercase text-slate-800 tracking-wider">Location</h4>
+                       <h4 className="text-[12px] font-black uppercase text-slate-800 tracking-wider">Clinical Notes & Location</h4>
+                       
+                       <div className="space-y-3">
+                         <label className={LABEL_CLASS}>Clinical Notes / Diagnosis <span className="text-slate-400 font-normal normal-case">(optional)</span></label>
+                         <textarea 
+                           placeholder="Brief diagnosis or clinical notes..." 
+                           value={form.condition} 
+                           onChange={(e) => set('condition', e.target.value)} 
+                           className={cn(INPUT_CLASS, "min-h-[80px] resize-none")} 
+                         />
+                       </div>
+
                        <div className="space-y-3">
                          <label className={LABEL_CLASS}>Residential Address</label>
                          <textarea 
                            placeholder="Full street address and unit number" 
                            value={form.address} 
                            onChange={(e) => set('address', e.target.value)} 
-                           className={cn(INPUT_CLASS, "min-h-[80px] resize-none")} 
+                           className={cn(INPUT_CLASS, "min-h-[60px] resize-none")} 
                          />
+                       </div>
+                     </div>
+
+                     {/* 🔥 NEW: Optional Document Uploads */}
+                     <div className="space-y-4">
+                       <h4 className="text-[12px] font-black uppercase text-slate-800 tracking-wider">Documents <span className="lowercase text-slate-500 font-normal">(optional)</span></h4>
+                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         
+                         <div className="space-y-2">
+                           <label className={LABEL_CLASS}>Diagnosis Report</label>
+                           {diagnosisReport ? (
+                             <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                               <div className="flex items-center gap-2 overflow-hidden">
+                                 <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+                                 <span className="text-sm font-bold text-emerald-700 truncate">{diagnosisReport.name}</span>
+                               </div>
+                               <button type="button" onClick={() => setDiagnosisReport(null)} className="text-emerald-600 hover:text-emerald-800 p-1">
+                                 <X size={14} />
+                               </button>
+                             </div>
+                           ) : (
+                             <input
+                               type="file"
+                               accept=".pdf,image/*"
+                               onChange={e => setDiagnosisReport(e.target.files?.[0] || null)}
+                               className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all text-slate-600 cursor-pointer"
+                             />
+                           )}
+                         </div>
+
+                         <div className="space-y-2">
+                           <label className={LABEL_CLASS}>Consent Form</label>
+                           {consentForm ? (
+                             <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                               <div className="flex items-center gap-2 overflow-hidden">
+                                 <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+                                 <span className="text-sm font-bold text-emerald-700 truncate">{consentForm.name}</span>
+                               </div>
+                               <button type="button" onClick={() => setConsentForm(null)} className="text-emerald-600 hover:text-emerald-800 p-1">
+                                 <X size={14} />
+                               </button>
+                             </div>
+                           ) : (
+                             <input
+                               type="file"
+                               accept=".pdf,image/*"
+                               onChange={e => setConsentForm(e.target.files?.[0] || null)}
+                               className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-xl px-4 py-2.5 text-sm file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all text-slate-600 cursor-pointer"
+                             />
+                           )}
+                         </div>
+
                        </div>
                      </div>
                   </div>
@@ -348,9 +448,9 @@ export function AddPatientModal({ isOpen, onClose, onSuccess, branches }: AddPat
                   <button type="button" onClick={onClose} className="px-6 py-3 rounded-2xl text-sm font-bold text-slate-600 hover:bg-slate-100 transition-colors">
                     Cancel
                   </button>
-                  <button type="submit" disabled={isSaving || !isValid} className="flex items-center gap-2 px-8 py-3 rounded-2xl text-sm font-black bg-primary text-white hover:bg-primary/90 disabled:opacity-50 transition-all shadow-[0_10px_20px_-5px_rgba(37,99,235,0.3)]">
-                    {isSaving ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
-                    Add Patient
+                  <button type="submit" disabled={isSaving || uploadingDocs || !isValid} className="flex items-center gap-2 px-8 py-3 rounded-2xl text-sm font-black bg-primary text-white hover:bg-primary/90 disabled:opacity-50 transition-all shadow-[0_10px_20px_-5px_rgba(37,99,235,0.3)]">
+                    {uploadingDocs || isSaving ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
+                    {uploadingDocs ? 'Uploading Docs...' : isSaving ? 'Adding...' : 'Add Patient'}
                   </button>
                 </div>
 

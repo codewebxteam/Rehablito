@@ -178,8 +178,41 @@ function ViewModal({ patient, billing, onClose }: { patient: Patient; billing: B
             <p className="text-[#004aad] font-bold text-[10px] uppercase tracking-widest">Clinical Notes / Diagnosis</p>
           </div>
           <div className="px-6 py-3 bg-white">
-            <p className="text-xs text-gray-700 leading-relaxed">{patient.condition || 'No diagnosis recorded.'}</p>
+            <p className="text-xs text-gray-700 leading-relaxed">{patient.diagnosis || patient.condition || 'No diagnosis recorded.'}</p>
           </div>
+
+          {/* 🔥 NEW: View Uploaded Documents */}
+          {(patient.diagnosisReportUrl || patient.consentFormUrl) && (
+            <>
+              <div className="bg-blue-50 border-y border-blue-100 px-6 py-2">
+                <p className="text-[#004aad] font-bold text-[10px] uppercase tracking-widest">Uploaded Documents</p>
+              </div>
+              <div className="px-6 py-4 bg-white flex flex-wrap gap-3">
+                {patient.diagnosisReportUrl && (
+                  <a
+                    href={patient.diagnosisReportUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-[#004aad] text-xs font-bold hover:bg-blue-100 transition-colors border border-blue-200 shadow-sm"
+                  >
+                    <FileText size={14} />
+                    View Diagnosis Report
+                  </a>
+                )}
+                {patient.consentFormUrl && (
+                  <a
+                    href={patient.consentFormUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-[#004aad] text-xs font-bold hover:bg-blue-100 transition-colors border border-blue-200 shadow-sm"
+                  >
+                    <FileText size={14} />
+                    View Consent Form
+                  </a>
+                )}
+              </div>
+            </>
+          )}
 
           {/* Billing */}
           <div className="grid grid-cols-2 gap-3 px-6 py-4 bg-gray-50 border-t border-gray-100">

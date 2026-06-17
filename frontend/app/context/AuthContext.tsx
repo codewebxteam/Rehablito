@@ -196,10 +196,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = () => {
+    const role = user?.role;
     Cookies.remove('rehablito_token', { path: '/' });
     setUser(null);
-    router.push('/');
     toast.message('You have been logged out.');
+    
+    if (role === 'branch_manager') {
+      router.push('/manager/login');
+    } else if (role === 'staff') {
+      router.push('/staff/login');
+    } else if (role === 'parent') {
+      router.push('/parent/login');
+    } else {
+      router.push('/admin/login');
+    }
   };
 
   return (

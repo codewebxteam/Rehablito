@@ -70,19 +70,32 @@ const NAV_GROUPS = [
 
 export const Sidebar = React.memo(({ active, onChange }: SidebarProps) => {
   const { logout, user } = useAuth();
-  const { setBranch, selectedBranchName } = useBranch();
+  const { selectedBranchId, selectedBranchName, setBranch } = useBranch();
   const initials = (user?.name || 'SA')
     .split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
 
   const [isBranchMenuOpen, setIsBranchMenuOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [branches, setBranches] = useState<BranchOption[]>([]);
+  const [badges, setBadges] = useState({ pendingApprovals: 0, pendingFeedbacks: 0 });
 
   useEffect(() => {
     api.get('/admin/branches')
       .then(({ data }) => { if (data.success) setBranches(data.data); })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const fetchBadges = () => {
+      const branchParam = selectedBranchId ? `?branch=${selectedBranchId}` : '';
+      api.get(`/admin/badges${branchParam}`)
+        .then(({ data }) => { if (data.success) setBadges(data.data); })
+        .catch(() => {});
+    };
+    fetchBadges();
+    const interval = setInterval(fetchBadges, 30000); // Polling every 30 seconds
+    return () => clearInterval(interval);
+  }, [selectedBranchId, selectedBranchName]);
 
   const branchOptions: { id: string | null; name: string }[] = [
     { id: null, name: 'All Branches' },
@@ -197,6 +210,12 @@ export const Sidebar = React.memo(({ active, onChange }: SidebarProps) => {
                 {NAV_GROUPS[gIdx].items.map(item => {
                   const isActive = active === item.tab;
                   const Icon = item.icon;
+                  
+                  // Determine badge count
+                  let badgeCount = 0;
+                  if (item.tab === 'payments') badgeCount = badges.pendingApprovals;
+                  if (item.tab === 'feedbacks') badgeCount = badges.pendingFeedbacks;
+
                   return (
                     <button
                       key={item.tab}
@@ -238,14 +257,21 @@ export const Sidebar = React.memo(({ active, onChange }: SidebarProps) => {
 
                       {/* Label */}
                       <span className={cn(
-                        'relative z-10 text-[13px] tracking-tight transition-colors duration-150',
+                        'relative z-10 text-[13px] tracking-tight transition-colors duration-150 flex-1 text-left',
                         isActive ? 'font-bold text-primary' : 'font-medium text-slate-500 group-hover:text-slate-700'
                       )}>
                         {TAB_LABELS[item.tab]}
                       </span>
 
-                      {/* Active dot */}
-                      {isActive && (
+                      {/* Badge */}
+                      {badgeCount > 0 && (
+                        <span className="relative z-10 flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-rose-500 text-white text-[10px] font-black shadow-sm ml-auto">
+                          {badgeCount > 99 ? '99+' : badgeCount}
+                        </span>
+                      )}
+
+                      {/* Active dot (only if no badge to avoid crowding) */}
+                      {isActive && badgeCount === 0 && (
                         <motion.div
                           layoutId="nav-active-dot"
                           className="relative z-10 ml-auto w-1.5 h-1.5 rounded-full bg-primary"

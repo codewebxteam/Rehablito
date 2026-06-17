@@ -30,6 +30,7 @@ const managerRoutes = require('./routes/manager.routes');
 const staffRoutes = require('./routes/staff.routes');
 const parentRoutes = require('./routes/parent.routes'); // 🔥 NEW: Parent Portal routes
 const paymentRoutes = require('./routes/payment.routes'); // NEW
+const uploadRoutes = require('./routes/upload.routes'); // NEW
 
 // Mount routers (specific paths first, generic last)
 app.use('/api/auth', authRoutes);
@@ -38,6 +39,7 @@ app.use('/api/manager', managerRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/parent', parentRoutes); // 🔥 NEW: Parent Portal routes
 app.use('/api/payments', paymentRoutes); // NEW
+app.use('/api/upload', uploadRoutes); // NEW
 app.use('/api', protectedRoutes);
 
 app.get('/', (req, res) => {

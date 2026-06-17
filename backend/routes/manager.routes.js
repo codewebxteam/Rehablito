@@ -60,8 +60,13 @@ const {
     rejectManualPayment,
 } = require('../controllers/manager.billing.controller');
 
+const { getBadgesCount } = require('../controllers/badges.controller');
+
 // ─── All routes require authentication + branch_manager or super_admin ───
 router.use(protect, authorize('super_admin', 'branch_manager'));
+
+// ── Badges (Notification Counts) ──
+router.get('/badges', getBadgesCount);
 
 // GET /api/manager/branches → for dropdowns
 router.get('/branches', getBranches);
@@ -95,11 +100,16 @@ router.route('/patients').get(getPatients).post(createPatient);
 // DELETE /api/manager/patients/:id     → Delete patient
 router.route('/patients/:id').get(getPatient).put(updatePatient).delete(async (req, res) => {
     const Patient = require('../models/Patient');
+    const User = require('../models/User');
     try {
         const branchId = req.user.role === 'super_admin' && req.query.branch ? req.query.branch : req.user.branchId;
         const patient = await Patient.findOneAndDelete({ _id: req.params.id, branchId });
         if (!patient) return res.status(404).json({ success: false, message: 'Patient not found' });
-        res.json({ success: true, message: 'Patient deleted' });
+        
+        // Also delete parent account if exists
+        await User.findOneAndDelete({ patientId: req.params.id });
+        
+        res.json({ success: true, message: 'Patient deleted successfully' });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }

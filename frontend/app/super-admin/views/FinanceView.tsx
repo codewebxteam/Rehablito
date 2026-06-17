@@ -60,6 +60,9 @@ interface ApiFee {
   receiptNumber?: string;
   patientId?: { _id: string; name: string; parentName?: string; patientId?: string } | null;
   branchId?: { _id: string; name: string } | null;
+  uniqueKey?: string;
+  rawRecord?: any;
+  rawTx?: any;
 }
 
 interface Expense {
@@ -393,7 +396,40 @@ export const FinanceView = ({ initialData }: { initialData?: any }) => {
           api.get(`/admin/fees${branchParam}`),
         ]);
         if (summaryRes.data.success) setSummary(summaryRes.data.data as FeeSummary);
-        if (feesRes.data.success) setFees(feesRes.data.data as ApiFee[]);
+        if (feesRes.data.success) {
+          const rawFees = feesRes.data.data as ApiFee[];
+          const flatFees: any[] = [];
+          rawFees.forEach((f: any) => {
+            if (f.transactions && f.transactions.length > 0) {
+              f.transactions.forEach((tx: any, idx: number) => {
+                flatFees.push({
+                  ...f,
+                  _id: f._id,
+                  uniqueKey: tx._id || tx.transactionId || `${f._id}-${idx}`,
+                  amount: tx.amountPaid,
+                  paymentDate: tx.date || f.paymentDate || f.createdAt,
+                  method: tx.method || f.method,
+                  transactionId: tx.transactionId,
+                  rawTx: tx,
+                  rawRecord: f
+                });
+              });
+            } else {
+              flatFees.push({
+                ...f,
+                uniqueKey: f._id,
+                amount: f.amount || 0,
+                rawRecord: f
+              });
+            }
+          });
+          flatFees.sort((a, b) => {
+            const dateA = new Date(a.paymentDate || a.createdAt).getTime();
+            const dateB = new Date(b.paymentDate || b.createdAt).getTime();
+            return dateB - dateA;
+          });
+          setFees(flatFees);
+        }
       } catch {
         toast.error('Failed to load finance data');
       } finally {
@@ -689,7 +725,7 @@ export const FinanceView = ({ initialData }: { initialData?: any }) => {
                   <motion.tr
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    key={fee._id}
+                    key={fee.uniqueKey || fee._id}
                     className="hover:bg-slate-50/40 transition-colors group"
                   >
                     <td className="px-5 py-4">
@@ -735,10 +771,15 @@ export const FinanceView = ({ initialData }: { initialData?: any }) => {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          generateAndPrintReceipt(fee, null, (isProc) => {
-                            if(isProc) toast.loading("Generating receipt...");
-                            else toast.dismiss();
-                          });
+                          generateAndPrintReceipt(
+                            fee.rawRecord || fee,
+                            null,
+                            (isProc) => {
+                              if(isProc) toast.loading("Generating receipt...");
+                              else toast.dismiss();
+                            },
+                            fee.rawTx
+                          );
                         }}
                         className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors inline-block"
                         title="Download Receipt"

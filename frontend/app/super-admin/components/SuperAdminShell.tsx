@@ -164,7 +164,7 @@ function ShellInner({ children }: SuperAdminShellProps) {
           </div>
         </header>
 
-        <div className="flex-1 px-4 sm:px-6 lg:px-8 pt-4 lg:pt-6 pb-8 lg:pb-16 relative z-10 overflow-auto">
+        <div className="flex-1 px-4 sm:px-6 lg:px-8 pt-4 lg:pt-6 pb-8 lg:pb-16 relative overflow-auto">
           <div className="w-full max-w-[1440px] mx-auto">
             <AnimatePresence mode="wait">
               <motion.div

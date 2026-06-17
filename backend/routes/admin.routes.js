@@ -31,9 +31,13 @@ const {
 } = require('../controllers/staff.controller');
 const { getServices, createService, updateService, deleteService } = require('../controllers/service.controller');
 const { getAllFeedbacks, replyToFeedback } = require('../controllers/feedback.controller');
+const { getBadgesCount } = require('../controllers/badges.controller');
 
 // All routes require super_admin
 router.use(protect, authorize('super_admin'));
+
+// ── Badges (Notification Counts) ──
+router.get('/badges', getBadgesCount);
 
 // ── Dashboard (combined endpoint) ──
 router.get('/dashboard', getDashboardData);

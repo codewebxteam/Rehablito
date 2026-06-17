@@ -16,6 +16,9 @@ export interface Patient {
   status?: string;
   parentPassword?: string;
   therapyDetails?: { therapy: string; addedAt?: string; discount: number }[];
+  diagnosis?: string;
+  diagnosisReportUrl?: string;
+  consentFormUrl?: string;
 }
 
 export interface Lead {
@@ -56,11 +59,14 @@ export interface BillingRecord {
   amountPaid: number;
   dueAmount: number;
   date: string;
-  method?: 'cash' | 'upi' | 'bank_transfer' | 'card';
+  method?: 'cash' | 'upi' | 'bank_transfer' | 'card' | 'qr_scan';
   status?: 'paid' | 'partial' | 'overdue' | 'pending';
   receiptNumber?: string;
   description?: string;
   items: InvoiceItem[];
+  uniqueKey?: string;
+  rawTx?: any;
+  rawRecord?: any;
 }
 
 export interface NewPaymentInput {

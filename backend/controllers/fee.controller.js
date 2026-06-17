@@ -150,7 +150,7 @@ const getPendingApprovals = async (req, res) => {
         if (req.query.branch) filter.branchId = req.query.branch;
 
         const pendingPayments = await FeePayment.find(filter)
-            .populate('patientId', 'name parentName parentPhone')
+            .populate('patientId', 'name parentName parentPhone patientId')
             .populate('branchId', 'name')
             .sort({ updatedAt: -1 });
 
@@ -175,12 +175,12 @@ const approveManualPayment = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Payment is not pending approval' });
         }
 
-        const pendingTx = payment.transactions.find(tx => tx.transactionId === 'pending_approval') || payment.transactions[payment.transactions.length - 1];
+        const pendingTx = payment.transactions.find(tx => tx.status === 'pending') || payment.transactions[payment.transactions.length - 1];
         
         let amountPaid = 0;
         if (pendingTx) {
             amountPaid = pendingTx.amountPaid;
-            pendingTx.transactionId = 'approved_' + Date.now();
+            pendingTx.status = 'approved';
         } else {
             amountPaid = payment.dueAmount;
         }
@@ -213,7 +213,7 @@ const rejectManualPayment = async (req, res) => {
         payment.approvalStatus = 'rejected';
         
         // Remove the pending transaction
-        payment.transactions = payment.transactions.filter(tx => tx.transactionId !== 'pending_approval');
+        payment.transactions = payment.transactions.filter(tx => tx.status !== 'pending');
         
         await payment.save();
 

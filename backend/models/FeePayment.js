@@ -30,7 +30,8 @@ const feePaymentSchema = new mongoose.Schema({
         amountPaid: Number,
         date: { type: Date, default: Date.now },
         method: String,
-        transactionId: String
+        transactionId: String,
+        status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'approved' }
     }]
 }, { timestamps: true });
 

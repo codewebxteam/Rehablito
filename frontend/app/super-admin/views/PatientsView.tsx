@@ -29,6 +29,9 @@ interface Patient {
   lastVisit: string;
   totalFee?: number;
   parentPassword?: string;
+  diagnosis?: string;
+  diagnosisReportUrl?: string; // 🔥 NEW
+  consentFormUrl?: string;     // 🔥 NEW
 }
 
 type PatientStatusFilter = 'All' | Patient['status'] | 'Due';
@@ -51,6 +54,8 @@ interface ApiPatient {
   admissionDate: string;
   totalFee?: number;
   patientId?: string;
+  diagnosisReportUrl?: string;
+  consentFormUrl?: string;
 }
 
 interface ServiceOption {
@@ -93,10 +98,13 @@ export const PatientsView = ({ initialData }: PatientsViewProps) => {
     age: p.age,
     gender: p.gender || '',
     condition: p.diagnosis || p.condition || '',
+    diagnosis: p.diagnosis || p.condition || '', // 🔥 NEW
     branch: p.branchId?._id || '',
     status: (p.status === 'active' ? 'Active' : p.status === 'discharged' ? 'Discharged' : 'Critical') as Patient['status'],
     lastVisit: p.admissionDate ? new Date(p.admissionDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A',
-    totalFee: p.totalFee || 0
+    totalFee: p.totalFee || 0,
+    diagnosisReportUrl: p.diagnosisReportUrl, // 🔥 NEW
+    consentFormUrl: p.consentFormUrl // 🔥 NEW
   }));
 
   const hasServerData = !!initialData;
@@ -246,13 +254,22 @@ export const PatientsView = ({ initialData }: PatientsViewProps) => {
   };
 
   const calculateDueAmount = (patientId: string, totalFee: number) => {
-    const patPaid = fees
-      .filter(f => {
-        const pId = typeof f.patientId === 'object' && f.patientId ? f.patientId._id : f.patientId;
-        return pId === patientId;
-      })
-      .reduce((sum, f) => sum + (Number(f.amount) || 0), 0);
-    return Math.max(0, (totalFee || 0) - patPaid);
+    const patientFees = fees.filter(f => {
+      const pId = typeof f.patientId === 'object' && f.patientId ? f.patientId._id : f.patientId;
+      return pId === patientId;
+    });
+
+    const totalPaid = patientFees.reduce((sum, f) => {
+      if (f.transactions && f.transactions.length > 0) {
+        const txPaid = f.transactions
+          .filter((t: any) => t.status === 'approved' || !t.status)
+          .reduce((s: number, t: any) => s + (Number(t.amountPaid) || 0), 0);
+        return sum + txPaid;
+      }
+      return sum + (Number(f.amount) || 0);
+    }, 0);
+
+    return Math.max(0, (totalFee || 0) - totalPaid);
   };
 
   const handleMarkDischarged = async (id: string) => {
@@ -320,7 +337,10 @@ export const PatientsView = ({ initialData }: PatientsViewProps) => {
         therapyType: editingPatient.therapyType || [],
         therapyDetails: editingPatient.therapyDetails || [],
         totalFee: calculatedTotalFee,
-        status: editingPatient.status === 'Active' ? 'active' : editingPatient.status === 'Discharged' ? 'discharged' : 'on_hold'
+        status: editingPatient.status === 'Active' ? 'active' : editingPatient.status === 'Discharged' ? 'discharged' : 'on_hold',
+        parentName: editingPatient.parentName,
+        parentPhone: editingPatient.parentPhone,
+        parentEmail: editingPatient.parentEmail,
       };
       if (editingPatient.parentPassword) {
         payload.parentPassword = editingPatient.parentPassword;
@@ -677,8 +697,41 @@ export const PatientsView = ({ initialData }: PatientsViewProps) => {
                   <p className="text-[#004aad] font-bold text-[10px] uppercase tracking-widest">Clinical Notes / Diagnosis</p>
                 </div>
                 <div className="px-6 py-3 bg-white">
-                  <p className="text-xs text-gray-700 leading-relaxed">{viewingPatient.condition || 'No diagnosis recorded.'}</p>
+                  <p className="text-xs text-gray-700 leading-relaxed">{viewingPatient.condition || viewingPatient.diagnosis || 'No diagnosis recorded.'}</p>
                 </div>
+
+                {/* 🔥 NEW: View Uploaded Documents */}
+                {(viewingPatient.diagnosisReportUrl || viewingPatient.consentFormUrl) && (
+                  <>
+                    <div className="bg-blue-50 border-y border-blue-100 px-6 py-2">
+                      <p className="text-[#004aad] font-bold text-[10px] uppercase tracking-widest">Uploaded Documents</p>
+                    </div>
+                    <div className="px-6 py-4 bg-white flex flex-wrap gap-3">
+                      {viewingPatient.diagnosisReportUrl && (
+                        <a
+                          href={viewingPatient.diagnosisReportUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-[#004aad] text-xs font-bold hover:bg-blue-100 transition-colors border border-blue-200 shadow-sm"
+                        >
+                          <FileText size={14} />
+                          View Diagnosis Report
+                        </a>
+                      )}
+                      {viewingPatient.consentFormUrl && (
+                        <a
+                          href={viewingPatient.consentFormUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-50 text-[#004aad] text-xs font-bold hover:bg-blue-100 transition-colors border border-blue-200 shadow-sm"
+                        >
+                          <FileText size={14} />
+                          View Consent Form
+                        </a>
+                      )}
+                    </div>
+                  </>
+                )}
 
                 {/* Fee */}
                 {viewingPatient.totalFee !== undefined && (
@@ -718,6 +771,8 @@ export const PatientsView = ({ initialData }: PatientsViewProps) => {
                         phone: p.parentPhone || '',
                         onboardedAt: p.lastVisit || new Date().toISOString(),
                         branchName,
+                        diagnosisReportUrl: p.diagnosisReportUrl, // 🔥 NEW
+                        consentFormUrl: p.consentFormUrl, // 🔥 NEW
                       }, 'Patient Registration Record');
                       doc.save(`Patient_${p.name.replace(/\s/g, '_')}.pdf`);
                     }}

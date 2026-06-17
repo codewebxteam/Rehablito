@@ -5,7 +5,7 @@ const patientSchema = new mongoose.Schema({
     name: { type: String, required: [true, 'Name is required'], trim: true },
     parentName: { type: String },
     parentPhone: { type: String },
-    parentEmail: { type: String },
+    parentEmail: { type: String, lowercase: true, trim: true },
     dob: { type: Date },
     age: { type: Number },
     gender: { type: String, enum: ['male', 'female', 'other'] },
@@ -23,6 +23,8 @@ const patientSchema = new mongoose.Schema({
     serviceId: { type: mongoose.Schema.ObjectId, ref: 'Service', default: null },
     // Total fee captured at time of onboarding (denormalised for billing reference)
     totalFee: { type: Number, default: 0 },
+    diagnosisReportUrl: { type: String, default: null }, // 🔥 NEW
+    consentFormUrl: { type: String, default: null }, // 🔥 NEW
     branchId: { type: mongoose.Schema.ObjectId, ref: 'Branch', required: true },
     assignedTherapist: { type: mongoose.Schema.ObjectId, ref: 'User', default: null },
     admissionDate: { type: Date, default: Date.now },

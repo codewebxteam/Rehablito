@@ -65,7 +65,9 @@ const register = async (req, res) => {
 // @access  Public
 const login = async (req, res) => {
     try {
-        const { email, password, role } = req.body;
+        let { email, password, role } = req.body;
+        email = email ? email.trim().toLowerCase() : email;
+        password = password ? password.trim() : password;
 
         const user = await User.findOne({ email }).select('+password');
 
@@ -95,7 +97,10 @@ const login = async (req, res) => {
 // @access  Public
 const adminLogin = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        let { email, password } = req.body;
+        email = email ? email.trim().toLowerCase() : email;
+        password = password ? password.trim() : password;
+        
         const user = await User.findOne({ email, role: 'super_admin' }).select('+password');
 
         if (!user || !(await user.matchPassword(password))) {
@@ -117,7 +122,10 @@ const adminLogin = async (req, res) => {
 // @access  Public
 const managerLogin = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        let { email, password } = req.body;
+        email = email ? email.trim().toLowerCase() : email;
+        password = password ? password.trim() : password;
+        
         const user = await User.findOne({ email, role: 'branch_manager' }).select('+password');
 
         if (!user || !(await user.matchPassword(password))) {
@@ -139,7 +147,10 @@ const managerLogin = async (req, res) => {
 // @access  Public
 const parentLogin = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        let { email, password } = req.body;
+        email = email ? email.trim().toLowerCase() : email;
+        password = password ? password.trim() : password;
+        
         const user = await User.findOne({ email, role: 'parent' }).select('+password');
 
         if (!user || !(await user.matchPassword(password))) {

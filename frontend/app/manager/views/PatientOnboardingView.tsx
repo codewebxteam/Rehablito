@@ -250,6 +250,11 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [therapyDiscounts, setTherapyDiscounts] = useState<Record<string, number>>({});
   
+  // 🔥 NEW: Document Upload States
+  const [diagnosisReport, setDiagnosisReport] = useState<File | null>(null);
+  const [consentForm, setConsentForm] = useState<File | null>(null);
+  const [uploadingDocs, setUploadingDocs] = useState(false);
+  
   // Changed to any so it can hold the branchName for PDF generation
   const [lastOnboarded, setLastOnboarded] = useState<any>(null);
 
@@ -299,11 +304,36 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
     return Object.keys(newErrors).length === 0;
   };
 
+  const uploadFile = async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('folder', '/rehablito/documents');
+    const { data } = await api.post('/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    if (data.success) return data.url;
+    throw new Error(data.message || 'Upload failed');
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
     setIsSubmitting(true);
+    setUploadingDocs(true);
     try {
+      let diagnosisReportUrl;
+      let consentFormUrl;
+      
+      try {
+        if (diagnosisReport) diagnosisReportUrl = await uploadFile(diagnosisReport);
+        if (consentForm) consentFormUrl = await uploadFile(consentForm);
+      } catch (uploadErr) {
+        setErrors({ form: 'Failed to upload documents. Please try again.' });
+        return;
+      } finally {
+        setUploadingDocs(false);
+      }
+
       const payload = {
         // Do NOT send patientId — let the backend auto-generate RHBT format
         name: formData.name,
@@ -323,6 +353,8 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
         parentPhone: `+91${formData.phone}`,
         parentEmail: formData.parentEmail || undefined,       // 🔥 NEW
         parentPassword: formData.parentPassword || undefined, // 🔥 NEW
+        diagnosisReportUrl, // 🔥 NEW
+        consentFormUrl, // 🔥 NEW
       };
       
       const { data } = await api.post('/manager/patients', payload);
@@ -341,6 +373,9 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
           discount: therapyDiscounts[s._id] || 0
         })),
         condition: data.data.diagnosis ?? formData.diagnosis,
+        diagnosis: data.data.diagnosis ?? formData.diagnosis, // 🔥 NEW
+        diagnosisReportUrl: data.data.diagnosisReportUrl ?? diagnosisReportUrl, // 🔥 NEW
+        consentFormUrl: data.data.consentFormUrl ?? consentFormUrl, // 🔥 NEW
         address: data.data.address ?? formData.address,
         phone: data.data.parentPhone ?? `+91${formData.phone}`,
         onboardedAt: data.data.admissionDate || data.data.createdAt || new Date().toISOString(),
@@ -366,6 +401,8 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
       const newId = `RHBT${year}XXXX`;
       setFormData({ patientId: newId, name: '', parentName: '', age: '', gender: '', serviceIds: [], therapyType: '', diagnosis: '', address: '', branchId: '', phone: '', parentEmail: '', parentPassword: '' });
       setTherapyDiscounts({});
+      setDiagnosisReport(null); // 🔥 NEW
+      setConsentForm(null);     // 🔥 NEW
 
       const doc = await generatePatientPDF(pdfPayload as any, 'Patient Onboarding Record', { hidePhone: true });
       doc.save(`Onboarding_${newPatient.name.replace(/\s/g, '_')}.pdf`);
@@ -608,6 +645,59 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
               />
             </div>
 
+            {/* 🔥 NEW: Optional Document Uploads */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-5 rounded-2xl bg-surface-container-lowest border border-outline-variant/20">
+              
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Diagnosis Report <span className="lowercase text-on-surface-variant/60">(optional PDF/Image)</span></label>
+                {diagnosisReport ? (
+                  <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+                      <span className="text-sm font-bold text-emerald-700 truncate">{diagnosisReport.name}</span>
+                    </div>
+                    <button type="button" onClick={() => setDiagnosisReport(null)} className="text-emerald-600 hover:text-emerald-800 p-1">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept=".pdf,image/*"
+                      onChange={e => setDiagnosisReport(e.target.files?.[0] || null)}
+                      className="w-full bg-white border border-outline-variant/30 rounded-2xl px-4 py-3 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all text-on-surface-variant cursor-pointer"
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider px-1">Signed Consent Form <span className="lowercase text-on-surface-variant/60">(optional PDF/Image)</span></label>
+                {consentForm ? (
+                  <div className="flex items-center justify-between bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
+                      <span className="text-sm font-bold text-emerald-700 truncate">{consentForm.name}</span>
+                    </div>
+                    <button type="button" onClick={() => setConsentForm(null)} className="text-emerald-600 hover:text-emerald-800 p-1">
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input
+                      type="file"
+                      accept=".pdf,image/*"
+                      onChange={e => setConsentForm(e.target.files?.[0] || null)}
+                      className="w-full bg-white border border-outline-variant/30 rounded-2xl px-4 py-3 text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-bold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 transition-all text-on-surface-variant cursor-pointer"
+                    />
+                  </div>
+                )}
+              </div>
+
+            </div>
+
             <div className="pt-4 space-y-3">
               {errors.form && (
                 <p className="text-xs text-error font-semibold flex items-center gap-2">
@@ -617,11 +707,11 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
               )}
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || uploadingDocs}
                 className="w-full bg-gradient-to-r from-secondary to-secondary-container text-white font-bold py-5 rounded-2xl text-lg flex items-center justify-center gap-3 hover:shadow-xl hover:shadow-secondary/20 active:scale-[0.98] transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <FileText className="group-hover:translate-x-1 transition-transform" size={24} />
-                {isSubmitting ? 'Saving...' : 'Onboard Patient & Generate PDF'}
+                {uploadingDocs ? 'Uploading Documents...' : isSubmitting ? 'Saving...' : 'Onboard Patient & Generate PDF'}
               </button>
             </div>
           </form>

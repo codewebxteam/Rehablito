@@ -131,15 +131,38 @@ const updatePatient = async (req, res) => {
             .populate('branchId', 'name')
             .populate('assignedTherapist', 'name');
 
-        // 🔥 Parent Portal: Update password if provided
-        const { parentPassword } = req.body;
-        if (parentPassword) {
-            const parentUser = await User.findOne({ patientId: patient._id });
+        // 🔥 Parent Portal: Update or Create parent account if provided
+        const { parentPassword, parentEmail, parentName, parentPhone } = req.body;
+        
+        let parentUser = await User.findOne({ patientId: patient._id });
+        
+        if (parentEmail) {
             if (parentUser) {
-                parentUser.password = parentPassword;
+                // Update existing parent user
+                parentUser.email = parentEmail.trim();
+                if (parentPassword) {
+                    parentUser.password = parentPassword;
+                }
+                if (parentName) parentUser.name = parentName;
+                if (parentPhone) parentUser.mobileNumber = parentPhone;
                 await parentUser.save();
-                console.log(`✅ Parent password updated for patient ${patient.name}`);
+                console.log(`✅ Parent account updated for patient ${patient.name}`);
+            } else if (parentPassword) {
+                // Create new parent user if they didn't have one
+                await User.create({
+                    name: parentName || patient.name + "'s Parent",
+                    email: parentEmail.trim(),
+                    password: parentPassword,
+                    role: 'parent',
+                    patientId: patient._id,
+                    mobileNumber: parentPhone || undefined,
+                });
+                console.log(`✅ New Parent account created during update for patient ${patient.name}`);
             }
+        } else if (parentPassword && parentUser) {
+             // If only password was updated
+             parentUser.password = parentPassword;
+             await parentUser.save();
         }
 
         res.json({ success: true, data: populated });
@@ -254,7 +277,7 @@ const getGlobalPatientAttendance = async (req, res) => {
 const getPatient = async (req, res) => {
     try {
         const patient = await Patient.findById(req.params.id)
-            .populate('branchId', 'name')
+            .populate('branchId', 'name address city phone email')
             .populate('assignedTherapist', 'name');
         if (!patient) return res.status(404).json({ success: false, message: 'Patient not found' });
         res.json({ success: true, data: patient });

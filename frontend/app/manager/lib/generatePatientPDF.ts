@@ -177,7 +177,73 @@ export const generatePatientPDF = async (patient: Patient & {
 
   y += maxRows * rowH + 10;
 
-  // ── Center Guidelines & Declaration Section (Filling Space Perfectly) ──
+  // ── Helper to check page break ──
+  const checkPageBreak = (requiredSpace: number) => {
+    if (y + requiredSpace > 270) {
+      doc.addPage();
+      y = 20;
+    }
+  };
+
+  // ── Clinical Notes & Diagnosis ──
+  const clinicalNotes = patient.diagnosis || patient.condition;
+  if (clinicalNotes) {
+    checkPageBreak(20);
+    
+    // Removed the yellow background as requested
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(0, 74, 173); // Using theme blue
+    doc.text('CLINICAL NOTES & DIAGNOSIS', 14, y + 7);
+    y += 14;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(50, 60, 70);
+    const splitNotes = doc.splitTextToSize(clinicalNotes, W - 28);
+    
+    // Print line by line to handle very long notes across pages
+    splitNotes.forEach((line: string) => {
+      checkPageBreak(6);
+      doc.text(line, 14, y);
+      y += 5;
+    });
+    
+    y += 8; // Extra padding
+  }
+
+  // ── Attached Files ──
+  if (patient.diagnosisReportUrl || patient.consentFormUrl) {
+    checkPageBreak(30);
+    
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(0, 74, 173); // Using theme blue
+    doc.text('ATTACHED FILES', 14, y + 7);
+    y += 14;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+
+    if (patient.diagnosisReportUrl) {
+      doc.setTextColor(0, 102, 204);
+      doc.textWithLink('→ View Diagnosis Report', 14, y, { url: patient.diagnosisReportUrl });
+      y += 6;
+    }
+
+    if (patient.consentFormUrl) {
+      doc.setTextColor(0, 102, 204);
+      doc.textWithLink('→ View Consent Form', 14, y, { url: patient.consentFormUrl });
+      y += 6;
+    }
+    
+    y += 8; // Extra padding
+  }
+
+  // ── Center Guidelines & Declaration Section ──
+  // Check if we have space for the guidelines box
+  checkPageBreak(70);
+
   doc.setFillColor(248, 250, 255);
   doc.setDrawColor(210, 220, 240);
   doc.roundedRect(10, y, W - 20, 10, 2, 2, 'FD');
@@ -204,15 +270,55 @@ export const generatePatientPDF = async (patient: Patient & {
   guidelines.forEach((line) => {
     const splitLine = doc.splitTextToSize(line, W - 28);
     doc.text(splitLine, 14, currentTextY);
-    currentTextY += splitLine.length * 4.5 + 2.5; // Smooth layout line gaps
+    currentTextY += splitLine.length * 4.5 + 2.5; 
   });
 
   const guideBoxH = currentTextY - guideBoxY + 1;
   doc.setDrawColor(210, 220, 240);
   doc.roundedRect(10, guideBoxY, W - 20, guideBoxH, 2, 2, 'D');
 
-  // ── Signature section (Fixed at the bottom of the page) ──
-  const sigY = 240; 
+  y = currentTextY + 10;
+
+  // ── Uploaded Documents (Links) ──
+  if (patient.diagnosisReportUrl || patient.consentFormUrl) {
+    checkPageBreak(15);
+    
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(0, 74, 173);
+    doc.text('ATTACHED DOCUMENTS:', 14, y);
+    
+    let linkX = 58;
+    
+    if (patient.diagnosisReportUrl) {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(50, 60, 70);
+      doc.text('Diagnosis Report: ', linkX, y);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(0, 102, 204); 
+      doc.textWithLink('[ View File ]', linkX + 28, y, { url: patient.diagnosisReportUrl });
+      linkX += 75;
+    }
+    
+    if (patient.consentFormUrl) {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(50, 60, 70);
+      doc.text('Consent Form: ', linkX, y);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(0, 102, 204); 
+      doc.textWithLink('[ View File ]', linkX + 24, y, { url: patient.consentFormUrl });
+    }
+    
+    y += 15;
+  }
+
+  // ── Signature section (Fixed at the bottom of the last page) ──
+  // Ensure we don't draw signatures too high or overlap existing text
+  let sigY = Math.max(y + 10, 240);
+  if (sigY > 250) {
+    doc.addPage();
+    sigY = 240; // Default bottom position on new page
+  }
   
   doc.setDrawColor(200, 210, 230);
   doc.setFillColor(250, 252, 255);
@@ -229,13 +335,17 @@ export const generatePatientPDF = async (patient: Patient & {
   doc.line(18, sigY + 18, 87, sigY + 18);
   doc.line(W - 87, sigY + 18, W - 18, sigY + 18);
 
-  // ── Footer ────────────────────────────────────────────────
-  doc.setFillColor(0, 74, 173);
-  doc.rect(0, 282, W, 15, 'F');
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.setTextColor(180, 210, 255);
-  doc.text('Rehablito Charitable Foundation  |  Confidential Record  |  Not valid without official stamp', W / 2, 291, { align: 'center' });
+  // ── Add Footer to All Pages ─────────────────────────────────
+  const pageCount = (doc as any).internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFillColor(0, 74, 173);
+    doc.rect(0, 282, W, 15, 'F');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(180, 210, 255);
+    doc.text('Rehablito Charitable Foundation  |  Confidential Record  |  Not valid without official stamp', W / 2, 291, { align: 'center' });
+  }
 
   return doc;
 };

@@ -14,7 +14,7 @@ export default function ParentLoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await parentLogin(email, password);
+    await parentLogin(email.trim(), password.trim());
   };
 
   const leftContent = (

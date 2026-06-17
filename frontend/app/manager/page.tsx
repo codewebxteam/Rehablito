@@ -90,7 +90,7 @@ const apiLeadToUi = (l: ApiLead): Lead => ({
   service: l.diagnosis,
   source: l.referredBy || 'Direct',
   status: apiToUiStatus(l.status),
-  dateReceived: new Date(l.createdAt).toISOString().split('T')[0],
+  dateReceived: l.createdAt ? new Date(l.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
 });
 
 // ── Staff API types & mappers ──
@@ -130,6 +130,7 @@ interface ApiPatient {
   therapyType?: string[];
   address?: string;
   parentPhone?: string;
+  parentEmail?: string;
   admissionDate?: string;
   createdAt?: string;
   totalFee?: number;
@@ -149,13 +150,17 @@ const apiPatientToUi = (p: ApiPatient): Patient => ({
   gender: capitalize(p.gender),
   therapyType: Array.isArray(p.therapyType) ? p.therapyType : (p.therapyType ? [p.therapyType] : []),
   condition: p.diagnosis || '',
+  diagnosis: p.diagnosis || '',
   address: p.address,
   phone: p.parentPhone || '',
+  parentEmail: p.parentEmail || '',
   onboardedAt: p.admissionDate || p.createdAt || new Date().toISOString(),
   totalFee: p.totalFee ?? 0,
   serviceId: p.serviceId,
   status: p.status,
   therapyDetails: p.therapyDetails || [],
+  diagnosisReportUrl: p.diagnosisReportUrl || undefined,
+  consentFormUrl: p.consentFormUrl || undefined,
 });
 
 // ── Billing API types & mappers ──
@@ -170,26 +175,54 @@ interface ApiFeePayment {
   receiptNumber?: string;
   description?: string;
   createdAt?: string;
+  transactions?: any[];
 }
 
-const apiFeeToUi = (f: ApiFeePayment): BillingRecord => {
+const apiFeeToUiList = (f: ApiFeePayment): BillingRecord[] => {
   const patient = typeof f.patientId === 'object' && f.patientId ? f.patientId : null;
-  const date = f.paymentDate || f.createdAt || new Date().toISOString();
-  return {
+  const parentDate = f.paymentDate || f.createdAt || new Date().toISOString();
+  
+  if (f.transactions && f.transactions.length > 0) {
+    return f.transactions.map((tx: any, idx: number) => {
+      const txDate = tx.date || parentDate;
+      return {
+        id: f._id,
+        uniqueKey: tx._id || tx.transactionId || `${f._id}-${idx}`,
+        patientId: patient?._id || (typeof f.patientId === 'string' ? f.patientId : undefined),
+        patientName: patient?.name || 'Unknown',
+        amountPaid: tx.amountPaid || 0,
+        dueAmount: f.dueAmount || 0,
+        date: txDate.split('T')[0],
+        method: tx.method || f.method,
+        status: f.status,
+        receiptNumber: f.receiptNumber,
+        description: f.description || 'Therapy Fee',
+        items: [{ description: f.description || 'Therapy Fee', sessions: 1, price: tx.amountPaid || 0 }],
+        rawRecord: f,
+        rawTx: tx
+      };
+    });
+  }
+  
+  return [{
     id: f._id,
+    uniqueKey: f._id,
     patientId: patient?._id || (typeof f.patientId === 'string' ? f.patientId : undefined),
     patientName: patient?.name || 'Unknown',
     amountPaid: f.amount || 0,
     dueAmount: f.dueAmount || 0,
-    date: date.split('T')[0],
+    date: parentDate.split('T')[0],
     method: f.method,
     status: f.status,
     receiptNumber: f.receiptNumber,
-    description: f.description,
-    items: f.description
-      ? [{ description: f.description, sessions: 1, price: f.amount || 0 }]
-      : [],
-  };
+    description: f.description || 'Therapy Fee',
+    items: [{ description: f.description || 'Therapy Fee', sessions: 1, price: f.amount || 0 }],
+    rawRecord: f
+  }];
+};
+
+const apiFeeToUi = (f: ApiFeePayment): BillingRecord => {
+  return apiFeeToUiList(f)[0];
 };
 
 export default function ManagerDashboardApp() {
@@ -213,10 +246,22 @@ export default function ManagerDashboardApp() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [badges, setBadges] = useState({ pendingApprovals: 0, pendingFeedbacks: 0 });
 
   // Check-in / duty status
   const [isOnDuty, setIsOnDuty] = useState(false);
   const [checkinLoading, setCheckinLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchBadges = () => {
+      api.get('/manager/badges')
+        .then(({ data }) => { if (data.success) setBadges(data.data); })
+        .catch(() => {});
+    };
+    fetchBadges();
+    const interval = setInterval(fetchBadges, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // 🔥 UPDATED: Added 'attendance' & 'feedbacks' to valid views
   const resolveViewFromPath = (path: string): ViewType | string => {
@@ -313,7 +358,16 @@ export default function ManagerDashboardApp() {
       try {
         const { data } = await api.get('/manager/billing');
         if (data.success) {
-          setBilling((data.data as ApiFeePayment[]).map(apiFeeToUi));
+          const flatBilling: BillingRecord[] = [];
+          (data.data as ApiFeePayment[]).forEach(f => {
+            flatBilling.push(...apiFeeToUiList(f));
+          });
+          flatBilling.sort((a, b) => {
+            const dateA = new Date(a.rawTx?.date || a.date || a.rawRecord?.paymentDate || a.rawRecord?.createdAt).getTime();
+            const dateB = new Date(b.rawTx?.date || b.date || b.rawRecord?.paymentDate || b.rawRecord?.createdAt).getTime();
+            return dateB - dateA;
+          });
+          setBilling(flatBilling);
         }
       } catch (err) {
         console.error('Failed to fetch billing:', err);
@@ -540,6 +594,8 @@ export default function ManagerDashboardApp() {
         diagnosis: updated.condition,
         address: updated.address,
         parentPhone: updated.phone,
+        parentEmail: updated.parentEmail,
+        parentPassword: updated.parentPassword,
       };
       const { data } = await api.put(`/manager/patients/${updated.id}`, payload);
       if (data.success) {
@@ -647,23 +703,42 @@ export default function ManagerDashboardApp() {
         </div>
 
         <nav className="flex-1 space-y-1 px-4 overflow-y-auto">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => navigateToView(item.id)}
-              title={isSidebarCollapsed ? item.label : undefined}
-              className={cn(
-                "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-semibold text-sm tracking-tight",
-                currentView === item.id
-                  ? "text-primary bg-surface-container-low border-r-4 border-primary"
-                  : "text-on-surface-variant hover:text-primary hover:bg-surface-container-low",
-                isSidebarCollapsed && "lg:justify-center lg:px-0 lg:border-r-0 lg:border-b-4"
-              )}
-            >
-              <item.icon size={20} />
-              {!isSidebarCollapsed && <span>{item.label}</span>}
-            </button>
-          ))}
+          {menuItems.map((item) => {
+            let badgeCount = 0;
+            if (item.id === 'billing') badgeCount = badges.pendingApprovals;
+            if (item.id === 'feedbacks') badgeCount = badges.pendingFeedbacks;
+
+            return (
+              <button
+                key={item.id}
+                onClick={() => navigateToView(item.id)}
+                title={isSidebarCollapsed ? item.label : undefined}
+                className={cn(
+                  "w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all duration-200 font-semibold text-sm tracking-tight relative",
+                  currentView === item.id
+                    ? "text-primary bg-surface-container-low border-r-4 border-primary"
+                    : "text-on-surface-variant hover:text-primary hover:bg-surface-container-low",
+                  isSidebarCollapsed && "lg:justify-center lg:px-0 lg:border-r-0 lg:border-b-4"
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <item.icon size={20} />
+                  {!isSidebarCollapsed && <span>{item.label}</span>}
+                </div>
+                {badgeCount > 0 && !isSidebarCollapsed && (
+                  <span className={cn(
+                    "flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-black shadow-sm ml-auto",
+                    currentView === item.id ? "bg-white text-rose-600" : "bg-rose-500 text-white"
+                  )}>
+                    {badgeCount > 99 ? '99+' : badgeCount}
+                  </span>
+                )}
+                {badgeCount > 0 && isSidebarCollapsed && (
+                  <span className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-rose-500 border-2 border-surface" />
+                )}
+              </button>
+            );
+          })}
         </nav>
 
         <div className="mt-auto space-y-1 px-4 pb-8">

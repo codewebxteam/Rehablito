@@ -165,7 +165,9 @@ export default function DashboardView({ leads, onNavigate }: DashboardProps) {
   }, [recentPayments]);
 
   const formatRelative = useCallback((iso: string) => {
+    if (!iso) return 'some time ago';
     const d = new Date(iso);
+    if (isNaN(d.getTime())) return 'some time ago';
     const diffMs = Date.now() - d.getTime();
     const mins = Math.floor(diffMs / 60000);
     if (mins < 1) return 'just now';

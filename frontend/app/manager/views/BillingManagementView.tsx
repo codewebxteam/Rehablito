@@ -23,6 +23,7 @@ import { exportToCSV } from '../lib/csvExport';
 import { Button } from '../components/ui/Button';
 import api from '@/lib/api';
 import { toast } from 'sonner';
+import { generateAndPrintReceipt } from '@/lib/receiptHelper';
 
 interface BillingManagementProps {
   billing: BillingRecord[];
@@ -99,7 +100,7 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
     const p = patients.find(pat => (pat.id && pat.id === selectedInvoice.patientId) || pat.name.toLowerCase() === selectedInvoice.patientName.toLowerCase());
     if (!p) return null;
     const allPatientBills = billing
-      .filter(b => (b.id && b.id === p.id) || b.patientName?.toLowerCase() === p.name.toLowerCase());
+      .filter(b => (b.patientId && b.patientId === p.id) || b.patientName?.toLowerCase() === p.name.toLowerCase());
       
     // Filter to only show bills that happened BEFORE or AT the same time as the selected one
     const patientBills = allPatientBills.filter(b => {
@@ -145,6 +146,12 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
     method: 'cash' as NonNullable<BillingRecord['method']>,
   });
   const formatINR = (amount: number | string) => `\u20B9${amount}`;
+
+  const getPendingAmount = (record: any) => {
+    if (!record) return 0;
+    const pendingTx = record.transactions?.find((tx: any) => tx.status === 'pending' || tx.transactionId === 'pending_approval');
+    return pendingTx ? pendingTx.amountPaid : (record.amountPaid || record.amount || 0);
+  };
 
   // Derived: selected patient's total fee
   // Derived: selected patient's current due
@@ -373,11 +380,11 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                   ) : (
                     billing.slice((txPage - 1) * TX_PER_PAGE, txPage * TX_PER_PAGE).map((record) => (
                       <tr 
-                        key={record.id} 
+                        key={record.uniqueKey || record.id} 
                       onClick={() => setSelectedInvoice(record)}
                       className={cn(
                         "cursor-pointer transition-colors group",
-                        selectedInvoice?.id === record.id ? "bg-primary/5" : "bg-surface-container-lowest hover:bg-surface-container-low"
+                        (selectedInvoice?.uniqueKey || selectedInvoice?.id) === (record.uniqueKey || record.id) ? "bg-primary/5" : "bg-surface-container-lowest hover:bg-surface-container-low"
                       )}
                     >
                       <td className="px-6 py-5">
@@ -422,11 +429,11 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
               ) : (
                 billing.slice((txPage - 1) * TX_PER_PAGE, txPage * TX_PER_PAGE).map((record) => (
                   <div 
-                    key={record.id} 
+                    key={record.uniqueKey || record.id} 
                   onClick={() => setSelectedInvoice(record)}
                   className={cn(
                     "p-4 sm:p-6 space-y-4 cursor-pointer transition-colors",
-                    selectedInvoice?.id === record.id ? "bg-primary/5" : "bg-surface-container-lowest"
+                    (selectedInvoice?.uniqueKey || selectedInvoice?.id) === (record.uniqueKey || record.id) ? "bg-primary/5" : "bg-surface-container-lowest"
                   )}
                 >
                   <div className="flex justify-between items-start">
@@ -523,7 +530,10 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                               <AlertCircle size={20} />
                             </div>
                             <div className="min-w-0">
-                              <h4 className="font-bold text-on-surface truncate">{record.patientId?.name || 'Unknown'}</h4>
+                              <h4 className="font-bold text-on-surface truncate">
+                                {record.patientId?.name || 'Unknown'}
+                                {record.patientId?.patientId ? ` (${record.patientId.patientId})` : ''}
+                              </h4>
                               <p className="text-xs text-on-surface-variant">{new Date(record.createdAt).toLocaleDateString()}</p>
                             </div>
                           </div>
@@ -532,10 +542,16 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-3 gap-4 items-center">
                           <div>
                             <p className="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest mb-1">Paid Amount</p>
-                            <p className="font-bold text-on-surface">{formatINR(record.amountPaid.toLocaleString())}</p>
+                            <p className="font-bold text-on-surface text-xs sm:text-sm">{formatINR(getPendingAmount(record).toLocaleString())}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest mb-1">Transaction ID / UTR</p>
+                            <p className="font-mono font-semibold text-xs text-on-surface truncate">
+                              {record.transactions?.find((t: any) => t.status === 'pending')?.transactionId || 'N/A'}
+                            </p>
                           </div>
                           <div className="flex justify-end items-center gap-2">
                             <button
@@ -581,22 +597,50 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-xs font-bold text-on-surface-variant uppercase">Patient</p>
-                      <p className="font-semibold text-sm">{selectedPending.patientId?.name || 'Unknown'}</p>
+                      <p className="font-semibold text-sm">
+                        {selectedPending.patientId?.name || 'Unknown'}
+                        {selectedPending.patientId?.patientId ? ` (${selectedPending.patientId.patientId})` : ''}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs font-bold text-on-surface-variant uppercase">Amount</p>
-                      <p className="font-bold text-primary text-sm">{formatINR(selectedPending.amountPaid.toLocaleString())}</p>
+                      <p className="font-bold text-primary text-sm">{formatINR(getPendingAmount(selectedPending).toLocaleString())}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-on-surface-variant uppercase">Payment Method</p>
+                      <p className="font-semibold text-sm">
+                        {(() => {
+                          const method = selectedPending.transactions?.find((t: any) => t.status === 'pending')?.method || selectedPending.method;
+                          if (method === 'qr_scan') return 'UPI / QR Code';
+                          if (method === 'bank_transfer') return 'Bank Transfer';
+                          return method ? method.replace(/_/g, ' ').toUpperCase() : 'N/A';
+                        })()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-on-surface-variant uppercase">Transaction ID / UTR</p>
+                      <p className="font-mono font-semibold text-sm text-slate-600">
+                        {selectedPending.transactions?.find((t: any) => t.status === 'pending')?.transactionId || 'N/A'}
+                      </p>
                     </div>
                   </div>
                   <div>
                     <p className="text-xs font-bold text-on-surface-variant uppercase mb-2">Screenshot Proof</p>
                     {selectedPending.screenshot ? (
-                      <div className="border border-outline-variant/20 rounded-xl overflow-hidden bg-surface-container">
-                        <img 
-                          src={selectedPending.screenshot.startsWith('http') ? selectedPending.screenshot : `http://localhost:5000${selectedPending.screenshot}`} 
-                          alt="Payment Proof" 
-                          className="w-full object-contain max-h-[400px]"
-                        />
+                      <div className="border border-outline-variant/20 rounded-xl overflow-hidden bg-surface-container hover:opacity-90 transition-opacity">
+                        <a 
+                          href={selectedPending.screenshot.startsWith('http') ? selectedPending.screenshot : `http://localhost:5000${selectedPending.screenshot}`} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          title="Click to view full image and zoom"
+                          className="cursor-zoom-in block"
+                        >
+                          <img 
+                            src={selectedPending.screenshot.startsWith('http') ? selectedPending.screenshot : `http://localhost:5000${selectedPending.screenshot}`} 
+                            alt="Payment Proof" 
+                            className="w-full object-contain max-h-[400px]"
+                          />
+                        </a>
                       </div>
                     ) : (
                       <div className="p-4 bg-surface-container rounded-xl text-center text-sm text-on-surface-variant">
@@ -698,9 +742,9 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                       </div>
                       <div className="px-5 py-3 space-y-1.5 bg-white">
                         {selectedPatientContext.allPayments.map((p, idx) => {
-                          const isCurrent = p.id === selectedInvoice.id;
+                          const isCurrent = (p.uniqueKey || p.id) === (selectedInvoice.uniqueKey || selectedInvoice.id);
                           return (
-                            <div key={p.id} className={cn(
+                            <div key={p.uniqueKey || p.id} className={cn(
                               "flex justify-between text-[11px] p-2 rounded-lg border transition-colors",
                               isCurrent ? "bg-blue-50 border-blue-200" : "bg-gray-50 border-gray-100"
                             )}>
@@ -770,137 +814,17 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={async () => {
-                    setIsProcessing(true);
-                    try {
-                      const { jsPDF } = await import('jspdf');
-                      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-                      const W = 210;
-                      const logo = await fetch('/logo.jpeg').then(r => r.blob()).then(b => new Promise<string>(res => { const fr = new FileReader(); fr.onloadend = () => res(fr.result as string); fr.readAsDataURL(b); })).catch(() => null);
-                      const inv = selectedInvoice;
-                      const method = inv.method ? inv.method.replace(/_/g,' ').toUpperCase() : 'CASH';
-                      const desc = inv.description || inv.items?.[0]?.description || 'General Consultation';
-
-                      // Header band
-                      doc.setFillColor(0,74,173); doc.rect(0,0,W,32,'F');
-                      if (logo) doc.addImage(logo,'PNG',8,3,13,26);
-                      doc.setFont('helvetica','bold'); doc.setFontSize(16); doc.setTextColor(255,255,255);
-                      doc.text('REHABLITO',25,13);
-                      doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(180,210,255);
-                      doc.text('Physio & Autism Center',25,19);
-                      doc.text('Everyone Deserves Trusted Hands',25,24);
-                      doc.setTextColor(200,225,255);
-                      doc.text(`Date: ${inv.date}`, W-12, 13, { align:'right' });
-                      doc.text(`Ref: ${inv.receiptNumber || inv.id.slice(-8).toUpperCase()}`, W-12, 19, { align:'right' });
-
-                      // Title strip
-                      doc.setFillColor(232,240,255); doc.rect(0,32,W,9,'F');
-                      doc.setFont('helvetica','bold'); doc.setFontSize(9); doc.setTextColor(0,74,173);
-                      doc.text('PAYMENT RECEIPT', W/2, 38, { align:'center' });
-
-                      // Transaction details section
-                      let y = 46;
-                      doc.setFillColor(248,250,255); doc.setDrawColor(210,220,240);
-                      doc.roundedRect(10,y,W-20,8,1,1,'FD');
-                      doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(0,74,173);
-                      doc.text('TRANSACTION DETAILS',14,y+5.5); y+=10;
-
-                      const lc: [number,number,number] = [100,110,130];
-                      const vc: [number,number,number] = [20,25,35];
-                      const rows = [
-                        ['Receipt No.', inv.receiptNumber || inv.id.slice(-8).toUpperCase()],
-                        ['Patient Name', inv.patientName],
-                        ['Date', inv.date],
-                        ['Method', method],
-                        ['Description', desc],
-                        ['Status', inv.dueAmount === 0 ? 'Paid' : 'Partial Payment'],
-                      ];
-                      const RH = 11; // row height
-                      rows.forEach(([label, val], i) => {
-                        const ry = y + i * RH;
-                        if (i % 2 === 0) { doc.setFillColor(240,245,255); doc.rect(10,ry-2,W-20,RH,'F'); }
-                        doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...lc); doc.text(label,14,ry+4);
-                        doc.setFont('helvetica','normal'); doc.setTextColor(...vc); doc.text(String(val),75,ry+4);
-                      });
-                      y += rows.length * RH + 4;
-
-                      // Payment history
-                      if (selectedPatientContext?.allPayments && selectedPatientContext.allPayments.length > 0) {
-                        doc.setFillColor(248,250,255); doc.setDrawColor(210,220,240);
-                        doc.roundedRect(10,y,W-20,8,1,1,'FD');
-                        doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(0,74,173);
-                        doc.text('PAYMENT HISTORY',14,y+5.5); y+=10;
-                        selectedPatientContext.allPayments.forEach((p, idx) => {
-                          const isCurrent = p.id === inv.id;
-                          if (isCurrent) { doc.setFillColor(235,245,255); } else { doc.setFillColor(250,250,252); }
-                          doc.rect(10,y-1,W-20,8,'F');
-                          doc.setFont('helvetica', isCurrent ? 'bold' : 'normal');
-                          doc.setFontSize(7.5); doc.setTextColor(isCurrent ? 0 : 80);
-                          doc.text(isCurrent ? 'Current Payment' : `Payment #${idx+1}`, 14, y+4.5);
-                          doc.setTextColor(140); doc.text(p.date, 70, y+4.5);
-                          doc.setTextColor(isCurrent ? 0 : 50);
-                          doc.text(`Rs. ${p.amountPaid.toLocaleString()}`, W-12, y+4.5, { align:'right' });
-                          y += 11;
-                        });
-                        y += 3;
-                      }
-
-                      // Payment summary
-                      doc.setFillColor(248,250,255); doc.setDrawColor(210,220,240);
-                      doc.roundedRect(10,y,W-20,8,1,1,'FD');
-                      doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(0,74,173);
-                      doc.text('PAYMENT SUMMARY',14,y+5.5); y+=10;
-
-                      const hasBalance = (selectedPatientContext?.outstandingAtTime || 0) > 0;
-                      const summaryRows = [
-                        ['Total Base Fee', `Rs. ${(selectedPatientContext?.totalBasePrice || 0).toLocaleString()}`, false],
-                        ['Discount Applied', `- Rs. ${(selectedPatientContext?.totalDiscount || 0).toLocaleString()}`, false],
-                        ['Total Service Fee', `Rs. ${(selectedPatientContext?.totalFee || 0).toLocaleString()}`, false],
-                        ['Amount Paid (This Tx)', `Rs. ${inv.amountPaid.toLocaleString()}`, true],
-                        ['Total Paid to Date', `Rs. ${(selectedPatientContext?.totalPaidAtTime || 0).toLocaleString()}`, false],
-                        ...(hasBalance ? [['Remaining Balance', `Rs. ${(selectedPatientContext?.outstandingAtTime || 0).toLocaleString()}`, false, true]] : []),
-                      ];
-                      const sumBoxH = summaryRows.length * 11 + 4;
-                      doc.setFillColor(255,255,255); doc.setDrawColor(220,228,245);
-                      doc.roundedRect(10,y,W-20,sumBoxH,1,1,'FD');
-                      summaryRows.forEach(([label, val, highlight, red], i) => {
-                        const sy = y + 4 + i * 11;
-                        doc.setFont('helvetica','bold'); doc.setFontSize(8); doc.setTextColor(...lc);
-                        doc.text(String(label),14,sy+4);
-
-                        let r = 20, g = 25, b = 35;
-                        let fontSize = highlight ? 9 : 8;
-                        if (red) {
-                          r = 200; g = 0; b = 0;
-                        } else if (highlight) {
-                          r = 0; g = 74; b = 173;
-                        } else if (String(label).includes('Discount')) {
-                          r = 16; g = 124; b = 65; // Green for discount row
-                        }
-
-                        doc.setTextColor(r, g, b);
-                        doc.setFontSize(fontSize);
-                        doc.text(String(val), W-12, sy+4, { align:'right' });
-                      });
-                      y += sumBoxH + 5;
-
-                      // Signatures
-                      doc.setDrawColor(200,210,230); doc.setFillColor(250,252,255);
-                      doc.roundedRect(10,y,85,18,1,1,'FD');
-                      doc.roundedRect(W-95,y,85,18,1,1,'FD');
-                      doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(130,140,160);
-                      doc.text('Patient / Guardian Signature',52,y+13,{align:'center'});
-                      doc.text('Authorized Signatory',W-52,y+13,{align:'center'});
-                      doc.setDrawColor(180,190,210);
-                      doc.line(18,y+10,87,y+10); doc.line(W-87,y+10,W-18,y+10);
-                      y += 22;
-
-                      // Footer - pinned to bottom of page
-                      doc.setFillColor(0,74,173); doc.rect(0,282,W,15,'F');
-                      doc.setFont('helvetica','normal'); doc.setFontSize(7); doc.setTextColor(180,210,255);
-                      doc.text('Rehablito Physio & Autism Center  |  Official Payment Receipt  |  Not valid without official stamp', W/2, 291, { align:'center' });
-
-                      doc.save(`Receipt_${inv.receiptNumber || inv.id.slice(-8)}.pdf`);
-                    } finally { setIsProcessing(false); }
+                    if (!selectedInvoice) return;
+                    generateAndPrintReceipt(
+                      selectedInvoice,
+                      selectedPatientContext,
+                      (isProc) => {
+                        setIsProcessing(isProc);
+                        if (isProc) toast.loading("Generating PDF receipt...");
+                        else toast.dismiss();
+                      },
+                      selectedInvoice.rawTx
+                    );
                   }}
                   disabled={isProcessing}
                   className="flex items-center justify-center gap-2 py-3 rounded-xl bg-[#004aad] text-white text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-60"
@@ -908,130 +832,23 @@ export default function BillingManagementView({ billing, patients, onAddPayment,
                   <Download size={15} /> Download PDF
                 </button>
                 <button
-                  onClick={() => {
-                    const inv = selectedInvoice;
-                    if (!inv) return;
-                    const method = inv.method ? inv.method.replace(/_/g,' ').toUpperCase() : 'CASH';
-                    const desc = inv.description || (inv.items && inv.items[0] && inv.items[0].description) || 'General Consultation';
-                    const statusText = inv.dueAmount === 0 ? 'Paid' : 'Partial Payment';
-                    const receiptNo = inv.receiptNumber || inv.id.slice(-8).toUpperCase();
-                    const RH = 11;
-
-                    // Build detail rows HTML - mirrors PDF alternating rows
-                    const detailRows = [
-                      ['Receipt No.', receiptNo, true],
-                      ['Patient Name', inv.patientName, false],
-                      ['Date', inv.date, false],
-                      ['Method', method, false],
-                      ['Description', desc, false],
-                      ['Status', statusText, false],
-                    ];
-                    const detailHtml = detailRows.map(function(r, i) {
-                      const bg = i%2===0 ? '#f0f5ff' : '#ffffff';
-                      const valStyle = r[2]
-                        ? 'font-family:monospace;color:#004aad;font-weight:700'
-                        : r[0]==='Status'
-                          ? 'color:'+(inv.dueAmount===0?'#16a34a':'#d97706')+';font-weight:700;background:'+(inv.dueAmount===0?'#f0fdf4':'#fffbeb')+';padding:2px 8px;border-radius:999px;font-size:11px'
-                          : 'color:#141919;font-weight:600;font-size:14px';
-                      return '<div style="display:grid;grid-template-columns:1fr 1fr;padding:13px 20px;background:'+bg+';border-bottom:1px solid #e8f0ff">'
-                        + '<span style="color:#6b7280;font-weight:700;font-size:12px;letter-spacing:.5px;text-transform:uppercase;align-self:center">'+r[0]+'</span>'
-                        + '<span style="'+valStyle+'">'+r[1]+'</span>'
-                        + '</div>';
-                    }).join('');
-
-                    // Payment history
-                    const payments = (selectedPatientContext && selectedPatientContext.allPayments) || [];
-                    const historyHtml = payments.length > 0
-                      ? '<div style="background:#eff6ff;padding:7px 16px;color:#004aad;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid #bfdbfe">Payment History</div>'
-                        + payments.map(function(p, idx) {
-                            const isCurrent = p.id === inv.id;
-                            const bg = isCurrent ? '#eff6ff' : (idx%2===0 ? '#f9fafb' : '#ffffff');
-                            return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px;background:'+bg+';border-bottom:1px solid #f0f0f0">'
-                              + '<div><div style="font-size:11px;font-weight:'+(isCurrent?'800':'600')+';color:'+(isCurrent?'#1d4ed8':'#4b5563')+'">'+(isCurrent?'Current Payment':'Payment #'+(idx+1))+'</div>'
-                              + '<div style="font-size:9px;color:#9ca3af">'+p.date+'</div></div>'
-                              + '<span style="font-size:12px;font-weight:800;color:'+(isCurrent?'#004aad':'#374151')+'">Rs. '+p.amountPaid.toLocaleString()+'</span>'
-                              + '</div>';
-                          }).join('')
-                      : '';
-
-                    // Summary rows
-                    const hasBalance = (selectedPatientContext && (selectedPatientContext.outstandingAtTime || 0) > 0);
-                    const summaryRows = [
-                      ['Total Base Fee', 'Rs. '+((selectedPatientContext && selectedPatientContext.totalBasePrice) || 0).toLocaleString(), false, false, false],
-                      ['Discount Applied', '- Rs. '+((selectedPatientContext && selectedPatientContext.totalDiscount) || 0).toLocaleString(), false, false, true],
-                      ['Total Service Fee', 'Rs. '+((selectedPatientContext && selectedPatientContext.totalFee) || 0).toLocaleString(), false, false, false],
-                      ['Amount Paid (This Tx)', 'Rs. '+inv.amountPaid.toLocaleString(), true, false, false],
-                      ['Total Paid to Date', 'Rs. '+((selectedPatientContext && selectedPatientContext.totalPaidAtTime) || 0).toLocaleString(), false, false, false],
-                    ];
-                    if (hasBalance) summaryRows.push(['Remaining Balance', 'Rs. '+((selectedPatientContext && selectedPatientContext.outstandingAtTime) || 0).toLocaleString(), false, true, false]);
-                    const summaryHtml = summaryRows.map(function(r, i) {
-                      const bg = i%2===0 ? '#f0f5ff' : '#ffffff';
-                      const valColor = r[4] ? '#16a34a' : r[3] ? '#dc2626' : r[2] ? '#004aad' : '#141919';
-                      const valSize = r[2] ? '18px' : '15px';
-                      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:13px 20px;background:'+bg+';border-bottom:1px solid #e8f0ff">'
-                        + '<span style="color:#6b7280;font-weight:700;font-size:13px">'+r[0]+'</span>'
-                        + '<span style="color:'+valColor+';font-weight:800;font-size:'+valSize+'">'+r[1]+'</span>'
-                    }).join('');
-
-                    const html = '<!DOCTYPE html><html><head><title>Receipt - '+receiptNo+'</title><meta charset="utf-8">'
-                      + '<style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;color-adjust:exact !important;}'
-                      + 'body{font-family:Arial,Helvetica,sans-serif;background:#e8f0ff;display:flex;justify-content:center;padding:24px 16px;}'
-                      + '.card{width:100%;max-width:580px;border-radius:12px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.2);display:flex;flex-direction:column;}'
-                      + '.spacer{flex:1;background:#fff;}'
-                      + '@media print{'
-                      + '@page{size:A4 portrait;margin:0;}'
-                      + 'html,body{width:210mm;margin:0;padding:0;background:#fff !important;display:block;}'
-                      + '.card{width:210mm !important;max-width:210mm !important;min-height:297mm !important;border-radius:0 !important;box-shadow:none !important;margin:0;padding:0;display:flex;flex-direction:column;}'
-                      + '.spacer{flex:1 !important;background:#fff !important;}'
-                      + '}'
-                      + '</style></head><body><div class="card">'                      // Header - same as PDF
-                      + '<div style="background:#004aad;padding:14px 18px;display:flex;align-items:center;justify-content:space-between">'
-                      + '<div style="display:flex;align-items:center;gap:10px">'
-                      + '<div style="width:36px;height:36px;background:#fff;border-radius:8px;overflow:hidden;flex-shrink:0"><img src="http://localhost:3000/logo.jpeg" style="width:100%;height:100%;object-fit:contain"/></div>'
-                      + '<div><div style="color:#fff;font-size:16px;font-weight:800">REHABLITO</div>'
-                      + '<div style="color:#bfdbfe;font-size:9px">Physio &amp; Autism Center</div>'
-                      + '<div style="color:#93c5fd;font-size:8px">Everyone Deserves Trusted Hands</div></div></div>'
-                      + '<div style="text-align:right"><div style="color:#bfdbfe;font-size:9px">'+inv.date+'</div>'
-                      + '<div style="color:#e0f2fe;font-size:9px;font-family:monospace">'+receiptNo+'</div></div>'
-                      + '</div>'
-
-                      // Title strip
-                      + '<div style="background:#eff6ff;padding:12px;text-align:center;color:#004aad;font-size:14px;font-weight:800;letter-spacing:2px;border-bottom:1px solid #bfdbfe">PAYMENT RECEIPT</div>'
-
-                      // Transaction details
-                      + '<div style="background:#eff6ff;padding:10px 20px;color:#004aad;font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid #bfdbfe">Transaction Details</div>'
-                      + detailHtml
-
-                      // History
-                      + historyHtml
-
-                      // Payment summary
-                      + '<div style="background:#eff6ff;padding:10px 20px;color:#004aad;font-size:12px;font-weight:800;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid #bfdbfe">Payment Summary</div>'
-                      + summaryHtml
-
-                      // Signatures
-                      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:24px 24px;background:#f8faff">'
-                      + '<div style="border-top:1.5px solid #94a3b8;padding-top:10px;text-align:center;color:#94a3b8;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase">Patient / Guardian Signature</div>'
-                      + '<div style="border-top:1.5px solid #94a3b8;padding-top:10px;text-align:center;color:#94a3b8;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase">Authorized Signatory</div>'
-                      + '</div>'
-
-                      // Spacer fills remaining page height
-                      + '<div class="spacer"></div>'
-
-                      // Footer
-                      + '<div style="background:#004aad;padding:9px;text-align:center;color:#bfdbfe;font-size:8px">Rehablito Physio &amp; Autism Center &mdash; Official Payment Receipt &mdash; Not valid without official stamp</div>'
-                      + '</div></body></html>';
-
-                    const win = window.open('','_blank','width=1,height=1,left=-1000,top=-1000');
-                    if (!win) return;
-                    win.document.open();
-                    win.document.write(html);
-                    win.document.close();
-                    win.focus();
-                    setTimeout(function() { win.print(); win.onafterprint = function() { win.close(); }; }, 600);
+                  onClick={async () => {
+                    if (!selectedInvoice) return;
+                    generateAndPrintReceipt(
+                      selectedInvoice,
+                      selectedPatientContext,
+                      (isProc) => {
+                        setIsProcessing(isProc);
+                        if (isProc) toast.loading("Preparing print layout...");
+                        else toast.dismiss();
+                      },
+                      selectedInvoice.rawTx
+                    );
                   }}
-                                    className="flex items-center justify-center gap-2 py-3 rounded-xl border border-[#004aad] text-[#004aad] text-sm font-bold hover:bg-blue-50 transition-colors"
+                  disabled={isProcessing}
+                  className="flex items-center justify-center gap-2 py-3 rounded-xl border border-[#004aad] text-[#004aad] text-sm font-bold hover:bg-blue-50 transition-colors disabled:opacity-60"
                 >
+                  <Printer size={15} /> Print Receipt
                 </button>
               </div>
             </div>

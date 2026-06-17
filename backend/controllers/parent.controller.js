@@ -49,6 +49,12 @@ const getDashboard = async (req, res) => {
                     totalFee: patient.totalFee,
                     branch: patient.branchId,
                     therapist: patient.assignedTherapist,
+                    parentName: patient.parentName,
+                    parentPhone: patient.parentPhone,
+                    parentEmail: patient.parentEmail,
+                    address: patient.address,
+                    diagnosisReportUrl: patient.diagnosisReportUrl,
+                    consentFormUrl: patient.consentFormUrl,
                 },
                 stats: {
                     totalSessions: totalAttendance,
@@ -237,11 +243,15 @@ const getProfile = async (req, res) => {
                     gender: patient.gender,
                     diagnosis: patient.diagnosis,
                     therapyType: patient.therapyType,
+                    therapyDetails: patient.therapyDetails,
+                    totalFee: patient.totalFee,
                     address: patient.address,
                     admissionDate: patient.admissionDate,
                     status: patient.status,
                     branch: patient.branchId,
                     therapist: patient.assignedTherapist,
+                    diagnosisReportUrl: patient.diagnosisReportUrl,
+                    consentFormUrl: patient.consentFormUrl,
                 } : null
             }
         });
@@ -264,6 +274,7 @@ const getBilling = async (req, res) => {
         if (!patient) return res.status(404).json({ success: false, message: 'Patient not found.' });
 
         let billingHistory = await FeePayment.find({ patientId: patient._id })
+            .populate('branchId')
             .sort({ createdAt: -1 });
 
         // Auto-heal missing fee payments (Initial Onboarding Fee)
@@ -282,16 +293,55 @@ const getBilling = async (req, res) => {
             
             // Re-fetch to get the newly created record correctly
             billingHistory = await FeePayment.find({ patientId: patient._id })
+                .populate('branchId')
+                .sort({ createdAt: -1 });
+        } else if (totalBilled > patient.totalFee) {
+            // Auto-heal reduced fee payments by adjusting pending invoices
+            let difference = totalBilled - patient.totalFee;
+            const pendingInvoices = billingHistory.filter(r => r.dueAmount > 0);
+            for (const inv of pendingInvoices) {
+                if (difference <= 0) break;
+                const reduceBy = Math.min(inv.dueAmount, difference);
+                inv.amount = Math.max(0, inv.amount - reduceBy);
+                inv.dueAmount = Math.max(0, inv.dueAmount - reduceBy);
+                if (inv.dueAmount <= 0) {
+                    inv.status = 'paid';
+                } else {
+                    inv.status = 'partial';
+                }
+                await inv.save();
+                difference -= reduceBy;
+            }
+            
+            // Re-fetch to get updated records
+            billingHistory = await FeePayment.find({ patientId: patient._id })
+                .populate('branchId')
                 .sort({ createdAt: -1 });
         }
 
-        const totalDue = billingHistory.reduce((sum, record) => sum + (record.dueAmount || 0), 0);
+        const totalPaid = billingHistory.reduce((sum, f) => {
+            if (f.transactions && f.transactions.length > 0) {
+                const txPaid = f.transactions
+                    .filter(t => t.status === 'approved' || !t.status)
+                    .reduce((s, t) => s + (Number(t.amountPaid) || 0), 0);
+                return sum + txPaid;
+            }
+            // Ignore auto-generated unpaid invoices in the paid calculation
+            if (f.status === 'pending' && Number(f.amount) === Number(f.dueAmount)) {
+                return sum;
+            }
+            return sum + (Number(f.amount) || 0);
+        }, 0);
 
+        const totalFee = patient.totalFee || 0;
+        const totalDue = Math.max(0, totalFee - totalPaid);
         res.json({
             success: true,
             data: {
                 history: billingHistory,
+                totalFee,
                 totalDue,
+                totalPaid
             }
         });
     } catch (error) {

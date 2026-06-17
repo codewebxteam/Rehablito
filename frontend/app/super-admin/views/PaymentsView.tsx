@@ -79,6 +79,12 @@ export const PaymentsView = () => {
     });
   };
 
+  const getPendingAmount = (record: any) => {
+    if (!record) return 0;
+    const pendingTx = record.transactions?.find((tx: any) => tx.status === 'pending' || tx.transactionId === 'pending_approval');
+    return pendingTx ? pendingTx.amountPaid : (record.amountPaid || record.amount || 0);
+  };
+
   return (
     <div className="max-w-[1400px] mx-auto">
       {/* Header */}
@@ -127,7 +133,10 @@ export const PaymentsView = () => {
                             <AlertCircle size={20} />
                           </div>
                           <div className="min-w-0">
-                            <h4 className="font-bold text-on-surface truncate">{record.patientId?.name || 'Unknown'}</h4>
+                            <h4 className="font-bold text-on-surface truncate">
+                              {record.patientId?.name || 'Unknown'}
+                              {record.patientId?.patientId ? ` (${record.patientId.patientId})` : ''}
+                            </h4>
                             <p className="text-xs text-on-surface-variant">{formatDate(record.createdAt)}</p>
                           </div>
                         </div>
@@ -136,10 +145,16 @@ export const PaymentsView = () => {
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-3 gap-4 items-center">
                         <div>
                           <p className="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest mb-1">Paid Amount</p>
-                          <p className="font-bold text-on-surface">{formatINR(record.amountPaid?.toLocaleString() || record.amount?.toLocaleString() || 0)}</p>
+                          <p className="font-bold text-on-surface text-xs sm:text-sm">{formatINR(getPendingAmount(record).toLocaleString())}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] font-bold text-on-surface-variant/60 uppercase tracking-widest mb-1">Transaction ID / UTR</p>
+                          <p className="font-mono font-semibold text-xs text-on-surface truncate">
+                            {record.transactions?.find((t: any) => t.status === 'pending')?.transactionId || 'N/A'}
+                          </p>
                         </div>
                         <div className="flex justify-end items-center gap-2">
                           <button
@@ -219,26 +234,54 @@ export const PaymentsView = () => {
                   <h5 className="font-bold text-amber-800 text-sm">Payment Verification</h5>
                   <p className="text-amber-700/80 text-xs mt-1">Please verify the payment screenshot and amount.</p>
                 </div>
-                <div className="p-5 space-y-4">
+                 <div className="p-5 space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-xs font-bold text-on-surface-variant uppercase">Patient</p>
-                      <p className="font-semibold text-sm">{selectedPending.patientId?.name || 'Unknown'}</p>
+                      <p className="font-semibold text-sm">
+                        {selectedPending.patientId?.name || 'Unknown'}
+                        {selectedPending.patientId?.patientId ? ` (${selectedPending.patientId.patientId})` : ''}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs font-bold text-on-surface-variant uppercase">Amount</p>
-                      <p className="font-bold text-primary text-sm">{formatINR(selectedPending.amountPaid?.toLocaleString() || selectedPending.amount?.toLocaleString() || 0)}</p>
+                      <p className="font-bold text-primary text-sm">{formatINR(getPendingAmount(selectedPending).toLocaleString())}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-on-surface-variant uppercase">Payment Method</p>
+                      <p className="font-semibold text-sm">
+                        {(() => {
+                          const method = selectedPending.transactions?.find((t: any) => t.status === 'pending')?.method || selectedPending.method;
+                          if (method === 'qr_scan') return 'UPI / QR Code';
+                          if (method === 'bank_transfer') return 'Bank Transfer';
+                          return method ? method.replace(/_/g, ' ').toUpperCase() : 'N/A';
+                        })()}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-on-surface-variant uppercase">Transaction ID / UTR</p>
+                      <p className="font-mono font-semibold text-sm text-slate-600">
+                        {selectedPending.transactions?.find((t: any) => t.status === 'pending')?.transactionId || 'N/A'}
+                      </p>
                     </div>
                   </div>
                   <div>
                     <p className="text-xs font-bold text-on-surface-variant uppercase mb-2">Screenshot Proof</p>
                     {selectedPending.screenshot ? (
-                      <div className="border border-outline-variant/20 rounded-xl overflow-hidden bg-surface-container">
-                        <img 
-                          src={selectedPending.screenshot.startsWith('http') ? selectedPending.screenshot : `http://localhost:5000${selectedPending.screenshot}`} 
-                          alt="Payment Proof" 
-                          className="w-full object-contain max-h-[400px]"
-                        />
+                      <div className="border border-outline-variant/20 rounded-xl overflow-hidden bg-surface-container hover:opacity-90 transition-opacity">
+                        <a 
+                          href={selectedPending.screenshot.startsWith('http') ? selectedPending.screenshot : `http://localhost:5000${selectedPending.screenshot}`} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          title="Click to view full image and zoom"
+                          className="cursor-zoom-in block"
+                        >
+                          <img 
+                            src={selectedPending.screenshot.startsWith('http') ? selectedPending.screenshot : `http://localhost:5000${selectedPending.screenshot}`} 
+                            alt="Payment Proof" 
+                            className="w-full object-contain max-h-[400px]"
+                          />
+                        </a>
                       </div>
                     ) : (
                       <div className="p-4 bg-surface-container rounded-xl text-center text-sm text-on-surface-variant">
