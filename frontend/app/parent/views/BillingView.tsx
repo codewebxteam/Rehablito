@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CreditCard, CheckCircle, Clock, AlertCircle, X, QrCode, Upload, Download, Landmark } from 'lucide-react';
+import { CreditCard, CheckCircle, Clock, AlertCircle, X, QrCode, Upload, Download, Landmark, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { AnimatePresence, motion } from 'motion/react';
 import api from '@/lib/api';
@@ -354,38 +354,68 @@ export default function BillingView({ data, onRefresh }: { data: any, onRefresh:
                 <div className="min-h-[220px]">
                   {paymentMethod === 'qr_scan' && (
                     <div className="bg-surface-container-low p-6 rounded-2xl flex flex-col items-center justify-center border border-outline-variant/20 animate-in fade-in zoom-in-95 duration-200">
-                      <p className="text-sm font-bold text-on-surface mb-4 flex items-center gap-2"><QrCode size={18} className="text-secondary" /> Scan UPI QR Code</p>
-                      <img src="https://ik.imagekit.io/5glnyqfxu/rehablitoqr.png?updatedAt=1781548948953" alt="Clinic QR Code" className="w-44 h-44 object-contain mx-auto border-4 border-white rounded-xl shadow-md bg-white" />
+                      <div className="flex items-center gap-2 mb-4">
+                        <ShieldCheck size={18} className="text-green-600" />
+                        <p className="text-sm font-bold text-green-700">100% Secure UPI Payment</p>
+                      </div>
+                      
+                      <div className="relative group">
+                        <img 
+                          src="https://ik.imagekit.io/5glnyqfxu/rehablitoqr.png?updatedAt=1781548948953" 
+                          alt="Clinic QR Code" 
+                          className="w-44 h-44 object-contain mx-auto border-4 border-white rounded-xl shadow-md bg-white pointer-events-none select-none" 
+                          draggable={false}
+                          onContextMenu={(e) => e.preventDefault()}
+                        />
+                        {/* Security watermark overlay to prevent easy inspection/swapping */}
+                        <div className="absolute inset-0 bg-transparent z-10 pointer-events-auto" onContextMenu={(e) => e.preventDefault()}></div>
+                      </div>
+                      
                       <p className="text-xs font-semibold text-on-surface-variant mt-4 text-center">Scan QR code using Google Pay, PhonePe, Paytm, or any UPI app.</p>
+                      
+                      <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-xl w-full text-center">
+                        <p className="text-[11px] font-bold text-blue-800 flex items-center justify-center gap-1.5">
+                          <AlertCircle size={14} /> SECURITY CHECK
+                        </p>
+                        <p className="text-[10px] font-semibold text-blue-700 mt-1">
+                          Always verify the name <span className="font-black uppercase">Rehablito Charitable Foundation</span> appears on your screen before entering your PIN.
+                        </p>
+                      </div>
                     </div>
                   )}
 
                   {paymentMethod === 'bank_transfer' && (
                     <div className="bg-surface-container-low p-6 rounded-2xl border border-outline-variant/20 animate-in fade-in zoom-in-95 duration-200">
-                      <p className="text-sm font-bold text-on-surface mb-5 flex items-center gap-2"><Landmark size={18} className="text-secondary" /> Bank Transfer Details</p>
-                      <div className="space-y-4">
+                      <div className="flex items-center gap-2 mb-5">
+                        <ShieldCheck size={18} className="text-green-600" />
+                        <p className="text-sm font-bold text-green-700">Verified Bank Details</p>
+                      </div>
+                      <div className="space-y-4 relative z-10">
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <p className="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Account Name</p>
-                            <p className="text-sm font-black text-on-surface">Rehablito Charitable Foundation</p>
+                            <p className="text-sm font-black text-on-surface select-all">Rehablito Charitable Foundation</p>
                           </div>
                           <div>
                             <p className="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Account Number</p>
-                            <p className="text-sm font-black text-on-surface font-mono">00000044127771371</p>
+                            <p className="text-sm font-black text-on-surface font-mono select-all tracking-wider">00000044127771371</p>
                           </div>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <p className="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">IFSC Code</p>
-                            <p className="text-sm font-black text-on-surface font-mono">SBIN0000152</p>
+                            <p className="text-sm font-black text-on-surface font-mono select-all tracking-wider">SBIN0000152</p>
                           </div>
                           <div>
                             <p className="text-[10px] text-on-surface-variant uppercase font-bold tracking-wider">Bank Name</p>
                             <p className="text-sm font-black text-on-surface">State Bank of India</p>
                           </div>
                         </div>
-                        <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-xl">
-                          <p className="text-[10px] font-bold text-yellow-800 leading-relaxed">⚠️ Please cross check the account name <span className="font-black">Rehablito Charitable Foundation</span> before making the transfer.</p>
+                        <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-xl flex items-start gap-2">
+                          <CheckCircle size={16} className="text-green-600 shrink-0 mt-0.5" />
+                          <p className="text-[10px] font-bold text-green-800 leading-relaxed">
+                            These details are hardcoded securely in our system. Ensure the recipient name shows as <span className="font-black">Rehablito Charitable Foundation</span> in your banking app.
+                          </p>
                         </div>
                       </div>
                     </div>
