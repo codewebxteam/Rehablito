@@ -8,7 +8,9 @@ import {
   FileText,
   ShieldCheck,
   ChevronDown,
-  Check
+  Check,
+  X,
+  UploadCloud
 } from 'lucide-react';
 import { Patient } from '../types';
 import { cn } from '../lib/utils';

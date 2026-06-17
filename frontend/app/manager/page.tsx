@@ -24,7 +24,8 @@ import {
   AlertCircle,
   LogOut,
   Activity, // Added an extra icon option if needed
-  MessageSquare
+  MessageSquare,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
@@ -137,6 +138,8 @@ interface ApiPatient {
   serviceId?: string;
   status?: string;
   therapyDetails?: { therapy: string; addedAt?: string; discount: number }[];
+  diagnosisReportUrl?: string;
+  consentFormUrl?: string;
 }
 
 const capitalize = (s?: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
@@ -263,19 +266,30 @@ export default function ManagerDashboardApp() {
     return () => clearInterval(interval);
   }, []);
 
-  // 🔥 UPDATED: Added 'attendance' & 'feedbacks' to valid views
+  // 🔥 UPDATED: Fast SPA routing instead of blocking Next.js transitions
   const resolveViewFromPath = (path: string): ViewType | string => {
     const segment = path.split('/')[2];
     const validViews: string[] = ['dashboard', 'onboarding', 'patients', 'leads', 'staff', 'billing', 'services', 'attendance', 'feedbacks'];
     return validViews.includes(segment) ? segment : 'dashboard';
   };
 
+  const [activeTab, setActiveTab] = useState<string>(resolveViewFromPath(pathname));
+  const [isNavigating, setIsNavigating] = useState(false);
+
   const navigateToView = (view: string) => {
     setIsSidebarOpen(false);
-    router.push(`/manager/${view}`);
+    setIsNavigating(true);
+    
+    // Fast React state update
+    setTimeout(() => {
+      setActiveTab(view);
+      setIsNavigating(false);
+      // Update URL silently without triggering Next.js reload
+      window.history.pushState({}, '', `/manager/${view}`);
+    }, 50);
   };
 
-  const currentView = resolveViewFromPath(pathname);
+  const currentView = activeTab;
 
   const addNotification = (message: string, type: 'success' | 'error' = 'success') => {
     const id = Date.now().toString();
@@ -722,7 +736,11 @@ export default function ManagerDashboardApp() {
                 )}
               >
                 <div className="flex items-center gap-3">
-                  <item.icon size={20} />
+                  {isNavigating && activeTab === item.id ? (
+                    <Loader2 size={20} className="animate-spin text-primary" />
+                  ) : (
+                    <item.icon size={20} />
+                  )}
                   {!isSidebarCollapsed && <span>{item.label}</span>}
                 </div>
                 {badgeCount > 0 && !isSidebarCollapsed && (

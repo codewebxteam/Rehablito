@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Home, Calendar, MessageSquare, User, LogOut, Stethoscope, CreditCard } from 'lucide-react';
+import { Home, Calendar, CreditCard, User, MessageSquare, Download, LogOut, Stethoscope, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../manager/lib/utils';
 import api from '@/lib/api';
-import { Download } from 'lucide-react';
 
 // Views
 import DashboardView from './views/DashboardView';
@@ -20,6 +19,20 @@ export default function ParentDashboardApp() {
   const { logout, user } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('dashboard');
+  
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [targetTab, setTargetTab] = useState<string | null>(null);
+
+  const handleTabSwitch = (tabId: string) => {
+    if (tabId === activeTab) return;
+    setIsNavigating(true);
+    setTargetTab(tabId);
+    setTimeout(() => {
+      setActiveTab(tabId);
+      setIsNavigating(false);
+      setTargetTab(null);
+    }, 50);
+  };
   
   // Data states
   const [dashboardData, setDashboardData] = useState<any>(null);
@@ -163,21 +176,33 @@ export default function ParentDashboardApp() {
         </div>
         
         <nav className="flex-1 px-4 space-y-2 mt-4">
-          {navItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={cn(
-                "w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium text-left",
-                activeTab === item.id 
-                  ? "bg-brand-sage text-white shadow-md shadow-brand-sage/20" 
-                  : "text-on-surface-variant hover:bg-surface-container-low"
-              )}
-            >
-              <item.icon size={20} />
-              {item.label}
-            </button>
-          ))}
+          {navItems.map(item => {
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => handleTabSwitch(item.id)}
+                className={cn(
+                  "w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl font-bold transition-all duration-300 relative group",
+                  isActive 
+                    ? "text-brand-sage bg-brand-sage/10 shadow-sm" 
+                    : "text-on-surface-variant hover:text-brand-sage hover:bg-brand-sage/5"
+                )}
+              >
+                <div className={cn(
+                  "p-1.5 rounded-xl transition-colors duration-300",
+                  isActive ? "bg-brand-sage/20" : "group-hover:bg-brand-sage/10"
+                )}>
+                  {isNavigating && targetTab === item.id ? (
+                    <Loader2 className="w-5 h-5 animate-spin text-brand-sage" />
+                  ) : (
+                    <item.icon className="w-5 h-5" strokeWidth={isActive ? 2.5 : 2} />
+                  )}
+                </div>
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
         </nav>
         
         <div className="p-4 border-t border-outline-variant/20">
@@ -251,21 +276,28 @@ export default function ParentDashboardApp() {
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className="relative flex flex-col items-center justify-center w-full h-full pb-2 active:scale-95 transition-transform"
+                onClick={() => handleTabSwitch(item.id)}
+                className="relative flex flex-col items-center justify-center w-full h-full pb-2 active:scale-95 transition-transform group"
               >
                 <div className={cn(
                   "relative w-12 h-8 flex items-center justify-center rounded-full mb-1 transition-all duration-300",
                   isActive ? "bg-brand-sage/15 text-brand-sage" : "text-on-surface-variant/70"
                 )}>
-                  <item.icon 
-                    size={20} 
-                    strokeWidth={isActive ? 2.5 : 2} 
-                    className={cn(
-                      "transition-all duration-300",
-                      isActive ? "scale-110" : "scale-100 group-hover:scale-110"
-                    )}
-                  />
+                  {isNavigating && targetTab === item.id ? (
+                    <Loader2 className={cn(
+                      "transition-all duration-300 animate-spin",
+                      isActive ? "w-5 h-5" : "w-6 h-6 group-hover:scale-110"
+                    )} />
+                  ) : (
+                    <item.icon 
+                      size={20} 
+                      strokeWidth={isActive ? 2.5 : 2} 
+                      className={cn(
+                        "transition-all duration-300",
+                        isActive ? "scale-100" : "scale-100 group-hover:scale-110"
+                      )}
+                    />
+                  )}
                   {isActive && (
                     <motion.div
                       layoutId="activeTabIndicatorParent"

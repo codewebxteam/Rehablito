@@ -78,9 +78,15 @@ function ShellInner({ children }: SuperAdminShellProps) {
 
   const currentView = viewConfig[activeTab];
 
+  const [isPending, startTransition] = React.useTransition();
+  const [targetTab, setTargetTab] = useState<string | null>(null);
+
   const handleTabChange = React.useCallback(
     (tab: SuperAdminTab) => {
-      router.push(`/super-admin/${tab}`);
+      setTargetTab(tab);
+      startTransition(() => {
+        router.push(`/super-admin/${tab}`);
+      });
       setIsMobileMenuOpen(false);
     },
     [router]
@@ -93,6 +99,8 @@ function ShellInner({ children }: SuperAdminShellProps) {
         <Sidebar
           active={activeTab}
           onChange={handleTabChange}
+          isPending={isPending}
+          targetTab={targetTab}
         />
       </div>
 
@@ -117,6 +125,8 @@ function ShellInner({ children }: SuperAdminShellProps) {
               <Sidebar
                 active={activeTab}
                 onChange={handleTabChange}
+                isPending={isPending}
+                targetTab={targetTab}
               />
             </motion.div>
           </>

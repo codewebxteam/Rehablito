@@ -20,7 +20,8 @@ import {
   Stethoscope,
   ClipboardList, // 🔥 NEW: Added icon for Patient Attendance
   MessageSquare,
-  CreditCard
+  CreditCard,
+  Loader2
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -31,6 +32,8 @@ import { useBranch } from './BranchContext';
 interface SidebarProps {
   active: SuperAdminTab;
   onChange: (tab: SuperAdminTab) => void;
+  isPending?: boolean;
+  targetTab?: string | null;
 }
 
 interface BranchOption {
@@ -68,7 +71,7 @@ const NAV_GROUPS = [
   },
 ];
 
-export const Sidebar = React.memo(({ active, onChange }: SidebarProps) => {
+export const Sidebar = React.memo(({ active, onChange, isPending, targetTab }: SidebarProps) => {
   const { logout, user } = useAuth();
   const { selectedBranchId, selectedBranchName, setBranch } = useBranch();
   const initials = (user?.name || 'SA')
@@ -252,7 +255,11 @@ export const Sidebar = React.memo(({ active, onChange }: SidebarProps) => {
                           ? 'bg-primary/10 text-primary'
                           : 'text-slate-400 group-hover:text-slate-600 group-hover:bg-slate-100'
                       )}>
-                        <Icon size={16} />
+                        {isPending && targetTab === item.tab ? (
+                          <Loader2 size={16} className="animate-spin text-primary" />
+                        ) : (
+                          <Icon size={16} />
+                        )}
                       </div>
 
                       {/* Label */}
