@@ -40,7 +40,11 @@ app.use(express.json());
 
 // Strict CORS for Production
 const allowedOrigins = process.env.NODE_ENV === 'production' 
-  ? [process.env.FRONTEND_URL || 'https://rehablito.vercel.app']
+  ? [
+      process.env.FRONTEND_URL,
+      'https://rehablito.vercel.app',
+      'https://management.rehablito.com'
+    ].filter(Boolean)
   : ['http://localhost:3000', 'http://localhost:3001'];
 
 app.use(cors({
