@@ -50,7 +50,7 @@ export const BranchesView = ({ initialData }: { initialData?: any }) => {
   const [selectedBranch, setSelectedBranch] = useState<ApiBranch | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  
+
   // Staff fetching states
   const [branchStaff, setBranchStaff] = useState<ApiStaff[]>([]);
   const [isLoadingStaff, setIsLoadingStaff] = useState(false);
@@ -97,7 +97,7 @@ export const BranchesView = ({ initialData }: { initialData?: any }) => {
       isActive: branch.isActive
     });
     setIsEditing(false);
-    
+
     // Fetch Staff for this branch
     try {
       setIsLoadingStaff(true);
@@ -120,7 +120,7 @@ export const BranchesView = ({ initialData }: { initialData?: any }) => {
   // Handle Edit Submit
   const handleUpdateBranch = async () => {
     if (!selectedBranch) return;
-    
+
     setIsSaving(true);
     try {
       const payload = {
@@ -141,7 +141,7 @@ export const BranchesView = ({ initialData }: { initialData?: any }) => {
       };
 
       const { data } = await api.put(`/admin/branches/${selectedBranch._id}`, payload);
-      
+
       if (data.success) {
         toast.success('Branch updated successfully!');
         setBranches(prev => prev.map(b => b._id === selectedBranch._id ? data.data : b));
@@ -169,7 +169,7 @@ export const BranchesView = ({ initialData }: { initialData?: any }) => {
 
   return (
     <div className="w-full min-w-0 space-y-4 sm:space-y-6 pb-6 lg:pb-10">
-      
+
       <AnimatePresence mode="wait">
         {!selectedBranch ? (
           /* ========================================= */
@@ -231,13 +231,13 @@ export const BranchesView = ({ initialData }: { initialData?: any }) => {
                     className="w-full bg-surface-container-low/50 border border-outline-variant/20 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all text-on-surface"
                   />
                 </div>
-                <button
+                {/* <button
                   onClick={() => setIsAddModalOpen(true)}
                   className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white p-2.5 px-5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 transition-all shrink-0"
                 >
                   <Plus size={18} />
                   <span>Add Branch</span>
-                </button>
+                </button> */}
               </div>
             </div>
 
@@ -315,8 +315,8 @@ export const BranchesView = ({ initialData }: { initialData?: any }) => {
             {/* Header Area */}
             <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-outline-variant/20 flex flex-col md:flex-row items-start md:items-center justify-between bg-surface-container-low/30 gap-4 shrink-0">
               <div className="flex items-center gap-3 sm:gap-4 min-w-0 w-full md:w-auto">
-                <button 
-                  onClick={handleBackToList} 
+                <button
+                  onClick={handleBackToList}
                   className="p-2.5 bg-surface-container-low hover:bg-surface-container-high rounded-xl transition-colors shrink-0"
                 >
                   <ArrowLeft size={20} className="text-on-surface-variant" />
@@ -337,17 +337,17 @@ export const BranchesView = ({ initialData }: { initialData?: any }) => {
                   <p className="text-[10px] sm:text-xs text-on-surface-variant font-medium mt-0.5 truncate">Branch Details & Staff Management</p>
                 </div>
               </div>
-              
+
               <div className="flex items-center justify-end w-full md:w-auto">
                 {!isEditing ? (
-                  <button 
+                  <button
                     onClick={() => setIsEditing(true)}
                     className="w-full md:w-auto flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-primary/10 text-primary rounded-xl text-xs sm:text-sm font-bold hover:bg-primary/20 transition-colors"
                   >
                     <Edit size={16} /> Edit Details
                   </button>
                 ) : (
-                  <button 
+                  <button
                     onClick={handleUpdateBranch}
                     disabled={isSaving}
                     className="w-full md:w-auto flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 bg-primary text-white rounded-xl text-xs sm:text-sm font-bold hover:bg-primary/90 transition-colors disabled:opacity-50"
@@ -361,36 +361,36 @@ export const BranchesView = ({ initialData }: { initialData?: any }) => {
 
             {/* Split Layout Body */}
             <div className="flex-1 p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
-              
+
               {/* LEFT COLUMN: Branch Details Form */}
               <div className="space-y-6">
                 <h4 className="text-xs sm:text-sm font-black uppercase tracking-widest text-on-surface-variant flex items-center gap-2">
                   <MapPin size={16} /> Location & Contact
                 </h4>
-                
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div className="col-span-1 sm:col-span-2 space-y-1.5">
                     <label className="text-[11px] sm:text-xs font-bold text-on-surface-variant ml-1">Branch Name</label>
-                    <input 
-                      type="text" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})}
+                    <input
+                      type="text" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })}
                       disabled={!isEditing}
                       className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-3 sm:px-4 py-2.5 text-xs sm:text-sm disabled:opacity-70 disabled:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 outline-none transition-colors"
                     />
                   </div>
-                  
+
                   <div className="space-y-1.5">
                     <label className="text-[11px] sm:text-xs font-bold text-on-surface-variant ml-1">Phone Number</label>
-                    <input 
-                      type="text" value={editForm.phone} onChange={e => setEditForm({...editForm, phone: e.target.value})}
+                    <input
+                      type="text" value={editForm.phone} onChange={e => setEditForm({ ...editForm, phone: e.target.value })}
                       disabled={!isEditing}
                       className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-3 sm:px-4 py-2.5 text-xs sm:text-sm disabled:opacity-70 disabled:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 outline-none transition-colors"
                     />
                   </div>
-                  
+
                   <div className="space-y-1.5">
                     <label className="text-[11px] sm:text-xs font-bold text-on-surface-variant ml-1">Email Address</label>
-                    <input 
-                      type="email" value={editForm.email} onChange={e => setEditForm({...editForm, email: e.target.value})}
+                    <input
+                      type="email" value={editForm.email} onChange={e => setEditForm({ ...editForm, email: e.target.value })}
                       disabled={!isEditing}
                       className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-3 sm:px-4 py-2.5 text-xs sm:text-sm disabled:opacity-70 disabled:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 outline-none transition-colors"
                     />
@@ -398,8 +398,8 @@ export const BranchesView = ({ initialData }: { initialData?: any }) => {
 
                   <div className="col-span-1 sm:col-span-2 space-y-1.5">
                     <label className="text-[11px] sm:text-xs font-bold text-on-surface-variant ml-1">Full Address</label>
-                    <input 
-                      type="text" value={editForm.address} onChange={e => setEditForm({...editForm, address: e.target.value})}
+                    <input
+                      type="text" value={editForm.address} onChange={e => setEditForm({ ...editForm, address: e.target.value })}
                       disabled={!isEditing}
                       className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-3 sm:px-4 py-2.5 text-xs sm:text-sm disabled:opacity-70 disabled:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 outline-none transition-colors"
                     />
@@ -407,8 +407,8 @@ export const BranchesView = ({ initialData }: { initialData?: any }) => {
 
                   <div className="space-y-1.5">
                     <label className="text-[11px] sm:text-xs font-bold text-on-surface-variant ml-1">City</label>
-                    <input 
-                      type="text" value={editForm.city} onChange={e => setEditForm({...editForm, city: e.target.value})}
+                    <input
+                      type="text" value={editForm.city} onChange={e => setEditForm({ ...editForm, city: e.target.value })}
                       disabled={!isEditing}
                       className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-3 sm:px-4 py-2.5 text-xs sm:text-sm disabled:opacity-70 disabled:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 outline-none transition-colors"
                     />
@@ -416,8 +416,8 @@ export const BranchesView = ({ initialData }: { initialData?: any }) => {
 
                   <div className="space-y-1.5">
                     <label className="text-[11px] sm:text-xs font-bold text-on-surface-variant ml-1">State</label>
-                    <input 
-                      type="text" value={editForm.state} onChange={e => setEditForm({...editForm, state: e.target.value})}
+                    <input
+                      type="text" value={editForm.state} onChange={e => setEditForm({ ...editForm, state: e.target.value })}
                       disabled={!isEditing}
                       className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-3 sm:px-4 py-2.5 text-xs sm:text-sm disabled:opacity-70 disabled:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 outline-none transition-colors"
                     />
@@ -433,17 +433,17 @@ export const BranchesView = ({ initialData }: { initialData?: any }) => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <div className="space-y-1.5">
                     <label className="text-[11px] sm:text-xs font-bold text-on-surface-variant ml-1">Shift Start</label>
-                    <input 
-                      type="time" value={editForm.shiftStart} onChange={e => setEditForm({...editForm, shiftStart: e.target.value})}
+                    <input
+                      type="time" value={editForm.shiftStart} onChange={e => setEditForm({ ...editForm, shiftStart: e.target.value })}
                       disabled={!isEditing}
                       className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-3 sm:px-4 py-2.5 text-xs sm:text-sm disabled:opacity-70 disabled:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 outline-none transition-colors"
                     />
                   </div>
-                  
+
                   <div className="space-y-1.5">
                     <label className="text-[11px] sm:text-xs font-bold text-on-surface-variant ml-1">Shift End</label>
-                    <input 
-                      type="time" value={editForm.shiftEnd} onChange={e => setEditForm({...editForm, shiftEnd: e.target.value})}
+                    <input
+                      type="time" value={editForm.shiftEnd} onChange={e => setEditForm({ ...editForm, shiftEnd: e.target.value })}
                       disabled={!isEditing}
                       className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-3 sm:px-4 py-2.5 text-xs sm:text-sm disabled:opacity-70 disabled:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 outline-none transition-colors"
                     />
@@ -451,8 +451,8 @@ export const BranchesView = ({ initialData }: { initialData?: any }) => {
 
                   <div className="space-y-1.5">
                     <label className="text-[11px] sm:text-xs font-bold text-on-surface-variant ml-1">Latitude</label>
-                    <input 
-                      type="number" value={editForm.latitude} onChange={e => setEditForm({...editForm, latitude: e.target.value})}
+                    <input
+                      type="number" value={editForm.latitude} onChange={e => setEditForm({ ...editForm, latitude: e.target.value })}
                       disabled={!isEditing}
                       className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-3 sm:px-4 py-2.5 text-xs sm:text-sm disabled:opacity-70 disabled:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 outline-none font-mono transition-colors"
                     />
@@ -460,8 +460,8 @@ export const BranchesView = ({ initialData }: { initialData?: any }) => {
 
                   <div className="space-y-1.5">
                     <label className="text-[11px] sm:text-xs font-bold text-on-surface-variant ml-1">Longitude</label>
-                    <input 
-                      type="number" value={editForm.longitude} onChange={e => setEditForm({...editForm, longitude: e.target.value})}
+                    <input
+                      type="number" value={editForm.longitude} onChange={e => setEditForm({ ...editForm, longitude: e.target.value })}
                       disabled={!isEditing}
                       className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-3 sm:px-4 py-2.5 text-xs sm:text-sm disabled:opacity-70 disabled:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 outline-none font-mono transition-colors"
                     />
@@ -469,13 +469,13 @@ export const BranchesView = ({ initialData }: { initialData?: any }) => {
 
                   <div className="space-y-1.5 col-span-1 sm:col-span-2">
                     <label className="text-[11px] sm:text-xs font-bold text-on-surface-variant ml-1">Geofence Radius (Meters)</label>
-                    <input 
-                      type="number" value={editForm.radiusMeters} onChange={e => setEditForm({...editForm, radiusMeters: e.target.value})}
+                    <input
+                      type="number" value={editForm.radiusMeters} onChange={e => setEditForm({ ...editForm, radiusMeters: e.target.value })}
                       disabled={!isEditing}
                       className="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-3 sm:px-4 py-2.5 text-xs sm:text-sm disabled:opacity-70 disabled:bg-surface-container-lowest focus:ring-2 focus:ring-primary/20 outline-none transition-colors"
                     />
                   </div>
-                  
+
                   {isEditing && (
                     <div className="col-span-1 sm:col-span-2 flex items-center justify-between p-3 sm:p-4 bg-surface-container-low border border-outline-variant/20 rounded-xl mt-2">
                       <div>
@@ -483,7 +483,7 @@ export const BranchesView = ({ initialData }: { initialData?: any }) => {
                         <p className="text-[10px] sm:text-xs text-on-surface-variant">Toggle branch active state</p>
                       </div>
                       <button
-                        onClick={() => setEditForm({...editForm, isActive: !editForm.isActive})}
+                        onClick={() => setEditForm({ ...editForm, isActive: !editForm.isActive })}
                         className={cn(
                           "w-12 h-6 rounded-full transition-colors relative shrink-0",
                           editForm.isActive ? "bg-green-500" : "bg-outline-variant"
@@ -522,7 +522,7 @@ export const BranchesView = ({ initialData }: { initialData?: any }) => {
                   <h4 className="text-xs sm:text-sm font-black uppercase tracking-widest text-on-surface-variant flex items-center gap-2 mb-3 sm:mb-4">
                     <Users size={16} /> Assigned Staff ({branchStaff.length})
                   </h4>
-                  
+
                   <div className="bg-surface-container-low rounded-2xl border border-outline-variant/20 overflow-hidden flex flex-col h-[400px]">
                     {isLoadingStaff ? (
                       <div className="flex flex-col items-center justify-center text-on-surface-variant h-full">
@@ -562,10 +562,10 @@ export const BranchesView = ({ initialData }: { initialData?: any }) => {
         )}
       </AnimatePresence>
 
-      <AddBranchModal 
-        isOpen={isAddModalOpen} 
-        onClose={() => setIsAddModalOpen(false)} 
-        onSuccess={(newBranch) => setBranches(prev => [newBranch, ...prev])} 
+      <AddBranchModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onSuccess={(newBranch) => setBranches(prev => [newBranch, ...prev])}
       />
     </div>
   );
