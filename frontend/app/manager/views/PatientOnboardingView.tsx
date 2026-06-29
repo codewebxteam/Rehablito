@@ -302,8 +302,16 @@ export default function PatientOnboardingView({ onOnboard }: PatientOnboardingPr
     if (formData.parentPassword && !formData.parentEmail) {
       newErrors.parentEmail = 'Email required if creating parent portal';
     }
+    
+    const hasErrors = Object.keys(newErrors).length > 0;
+    if (hasErrors) {
+      newErrors.form = newErrors.branchId 
+        ? 'Branch ID is missing. Please contact support or re-login.' 
+        : 'Please fix the highlighted errors before submitting.';
+    }
+    
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return !hasErrors;
   };
 
   const uploadFile = async (file: File) => {

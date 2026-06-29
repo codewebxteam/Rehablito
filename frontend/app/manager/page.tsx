@@ -316,7 +316,7 @@ export default function ManagerDashboardApp() {
   useEffect(() => {
     const fetchLeads = async () => {
       try {
-        const { data } = await api.get('/manager/leads');
+        const { data } = await api.get('/manager/leads?limit=10000');
         if (data.success) {
           setLeads((data.data as ApiLead[]).map(apiLeadToUi));
         }
@@ -329,7 +329,7 @@ export default function ManagerDashboardApp() {
     };
     const fetchStaff = async () => {
       try {
-        const { data } = await api.get('/manager/staff');
+        const { data } = await api.get('/manager/staff?limit=10000');
         if (data.success) {
           const list = data.data as ApiStaff[];
           setStaff(list.map(apiStaffToUi));
@@ -357,7 +357,7 @@ export default function ManagerDashboardApp() {
     };
     const fetchPatients = async () => {
       try {
-        const { data } = await api.get('/manager/patients');
+        const { data } = await api.get('/manager/patients?limit=10000');
         if (data.success) {
           setPatients((data.data as ApiPatient[]).map(apiPatientToUi));
         }
@@ -370,7 +370,7 @@ export default function ManagerDashboardApp() {
     };
     const fetchPayments = async () => {
       try {
-        const { data } = await api.get('/manager/billing');
+        const { data } = await api.get('/manager/billing?limit=10000');
         if (data.success) {
           const flatBilling: BillingRecord[] = [];
           (data.data as ApiFeePayment[]).forEach(f => {
