@@ -153,7 +153,7 @@ const getStaffAttendanceHistory = async (req, res) => {
 
         // Pagination
         const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 31;
+        const limit = parseInt(req.query.limit) || 10000;
         const skip = (page - 1) * limit;
 
         const [records, total] = await Promise.all([

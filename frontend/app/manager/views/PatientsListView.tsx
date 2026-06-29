@@ -684,6 +684,12 @@ export default function PatientsListView({ patients, billing, onDelete, onUpdate
   const [editPatient, setEditPatient] = useState<Patient | null>(null);
   const [payPatient, setPayPatient] = useState<Patient | null>(null);
   const [deleteId, setDeleteId] = useState<{ id: string; name: string } | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 15;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
 
   const handleMarkDischarged = (patient: Patient) => {
     const patientBills = billing.filter(b => b.patientId === patient.id || b.patientName.toLowerCase() === patient.name.toLowerCase());
@@ -721,6 +727,10 @@ export default function PatientsListView({ patients, billing, onDelete, onUpdate
     (p.parentName || '').toLowerCase().includes(search.toLowerCase()) ||
     (p.patientId || p.id || '').toLowerCase().includes(search.toLowerCase())
   );
+
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedPatients = filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   const getBillingStats = (patient: Patient) => {
     const bills = billing.filter(b => 
@@ -766,8 +776,9 @@ export default function PatientsListView({ patients, billing, onDelete, onUpdate
           <p className="text-on-surface-variant text-sm">{search ? 'Try a different search term.' : 'Go to Patient Onboarding to add your first patient.'}</p>
         </div>
       ) : (
+        <>
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filtered.map((patient, idx) => {
+          {paginatedPatients.map((patient, idx) => {
             const stats = getBillingStats(patient);
             return (
               <motion.div key={patient.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
@@ -857,6 +868,54 @@ export default function PatientsListView({ patients, billing, onDelete, onUpdate
             );
           })}
         </div>
+
+        {totalPages > 1 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-8 px-6 py-4 border border-outline-variant/20 rounded-2xl bg-white shadow-sm">
+            <span className="text-sm text-on-surface-variant font-medium">
+              Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, filtered.length)} of {filtered.length} entries
+            </span>
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 rounded-xl text-sm font-bold border border-outline-variant/30 text-on-surface-variant hover:bg-surface-container-low disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Prev
+              </button>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
+                  if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={cn(
+                          "w-8 h-8 flex items-center justify-center rounded-xl text-sm font-bold transition-colors",
+                          currentPage === page 
+                            ? "bg-primary text-white shadow-md shadow-primary/20" 
+                            : "text-on-surface-variant hover:bg-surface-container-low border border-transparent hover:border-outline-variant/20"
+                        )}
+                      >
+                        {page}
+                      </button>
+                    );
+                  } else if (page === currentPage - 2 || page === currentPage + 2) {
+                    return <span key={page} className="text-on-surface-variant px-1 text-sm font-bold">...</span>;
+                  }
+                  return null;
+                })}
+              </div>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 rounded-xl text-sm font-bold border border-outline-variant/30 text-on-surface-variant hover:bg-surface-container-low disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+        </>
       )}
 
       {/* Modals */}

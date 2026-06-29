@@ -143,6 +143,12 @@ export const PatientsView = ({ initialData }: PatientsViewProps) => {
   const [deletingPatient, setDeletingPatient] = useState<Patient | null>(null);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
   const [viewingPatient, setViewingPatient] = useState<Patient | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 15;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter]);
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -375,6 +381,10 @@ export const PatientsView = ({ initialData }: PatientsViewProps) => {
     return matchesSearch && matchesStatus;
   });
 
+  const totalPages = Math.ceil(filteredPatients.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedPatients = filteredPatients.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
   return (
     <div className="w-full space-y-4 sm:space-y-6 pb-6 lg:pb-10">
       {/* Header Actions */}
@@ -459,7 +469,8 @@ export const PatientsView = ({ initialData }: PatientsViewProps) => {
             </div>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-surface-container-low/30">
@@ -475,7 +486,7 @@ export const PatientsView = ({ initialData }: PatientsViewProps) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-container-low/50">
-                {filteredPatients.map((patient) => {
+                {paginatedPatients.map((patient) => {
                   const due = calculateDueAmount(patient._id || patient.id || '', patient.totalFee || 0);
                   return (
                     <motion.tr 
@@ -600,7 +611,7 @@ export const PatientsView = ({ initialData }: PatientsViewProps) => {
                     </motion.tr>
                   );
                 })}
-              {filteredPatients.length === 0 && (
+              {paginatedPatients.length === 0 && (
                 <tr>
                   <td colSpan={9} className="p-10 text-center text-on-surface-variant opacity-60">
                     No patients found.
@@ -610,6 +621,54 @@ export const PatientsView = ({ initialData }: PatientsViewProps) => {
             </tbody>
           </table>
           </div>
+
+          {totalPages > 1 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-outline-variant/10 bg-surface-container-lowest">
+              <span className="text-sm text-on-surface-variant font-medium">
+                Showing {startIndex + 1} to {Math.min(startIndex + ITEMS_PER_PAGE, filteredPatients.length)} of {filteredPatients.length} entries
+              </span>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium border border-outline-variant/20 text-on-surface-variant hover:bg-surface-container-low disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Prev
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => {
+                    if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                      return (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={cn(
+                            "w-8 h-8 flex items-center justify-center rounded-lg text-sm font-medium transition-colors",
+                            currentPage === page 
+                              ? "bg-primary text-white shadow-sm" 
+                              : "text-on-surface-variant hover:bg-surface-container-low"
+                          )}
+                        >
+                          {page}
+                        </button>
+                      );
+                    } else if (page === currentPage - 2 || page === currentPage + 2) {
+                      return <span key={page} className="text-on-surface-variant px-1">...</span>;
+                    }
+                    return null;
+                  })}
+                </div>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 rounded-lg text-sm font-medium border border-outline-variant/20 text-on-surface-variant hover:bg-surface-container-low disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+          </>
         )}
       </div>
 
