@@ -247,7 +247,7 @@ export const BranchesView = ({ initialData }: { initialData?: any }) => {
                 <div className="h-80 flex items-center justify-center">
                   <div className="text-center">
                     <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin mx-auto mb-4"></div>
-                    <p className="text-on-surface-variant">Loading branches...</p>
+                    <p className="text-on-surface-variant">Loading branches....</p>
                   </div>
                 </div>
               ) : filteredBranches.length === 0 ? (
