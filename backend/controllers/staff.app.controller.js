@@ -92,7 +92,9 @@ const checkIn = async (req, res) => {
             branch.location.latitude, branch.location.longitude
         );
 
-        const withinGeofence = distance <= branch.location.radiusMeters;
+        const radius = branch.location.radiusMeters || 200;
+        // Adding a 150m buffer to account for indoor GPS inaccuracy
+        const withinGeofence = distance <= (radius + 150);
 
         if (!withinGeofence) {
             return res.status(403).json({
@@ -100,7 +102,7 @@ const checkIn = async (req, res) => {
                 message: 'You are outside the office geofence. Move closer to check in.',
                 data: {
                     distanceMeters: Math.round(distance),
-                    requiredRadius: branch.location.radiusMeters,
+                    requiredRadius: radius,
                 }
             });
         }

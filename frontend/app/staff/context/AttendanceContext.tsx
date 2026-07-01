@@ -125,7 +125,9 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setCurrentLocation({ lat: latitude, lng: longitude });
         if (geofence) {
           const dist = calculateDistance(latitude, longitude, geofence.latitude, geofence.longitude);
-          setIsInsideOffice(dist <= geofence.radiusMeters);
+          const radius = geofence.radiusMeters || 200;
+          // Add 150m buffer for indoor GPS inaccuracy
+          setIsInsideOffice(dist <= (radius + 150));
         }
         setLocationError(null);
       },
@@ -233,18 +235,10 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
-  // 🔥 NEW LOGIC: AUTO-CHECKOUT WHEN LEAVING GEOFENCE 🔥
+  // 🔥 REMOVED AGGRESSIVE LOGIC: AUTO-CHECKOUT WHEN LEAVING GEOFENCE 🔥
+  // GPS drift frequently triggers false positive auto-checkouts for indoor mobile users.
   useEffect(() => {
-    // Sirf tabhi logout karo jab:
-    // 1. User Checked In ho (activeRecord)
-    // 2. Current location valid ho (!locationError) - Lift me connection tutne se logout na ho
-    // 3. User definitely radius ke bahar chala gaya ho (!isInsideOffice)
-    if (activeRecord && currentLocation && !isInsideOffice && !locationError && !isProcessing) {
-      console.log('User went outside geofence. Triggering auto-checkout.');
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      checkOut(true); 
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Left empty or commented out to prevent random checkouts
   }, [isInsideOffice, locationError, activeRecord, currentLocation]);
 
   return (

@@ -108,7 +108,7 @@ export default function Login() {
               <div className="relative group">
                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-outline group-focus-within:text-brand-sage transition-colors" />
                 <input className="block w-full pl-12 pr-4 py-4 bg-surface-container-low border border-outline-variant/30 rounded-xl focus:ring-4 focus:ring-brand-sage/10 focus:border-brand-sage transition-all outline-none text-on-background placeholder:text-outline/50"
-                  type="email" placeholder="staff@rehablito.com" value={email} onChange={e => setEmail(e.target.value)} required disabled={loading} />
+                  type="email" placeholder="therapist@rehablito.com" value={email} onChange={e => setEmail(e.target.value)} required disabled={loading} />
               </div>
             </div>
             <div className="space-y-2">

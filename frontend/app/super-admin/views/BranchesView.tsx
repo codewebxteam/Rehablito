@@ -231,13 +231,13 @@ export const BranchesView = ({ initialData }: { initialData?: any }) => {
                     className="w-full bg-surface-container-low/50 border border-outline-variant/20 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all text-on-surface"
                   />
                 </div>
-                {/* <button
+                <button
                   onClick={() => setIsAddModalOpen(true)}
                   className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white p-2.5 px-5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 transition-all shrink-0"
                 >
                   <Plus size={18} />
                   <span>Add Branch</span>
-                </button> */}
+                </button>
               </div>
             </div>
 
