@@ -23,6 +23,7 @@ export default function AttendancePage() {
     checkOut,
     isInsideOffice,
     locationError,
+    currentLocation,
     elapsedTime,
     branchName,
     geofence,
@@ -73,6 +74,7 @@ export default function AttendancePage() {
           <div className="flex items-center gap-3">
             <div className={cn(
               "p-2.5 rounded-xl flex items-center justify-center",
+              !currentLocation ? "bg-amber-500/10 text-amber-500" :
               isInsideOffice ? "bg-secondary/10 text-secondary" : "bg-error/10 text-error"
             )}>
               <MapPin className="w-5 h-5" />
@@ -83,9 +85,12 @@ export default function AttendancePage() {
             </div>
           </div>
           <div className="flex items-center gap-2 px-3 py-1 bg-surface-container-high rounded-full">
-            <div className={cn("w-1.5 h-1.5 rounded-full", isInsideOffice ? "bg-secondary" : "bg-error animate-pulse")}></div>
+            <div className={cn("w-1.5 h-1.5 rounded-full", 
+              !currentLocation ? "bg-amber-500 animate-pulse" :
+              isInsideOffice ? "bg-secondary" : "bg-error animate-pulse"
+            )}></div>
             <span className="text-[9px] font-black uppercase tracking-widest text-on-surface-variant">
-              {isInsideOffice ? 'In Range' : 'Out of Range'}
+              {!currentLocation ? 'Locating...' : isInsideOffice ? 'In Range' : 'Out of Range'}
             </span>
           </div>
         </div>
@@ -194,11 +199,25 @@ export default function AttendancePage() {
 
         {/* Card Footer: Location Help */}
         {!isInsideOffice && !activeRecord && (
-          <div className="p-4 bg-error/5 border-t border-error/10 flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-error shrink-0" />
-            <p className="text-[11px] font-bold text-error leading-tight">
-              {locationError || "You must be within 200m of the facility to enable biometric clock-in."}
-            </p>
+          <div className={cn(
+            "p-4 border-t flex items-center gap-3",
+            !currentLocation ? "bg-amber-500/5 border-amber-500/10" : "bg-error/5 border-error/10"
+          )}>
+            {!currentLocation ? (
+              <>
+                <Loader2 className="w-5 h-5 text-amber-500 shrink-0 animate-spin" />
+                <p className="text-[11px] font-bold text-amber-600 leading-tight">
+                  Acquiring your GPS location... Please wait a moment. Make sure location permission is enabled.
+                </p>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="w-5 h-5 text-error shrink-0" />
+                <p className="text-[11px] font-bold text-error leading-tight">
+                  {locationError || `You must be within ${geofence?.radiusMeters || 200}m of the facility. Try tapping "Recalibrate GPS Sync" below.`}
+                </p>
+              </>
+            )}
           </div>
         )}
       </div>

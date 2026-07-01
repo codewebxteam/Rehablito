@@ -208,18 +208,36 @@ const markAttendance = async (req, res) => {
         const dayStart = new Date(day.setHours(0, 0, 0, 0));
         const dayEnd = new Date(day.setHours(23, 59, 59, 999));
 
-        const update = { userId, branchId, status: status || 'present' };
-        if (checkIn !== undefined) update.checkIn = checkIn;
+        let attendance = await Attendance.findOne({ userId, date: { $gte: dayStart, $lte: dayEnd } });
 
-        const attendance = await Attendance.findOneAndUpdate(
-            { userId, date: { $gte: dayStart, $lte: dayEnd } },
-            { $set: update, $setOnInsert: { date: dayStart } },
-            { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
-        )
+        if (attendance) {
+            attendance.status = status || 'present';
+            // LOCK: Only set checkIn if it hasn't been set yet
+            if (checkIn !== undefined && !attendance.checkIn) {
+                attendance.checkIn = checkIn;
+                attendance.checkInTime = new Date();
+            }
+            // For checkOut, we would also lock it or leave it, but admin only sets Present/Absent via this route.
+            await attendance.save();
+        } else {
+            const newRecord = {
+                userId,
+                branchId,
+                date: dayStart,
+                status: status || 'present',
+            };
+            if (checkIn !== undefined) {
+                newRecord.checkIn = checkIn;
+                newRecord.checkInTime = new Date();
+            }
+            attendance = await Attendance.create(newRecord);
+        }
+
+        const populated = await Attendance.findById(attendance._id)
             .populate('userId', 'name staffId role designation')
             .populate('branchId', 'name');
 
-        res.status(201).json({ success: true, data: attendance });
+        res.status(201).json({ success: true, data: populated });
     } catch (err) {
         res.status(400).json({ success: false, message: err.message });
     }

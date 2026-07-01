@@ -119,29 +119,45 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setLocationError('Geolocation is not supported by your browser');
       return;
     }
+
+    const handlePosition = (position: GeolocationPosition) => {
+      const { latitude, longitude } = position.coords;
+      setCurrentLocation({ lat: latitude, lng: longitude });
+      if (geofence) {
+        const dist = calculateDistance(latitude, longitude, geofence.latitude, geofence.longitude);
+        const radius = geofence.radiusMeters || 200;
+        setIsInsideOffice(dist <= radius);
+      }
+      setLocationError(null);
+    };
+
+    const handleError = (error: GeolocationPositionError) => {
+      console.warn('High accuracy GPS failed, trying low accuracy fallback:', error.message);
+      // FALLBACK: Try again without high accuracy (uses WiFi/Cell tower)
+      // This is often enough for 200-300m geofencing
+      navigator.geolocation.getCurrentPosition(
+        handlePosition,
+        (fallbackError) => {
+          console.error('All geolocation attempts failed:', fallbackError.message);
+          setLocationError(fallbackError.message);
+          // DON'T set isInsideOffice to false here!
+          // Keep the last known good state to prevent false "out of range" 
+          // when GPS temporarily fails indoors
+        },
+        { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+      );
+    };
+
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        setCurrentLocation({ lat: latitude, lng: longitude });
-        if (geofence) {
-          const dist = calculateDistance(latitude, longitude, geofence.latitude, geofence.longitude);
-          const radius = geofence.radiusMeters || 200;
-          // Add 150m buffer for indoor GPS inaccuracy
-          setIsInsideOffice(dist <= (radius + 150));
-        }
-        setLocationError(null);
-      },
-      (error) => {
-        setLocationError(error.message);
-        setIsInsideOffice(false);
-      },
-      { enableHighAccuracy: true }
+      handlePosition,
+      handleError,
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
     );
   }, [geofence]);
 
   useEffect(() => {
     updateLocation();
-    const interval = setInterval(updateLocation, 10000); // Check location every 10 seconds
+    const interval = setInterval(updateLocation, 30000); // Check every 30 seconds (less aggressive)
     return () => clearInterval(interval);
   }, [updateLocation]);
 

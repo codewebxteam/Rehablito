@@ -93,8 +93,7 @@ const checkIn = async (req, res) => {
         );
 
         const radius = branch.location.radiusMeters || 200;
-        // Adding a 150m buffer to account for indoor GPS inaccuracy
-        const withinGeofence = distance <= (radius + 150);
+        const withinGeofence = distance <= radius;
 
         if (!withinGeofence) {
             return res.status(403).json({

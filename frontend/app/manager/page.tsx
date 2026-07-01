@@ -25,7 +25,8 @@ import {
   LogOut,
   Activity, // Added an extra icon option if needed
   MessageSquare,
-  Loader2
+  Loader2,
+  Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
@@ -50,6 +51,7 @@ import ServicesView from './views/ServicesView';
 // 🔥 NEW: Imported the Patient Attendance View
 import PatientAttendanceView from './views/PatientAttendanceView';
 import FeedbackManagementView from './views/FeedbackManagementView'; // 🔥 NEW: Parent Feedbacks
+import StaffAttendanceView from './views/StaffAttendanceView'; // 🔥 NEW: Therapist Attendance
 
 // ── Lead API types & mappers ──
 type ApiLeadStatus = 'new' | 'contacted' | 'converted' | 'closed';
@@ -658,6 +660,7 @@ export default function ManagerDashboardApp() {
     { id: 'attendance', label: 'Patient Attendance', icon: Calendar },
     { id: 'leads', label: 'Leads', icon: Users },
     { id: 'staff', label: 'Therapist', icon: UserCheck },
+    { id: 'staff-attendance', label: 'Therapist Attendance', icon: Clock },
     { id: 'services', label: 'Services', icon: Settings },
     { id: 'billing', label: 'Billing', icon: CreditCard },
     { id: 'feedbacks', label: 'Feedbacks', icon: MessageSquare },
@@ -902,6 +905,9 @@ export default function ManagerDashboardApp() {
               
               { currentView === 'attendance' && (
                 <PatientAttendanceView />
+              )}
+              { currentView === 'staff-attendance' && (
+                <StaffAttendanceView />
               )}
 
               {currentView === 'leads' && (

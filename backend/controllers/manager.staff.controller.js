@@ -241,16 +241,41 @@ const markAttendance = async (req, res) => {
             return res.status(404).json({ success: false, message: 'Staff member not found in your branch' });
         }
 
-        const attendanceData = {
-            userId,
-            branchId,
-            date: date || new Date(),
-            checkIn,
-            checkOut,
-            status: status || 'present',
-        };
+        const day = date ? new Date(date) : new Date();
+        const dayStart = new Date(day.setHours(0, 0, 0, 0));
+        const dayEnd = new Date(day.setHours(23, 59, 59, 999));
 
-        const attendance = await Attendance.create(attendanceData);
+        let attendance = await Attendance.findOne({ userId, date: { $gte: dayStart, $lte: dayEnd } });
+
+        if (attendance) {
+            attendance.status = status || 'present';
+            // LOCK: Only set checkIn if it hasn't been set yet
+            if (checkIn !== undefined && !attendance.checkIn) {
+                attendance.checkIn = checkIn;
+                attendance.checkInTime = new Date();
+            }
+            if (checkOut !== undefined && !attendance.checkOut) {
+                attendance.checkOut = checkOut;
+                attendance.checkOutTime = new Date();
+            }
+            await attendance.save();
+        } else {
+            const attendanceData = {
+                userId,
+                branchId,
+                date: dayStart,
+                status: status || 'present',
+            };
+            if (checkIn !== undefined) {
+                attendanceData.checkIn = checkIn;
+                attendanceData.checkInTime = new Date();
+            }
+            if (checkOut !== undefined) {
+                attendanceData.checkOut = checkOut;
+                attendanceData.checkOutTime = new Date();
+            }
+            attendance = await Attendance.create(attendanceData);
+        }
 
         const populated = await Attendance.findById(attendance._id)
             .populate('userId', 'name staffId role')
@@ -258,9 +283,6 @@ const markAttendance = async (req, res) => {
 
         res.status(201).json({ success: true, data: populated });
     } catch (err) {
-        if (err.code === 11000) {
-            return res.status(400).json({ success: false, message: 'Attendance already marked for this user on this date' });
-        }
         res.status(400).json({ success: false, message: err.message });
     }
 };

@@ -1,0 +1,377 @@
+"use client";
+
+import React, { useEffect, useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Users, Search, CheckCircle2, XCircle, Calendar } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import api from '@/lib/api';
+import { toast } from 'sonner';
+import { Pagination } from '../../super-admin/components/Pagination';
+
+type UiStatus = 'Present' | 'Absent' | 'On Leave' | 'Not Marked';
+
+interface StaffMember {
+  _id: string;
+  name: string;
+  staffId?: string;
+  role: 'staff' | 'branch_manager';
+  designation?: string;
+}
+
+interface ApiStaff {
+  _id: string;
+  name: string;
+  staffId?: string;
+  role: 'staff' | 'branch_manager';
+  designation?: string;
+}
+
+interface ApiAttendance {
+  _id: string;
+  userId: { _id: string; name: string; designation?: string } | string | null;
+  date: string;
+  checkIn?: string;
+  checkOut?: string;
+  status: 'present' | 'absent' | 'leave' | 'half_day' | 'on_duty';
+}
+
+interface AttendanceRow {
+  userId: string;
+  name: string;
+  role: 'staff' | 'branch_manager';
+  designation?: string;
+  checkIn: string;
+  checkOut: string;
+  status: UiStatus;
+  attendanceId?: string;
+}
+
+const todayIso = () => new Date().toISOString().slice(0, 10);
+
+const mapApiStatus = (s: ApiAttendance['status']): UiStatus => {
+  if (s === 'present' || s === 'on_duty' || s === 'half_day') return 'Present';
+  if (s === 'absent') return 'Absent';
+  if (s === 'leave') return 'On Leave';
+  return 'Not Marked';
+};
+
+export default function StaffAttendanceView() {
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [attendance, setAttendance] = useState<ApiAttendance[]>([]);
+  const [date, setDate] = useState<string>(todayIso());
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'manager' | 'staff'>('all');
+  const [isLoading, setIsLoading] = useState(true);
+  const [pendingUser, setPendingUser] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const PER_PAGE = 10;
+
+  useEffect(() => {
+    const fetchAll = async () => {
+      try {
+        setIsLoading(true);
+        const [staffRes, attendanceRes] = await Promise.all([
+          api.get('/manager/staff'),
+          api.get(`/manager/attendance?date=${date}`),
+        ]);
+
+        if (staffRes.data.success) {
+          const list: StaffMember[] = (staffRes.data.data as ApiStaff[]).map(s => ({
+            _id: s._id,
+            name: s.name,
+            staffId: s.staffId,
+            role: s.role,
+            designation: s.designation,
+          }));
+          setStaff(list);
+        }
+
+        if (attendanceRes.data.success) {
+          setAttendance(attendanceRes.data.data || []);
+        }
+      } catch (err) {
+        console.error('Failed to load attendance:', err);
+        toast.error('Failed to load attendance');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchAll();
+  }, [date]);
+
+  const rows: AttendanceRow[] = useMemo(() => {
+    const byUser = new Map<string, ApiAttendance>();
+    attendance.forEach(a => {
+      if (!a.userId) return;
+      const uid = typeof a.userId === 'object' ? a.userId._id : a.userId;
+      byUser.set(uid, a);
+    });
+
+    return staff.map(s => {
+      const att = byUser.get(s._id);
+      return {
+        userId: s._id,
+        name: s.name,
+        role: s.role,
+        designation: s.designation,
+        checkIn: att?.checkIn || '—',
+        checkOut: att?.checkOut || '—',
+        status: att ? mapApiStatus(att.status) : 'Not Marked',
+        attendanceId: att?._id,
+      };
+    });
+  }, [staff, attendance]);
+
+  const filteredRows = rows.filter(r => {
+    const q = search.toLowerCase();
+    const matchesRole = roleFilter === 'all' || 
+                        (roleFilter === 'manager' && r.role === 'branch_manager') || 
+                        (roleFilter === 'staff' && r.role === 'staff');
+
+    return matchesRole && (
+           r.name.toLowerCase().includes(q) || 
+           (r.designation?.toLowerCase().includes(q) ?? false)
+    );
+  });
+
+  const pagedRows = filteredRows.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+
+  const stats = {
+    present: rows.filter(r => r.status === 'Present').length,
+    absent: rows.filter(r => r.status === 'Absent').length,
+    leave: rows.filter(r => r.status === 'On Leave').length,
+  };
+
+  const markStatus = async (row: AttendanceRow, uiStatus: 'Present' | 'Absent') => {
+    try {
+      setPendingUser(row.userId);
+      const apiStatus = uiStatus === 'Present' ? 'present' : 'absent';
+      const checkIn = uiStatus === 'Present'
+        ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : undefined;
+
+      const { data } = await api.post('/manager/attendance', {
+        userId: row.userId,
+        date,
+        status: apiStatus,
+        checkIn,
+      });
+
+      if (data.success) {
+        toast.success(`Marked ${uiStatus.toLowerCase()}`);
+        setAttendance(prev => {
+          const other = prev.filter(a => {
+            if (!a.userId) return true;
+            const uid = typeof a.userId === 'object' ? a.userId._id : a.userId;
+            return uid !== row.userId;
+          });
+          return [...other, data.data as ApiAttendance];
+        });
+      }
+    } catch (err: unknown) {
+      const axiosError = err as { response?: { data?: { message?: string } } };
+      toast.error(axiosError?.response?.data?.message || 'Failed to mark attendance');
+    } finally {
+      setPendingUser(null);
+    }
+  };
+
+  return (
+    <div className="w-full space-y-4 sm:space-y-6 pb-6 lg:pb-10">
+      {/* Top Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm flex items-center justify-between">
+          {isLoading ? (
+             <div className="w-full h-16 animate-pulse bg-surface-container-low rounded-lg" />
+          ) : (
+            <>
+              <div>
+                <p className="text-sm font-bold text-on-surface-variant opacity-70">Present</p>
+                <h3 className="text-3xl font-black text-green-600 mt-1">{stats.present}</h3>
+              </div>
+              <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center text-green-600">
+                <CheckCircle2 size={24} />
+              </div>
+            </>
+          )}
+        </div>
+        <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm flex items-center justify-between">
+          {isLoading ? (
+             <div className="w-full h-16 animate-pulse bg-surface-container-low rounded-lg" />
+          ) : (
+            <>
+              <div>
+                <p className="text-sm font-bold text-on-surface-variant opacity-70">Absent</p>
+                <h3 className="text-3xl font-black text-error mt-1">{stats.absent}</h3>
+              </div>
+              <div className="w-12 h-12 rounded-full bg-error/10 flex items-center justify-center text-error">
+                <XCircle size={24} />
+              </div>
+            </>
+          )}
+        </div>
+        <div className="bg-surface-container-lowest p-6 rounded-2xl border border-outline-variant/10 shadow-sm flex items-center justify-between">
+          {isLoading ? (
+             <div className="w-full h-16 animate-pulse bg-surface-container-low rounded-lg" />
+          ) : (
+            <>
+              <div>
+                <p className="text-sm font-bold text-on-surface-variant opacity-70">On Leave</p>
+                <h3 className="text-3xl font-black text-amber-600 mt-1">{stats.leave}</h3>
+              </div>
+              <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center text-amber-600">
+                <Users size={24} />
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Main Table Card */}
+      <div className="bg-surface-container-lowest rounded-2xl shadow-sm border border-outline-variant/10 overflow-hidden">
+        <div className="p-4 sm:p-6 border-b border-surface-container-low flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <h3 className="text-xl font-bold font-headline text-on-surface">Therapist Attendance</h3>
+
+          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+            {/* Role Filter Toggle */}
+            <div className="flex bg-surface-container-low/50 border border-outline-variant/20 rounded-xl p-1 shrink-0 overflow-x-auto">
+              <button 
+                onClick={() => { setRoleFilter('all'); setPage(1); }}
+                className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap", roleFilter === 'all' ? "bg-primary text-white shadow-sm" : "text-on-surface-variant hover:bg-surface-container-high")}
+              >All Staff</button>
+              <button 
+                onClick={() => { setRoleFilter('manager'); setPage(1); }}
+                className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap", roleFilter === 'manager' ? "bg-primary text-white shadow-sm" : "text-on-surface-variant hover:bg-surface-container-high")}
+              >Managers</button>
+              <button 
+                onClick={() => { setRoleFilter('staff'); setPage(1); }}
+                className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap", roleFilter === 'staff' ? "bg-primary text-white shadow-sm" : "text-on-surface-variant hover:bg-surface-container-high")}
+              >Therapists</button>
+            </div>
+
+            <div className="relative">
+              <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/50" size={18} />
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full bg-surface-container-low/50 border border-outline-variant/20 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all font-medium text-on-surface"
+              />
+            </div>
+            <div className="relative w-full md:w-72">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant/50" size={18} />
+              <input
+                type="text"
+                placeholder="Search by name or designation..."
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                className="w-full bg-surface-container-low/50 border border-outline-variant/20 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all font-medium text-on-surface"
+              />
+            </div>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <div className="h-80 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin mx-auto mb-4"></div>
+              <p className="text-on-surface-variant">Loading attendance...</p>
+            </div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-surface-container-low/30">
+                  <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Therapist Member</th>
+                  <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Check-In</th>
+                  <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Check-Out</th>
+                  <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70">Status</th>
+                  <th className="px-4 sm:px-6 py-4 text-[11px] font-bold text-on-surface-variant uppercase tracking-wider opacity-70 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-container-low/50">
+                <AnimatePresence>
+                  {pagedRows.map((row) => (
+                    <motion.tr
+                      layout
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      key={row.userId}
+                      className="hover:bg-surface-container-low/20 transition-colors"
+                    >
+                      <td className="px-4 sm:px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-xs uppercase">
+                            {row.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-on-surface">{row.name}</span>
+                            {row.designation && <span className="text-[10px] font-bold text-primary uppercase">{row.designation}</span>}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 sm:px-6 py-4 text-sm font-medium text-on-surface-variant opacity-80">{row.checkIn}</td>
+                      <td className="px-4 sm:px-6 py-4 text-sm font-medium text-on-surface-variant opacity-80">{row.checkOut}</td>
+                      <td className="px-4 sm:px-6 py-4">
+                        <span className={cn(
+                          "px-3 py-1 text-[11px] font-black rounded-lg uppercase tracking-wider",
+                          row.status === 'Present' && "bg-green-100 text-green-700",
+                          row.status === 'Absent' && "bg-error/10 text-error",
+                          row.status === 'On Leave' && "bg-amber-100 text-amber-700",
+                          row.status === 'Not Marked' && "bg-surface-container-low text-on-surface-variant"
+                        )}>
+                          {row.status}
+                        </span>
+                      </td>
+                      <td className="px-4 sm:px-6 py-4 text-right">
+                        {row.status !== 'On Leave' ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => markStatus(row, 'Present')}
+                              disabled={pendingUser === row.userId}
+                              className={cn(
+                                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-60",
+                                row.status === 'Present'
+                                  ? "bg-green-600 text-white shadow-md shadow-green-600/20"
+                                  : "bg-surface-container-low text-on-surface-variant hover:bg-green-50 hover:text-green-600"
+                              )}
+                            >
+                              Present
+                            </button>
+                            <button
+                              onClick={() => markStatus(row, 'Absent')}
+                              disabled={pendingUser === row.userId}
+                              className={cn(
+                                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-60",
+                                row.status === 'Absent'
+                                  ? "bg-red-600 text-white shadow-md shadow-red-600/20 hover:bg-red-700"
+                                  : "bg-surface-container-low text-on-surface-variant hover:bg-error/10 hover:text-error"
+                              )}
+                            >
+                              Absent
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-xs font-medium text-on-surface-variant/50">Not Applicable</span>
+                        )}
+                      </td>
+                    </motion.tr>
+                  ))}
+                </AnimatePresence>
+              </tbody>
+            </table>
+
+            {filteredRows.length === 0 && (
+              <div className="p-10 text-center text-on-surface-variant opacity-60">
+                No therapist found.
+              </div>
+            )}
+          </div>
+        )}
+        <Pagination total={filteredRows.length} page={page} perPage={PER_PAGE} onChange={p => { setPage(p); }} />
+      </div>
+    </div>
+  );
+}
