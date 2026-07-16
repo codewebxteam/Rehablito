@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://rehablito-production-0ee9.up.railway.app/api';
 
 /**
  * Server-side fetch utility that reads auth token from cookies

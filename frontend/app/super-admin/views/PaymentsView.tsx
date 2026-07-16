@@ -270,14 +270,14 @@ export const PaymentsView = () => {
                     {selectedPending.screenshot ? (
                       <div className="border border-outline-variant/20 rounded-xl overflow-hidden bg-surface-container hover:opacity-90 transition-opacity">
                         <a 
-                          href={selectedPending.screenshot.startsWith('http') ? selectedPending.screenshot : `http://localhost:5000${selectedPending.screenshot}`} 
+                          href={selectedPending.screenshot.startsWith('http') ? selectedPending.screenshot : `https://rehablito-production-0ee9.up.railway.app${selectedPending.screenshot}`} 
                           target="_blank" 
                           rel="noopener noreferrer"
                           title="Click to view full image and zoom"
                           className="cursor-zoom-in block"
                         >
                           <img 
-                            src={selectedPending.screenshot.startsWith('http') ? selectedPending.screenshot : `http://localhost:5000${selectedPending.screenshot}`} 
+                            src={selectedPending.screenshot.startsWith('http') ? selectedPending.screenshot : `https://rehablito-production-0ee9.up.railway.app${selectedPending.screenshot}`} 
                             alt="Payment Proof" 
                             className="w-full object-contain max-h-[400px]"
                           />
