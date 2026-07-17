@@ -1,7 +1,7 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://rehablito-production-0ee9.up.railway.app/api';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.rehablito.com/api';
 
 const api = axios.create({
     baseURL: API_URL,
