@@ -101,7 +101,7 @@ export default function SignUp() {
               className="w-full pl-12 pr-4 py-3.5 rounded-xl bg-surface-container-low border-transparent focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-body text-on-surface placeholder:text-outline/50 outline-none"
               id="email"
               placeholder="jane@clinic.com"
-              type="email"
+              type="email" autoCapitalize="none" autoCorrect="off" autoComplete="email"
             />
           </div>
         </div>
@@ -114,7 +114,7 @@ export default function SignUp() {
               className="w-full pl-12 pr-12 py-3.5 rounded-xl bg-surface-container-low border-transparent focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-body text-on-surface placeholder:text-outline/50 outline-none"
               id="password"
               placeholder="Password"
-              type="password"
+              type="password" autoCapitalize="none" autoCorrect="off" autoComplete="current-password"
             />
             <button className="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface transition-colors" type="button">
               <Eye className="w-5 h-5" />

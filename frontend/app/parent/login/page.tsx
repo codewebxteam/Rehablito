@@ -59,7 +59,7 @@ export default function ParentLoginPage() {
             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-outline group-focus-within:text-brand-sage transition-colors" />
             <input
               className="block w-full pl-12 pr-4 py-4 bg-surface-container-low border border-outline-variant/30 rounded-xl focus:ring-4 focus:ring-brand-sage/10 focus:border-brand-sage transition-all outline-none text-on-background placeholder:text-outline/50"
-              type="email" placeholder="parent@example.com" value={email}
+              type="email" autoCapitalize="none" autoCorrect="off" autoComplete="email" placeholder="parent@example.com" value={email}
               onChange={e => setEmail(e.target.value)} required disabled={loading}
             />
           </div>
@@ -70,7 +70,7 @@ export default function ParentLoginPage() {
             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-outline group-focus-within:text-brand-sage transition-colors" />
             <input
               className="block w-full pl-12 pr-12 py-4 bg-surface-container-low border border-outline-variant/30 rounded-xl focus:ring-4 focus:ring-brand-sage/10 focus:border-brand-sage transition-all outline-none text-on-background placeholder:text-outline/50"
-              type={showPassword ? "text" : "password"} placeholder="••••••••" value={password}
+              type={showPassword ? "text" : "password"} autoCapitalize="none" autoCorrect="off" autoComplete="current-password" placeholder="••••••••" value={password}
               onChange={e => setPassword(e.target.value)} required disabled={loading}
             />
             <button className="absolute right-4 top-1/2 -translate-y-1/2 text-outline hover:text-on-surface-variant transition-colors" type="button" onClick={() => setShowPassword(!showPassword)}>
