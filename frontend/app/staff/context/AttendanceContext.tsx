@@ -37,8 +37,8 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
   const Δφ = ((lat2 - lat1) * Math.PI) / 180;
   const Δλ = ((lon2 - lon1) * Math.PI) / 180;
   const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-            Math.cos(φ1) * Math.cos(φ2) *
-            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    Math.cos(φ1) * Math.cos(φ2) *
+    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c; // Distance in meters
 };
@@ -83,13 +83,13 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           api.get('/staff/geofence'),
           api.get('/staff/duty-status'),
         ]);
-        
+
         if (geoRes.data.success) {
           const g = geoRes.data.data as Geofence;
           setGeofence(g);
           setBranchName(g.branchName);
         }
-        
+
         if (dutyRes.data.success) {
           const duty = dutyRes.data.data;
           if (duty.isOnDuty && duty.checkInTime) {
@@ -104,7 +104,7 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             setElapsedTime(duty.elapsedSeconds || 0);
           }
         }
-        
+
         // Fetch history
         void fetchRecords();
       } catch (err) {
@@ -125,7 +125,8 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setCurrentLocation({ lat: latitude, lng: longitude });
       if (geofence) {
         const dist = calculateDistance(latitude, longitude, geofence.latitude, geofence.longitude);
-        const radius = geofence.radiusMeters || 200;
+        // Add a generous 1000m tolerance for indoor GPS drift
+        const radius = (geofence.radiusMeters || 200) + 1000;
         setIsInsideOffice(dist <= radius);
       }
       setLocationError(null);
@@ -185,7 +186,7 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         latitude: pos.coords.latitude,
         longitude: pos.coords.longitude,
       });
-      
+
       if (data.success) {
         toast.success('Successfully checked in!');
         const checkInIso = data.data.checkInTime || new Date().toISOString();
@@ -228,7 +229,7 @@ export const AttendanceProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         // Location optional on check-out based on your backend
       }
       const { data } = await api.post('/staff/check-out', payload);
-      
+
       if (data.success) {
         if (isAutoCheckout) {
           toast.error('You moved outside the office radius. Auto-checked out!', { duration: 6000 });

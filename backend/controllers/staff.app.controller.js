@@ -92,7 +92,8 @@ const checkIn = async (req, res) => {
             branch.location.latitude, branch.location.longitude
         );
 
-        const radius = branch.location.radiusMeters || 200;
+        // Add a generous 1000m tolerance for indoor GPS drift
+        const radius = (branch.location.radiusMeters || 200) + 1000;
         const withinGeofence = distance <= radius;
 
         if (!withinGeofence) {
